@@ -1,9 +1,13 @@
 #pragma once
 
+#include <array>
+#include <vector>
 #include <glm/vec2.hpp>
 #include <volk/volk.h>
+#include <vma/vk_mem_alloc.h>
 #include <SDL3/SDL.h>
 
+constexpr uint32_t maxFramesInFlight{2};
 
 struct ApplicationWindowSpecifications {
     int w;
@@ -13,13 +17,42 @@ struct ApplicationWindowSpecifications {
 };
 
 struct ApplicationWindowData {
+    // SDL
     SDL_Window *sdlWindow{nullptr};
+    glm::ivec2 windowSize{};
+
+    // Vulkan core
     VkInstance vkInstance{VK_NULL_HANDLE};
+    VkPhysicalDevice physicalDevice{VK_NULL_HANDLE};
     VkPhysicalDeviceProperties2 physicalDeviceProperties{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2};
     VkDevice device{VK_NULL_HANDLE};
     VkQueue queue{VK_NULL_HANDLE};
+    uint32_t queueFamily{0};
     VkSurfaceKHR surface{VK_NULL_HANDLE};
-    glm::ivec2 windowSize{};
+
+    // VMA
+    VmaAllocator allocator{VK_NULL_HANDLE};
+
+    // Swapchain
+    VkSwapchainKHR swapchain{VK_NULL_HANDLE};
+    std::vector<VkImage> swapchainImages;
+    std::vector<VkImageView> swapchainImageViews;
+    VkFormat swapchainImageFormat{VK_FORMAT_UNDEFINED};
+
+    // Depth attachment
+    VkImage depthImage{VK_NULL_HANDLE};
+    VkImageView depthImageView{VK_NULL_HANDLE};
+    VmaAllocation depthImageAllocation{VK_NULL_HANDLE};
+    VkFormat depthFormat{VK_FORMAT_UNDEFINED};
+
+    // Sync objects
+    std::array<VkFence, maxFramesInFlight> fences{};
+    std::array<VkSemaphore, maxFramesInFlight> presentSemaphores{};
+    std::vector<VkSemaphore> renderSemaphores;
+
+    // Command pool
+    VkCommandPool commandPool{VK_NULL_HANDLE};
+    std::array<VkCommandBuffer, maxFramesInFlight> commandBuffers{};
 };
 
 class ApplicationWindow {
@@ -31,4 +64,6 @@ public:
     ApplicationWindow(ApplicationWindowSpecifications &spec);
 
     bool Init();
+private:
+    bool init_imgui();
 };
