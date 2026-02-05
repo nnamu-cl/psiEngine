@@ -12,11 +12,24 @@ find_library(SDL_LIBRARY NAMES SDL3 HINTS "$ENV{VULKAN_SDK}/lib" REQUIRED)
 # WindowLib
 file(GLOB WINDOWLIBFILES "windowlib/*.cpp" "windowlib/*.h")
 add_library(WindowLib ${WINDOWLIBFILES})
+set(IMGUI_DIR ../../../external/imgui) #adding the imgui lib
 target_include_directories(WindowLib PUBLIC
         $ENV{VULKAN_SDK}/include
         ${CMAKE_CURRENT_SOURCE_DIR}/windowlib
+        ${IMGUI_DIR} ${IMGUI_DIR}/backends
 )
 
+target_sources(WindowLib PRIVATE
+        ${IMGUI_DIR}/imgui.cpp
+        ${IMGUI_DIR}/imgui_demo.cpp
+        ${IMGUI_DIR}/imgui_draw.cpp
+        ${IMGUI_DIR}/imgui_tables.cpp
+        ${IMGUI_DIR}/imgui_widgets.cpp
+        ${IMGUI_DIR}/backends/imgui_impl_vulkan.cpp
+        ${IMGUI_DIR}/backends/imgui_impl_sdl3.cpp
+)
+
+target_compile_definitions(WindowLib PRIVATE IMGUI_IMPL_VULKAN_USE_VOLK "IMGUI_IMPL_VULKAN_VOLK_FILENAME=<volk/volk.h>")
 target_link_libraries(WindowLib PRIVATE ${SDL_LIBRARY})
 
 # OpenWindow example
