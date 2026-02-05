@@ -3,8 +3,11 @@
 #include "ApplicationWindow.h"
 
 #include <vector>
+#include <algorithm>
 #include <volk/volk.h>
 #include <SDL3/SDL_vulkan.h>
+
+#include "Application.h"
 
 #include "VulkanChecks.h"
 #include "imgui.h"
@@ -22,6 +25,8 @@ bool ApplicationWindow::Init() {
     chk(SDL_Init(SDL_INIT_VIDEO));
     chk(SDL_Vulkan_LoadLibrary(NULL));
     volkInitialize();
+
+
 
     // Instance
     VkApplicationInfo appInfo{ .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO, .pApplicationName = specification->title, .apiVersion = VK_API_VERSION_1_3 };
@@ -210,7 +215,295 @@ bool ApplicationWindow::init_imgui() {
     };
     ImGui_ImplVulkan_Init(&init_info);
 
-
     return true;
+}
+
+void ApplicationWindow::rebuildSwapchain()
+{
+    chk(vkDeviceWaitIdle(data.device));
+
+    chk(SDL_GetWindowSize(data.sdlWindow, &data.windowSize.x, &data.windowSize.y));
+    if (data.windowSize.x == 0 || data.windowSize.y == 0)
+        return;
+
+    // Destroy old image views
+    for (auto view : data.swapchainImageViews)
+        vkDestroyImageView(data.device, view, nullptr);
+    data.swapchainImageViews.clear();
+
+    // Surface capabilities for new extent
+    VkSurfaceCapabilitiesKHR surfaceCaps{};
+    chk(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(data.physicalDevice, data.surface, &surfaceCaps));
+
+    // New swapchain, reusing old for efficient transition
+    VkSwapchainKHR oldSwapchain = data.swapchain;
+    VkSwapchainCreateInfoKHR swapchainCI{
+        .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+        .surface = data.surface,
+        .minImageCount = surfaceCaps.minImageCount,
+        .imageFormat = data.swapchainImageFormat,
+        .imageColorSpace = VK_COLORSPACE_SRGB_NONLINEAR_KHR,
+        .imageExtent{.width = surfaceCaps.currentExtent.width, .height = surfaceCaps.currentExtent.height},
+        .imageArrayLayers = 1,
+        .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+        .preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
+        .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+        .presentMode = VK_PRESENT_MODE_FIFO_KHR,
+        .oldSwapchain = oldSwapchain
+    };
+    chk(vkCreateSwapchainKHR(data.device, &swapchainCI, nullptr, &data.swapchain));
+    vkDestroySwapchainKHR(data.device, oldSwapchain, nullptr);
+
+    // New swapchain images and views
+    uint32_t imageCount{0};
+    chk(vkGetSwapchainImagesKHR(data.device, data.swapchain, &imageCount, nullptr));
+    data.swapchainImages.resize(imageCount);
+    chk(vkGetSwapchainImagesKHR(data.device, data.swapchain, &imageCount, data.swapchainImages.data()));
+    data.swapchainImageViews.resize(imageCount);
+    for (uint32_t i = 0; i < imageCount; i++) {
+        VkImageViewCreateInfo viewCI{ .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO, .image = data.swapchainImages[i], .viewType = VK_IMAGE_VIEW_TYPE_2D, .format = data.swapchainImageFormat, .subresourceRange{.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .levelCount = 1, .layerCount = 1} };
+        chk(vkCreateImageView(data.device, &viewCI, nullptr, &data.swapchainImageViews[i]));
+    }
+
+    // Rebuild render semaphores if image count changed
+    if (data.renderSemaphores.size() != imageCount) {
+        for (auto sem : data.renderSemaphores)
+            vkDestroySemaphore(data.device, sem, nullptr);
+        data.renderSemaphores.resize(imageCount);
+        VkSemaphoreCreateInfo semaphoreCI{ .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
+        for (auto& semaphore : data.renderSemaphores)
+            chk(vkCreateSemaphore(data.device, &semaphoreCI, nullptr, &semaphore));
+    }
+
+    // Rebuild depth image at new dimensions
+    vkDestroyImageView(data.device, data.depthImageView, nullptr);
+    vmaDestroyImage(data.allocator, data.depthImage, data.depthImageAllocation);
+
+    VkImageCreateInfo depthImageCI{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+        .imageType = VK_IMAGE_TYPE_2D,
+        .format = data.depthFormat,
+        .extent{.width = surfaceCaps.currentExtent.width, .height = surfaceCaps.currentExtent.height, .depth = 1},
+        .mipLevels = 1,
+        .arrayLayers = 1,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .tiling = VK_IMAGE_TILING_OPTIMAL,
+        .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+    };
+    VmaAllocationCreateInfo depthAllocCI{ .flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT, .usage = VMA_MEMORY_USAGE_AUTO };
+    chk(vmaCreateImage(data.allocator, &depthImageCI, &depthAllocCI, &data.depthImage, &data.depthImageAllocation, nullptr));
+
+    VkImageViewCreateInfo depthViewCI{ .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO, .image = data.depthImage, .viewType = VK_IMAGE_VIEW_TYPE_2D, .format = data.depthFormat, .subresourceRange{.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT, .levelCount = 1, .layerCount = 1} };
+    chk(vkCreateImageView(data.device, &depthViewCI, nullptr, &data.depthImageView));
+}
+
+void ApplicationWindow::Close()
+{
+    m_Running = false;
+}
+
+void ApplicationWindow::Start(Application::Application& app)
+{
+    m_Running = true;
+    uint32_t currentFrame = 0;
+    uint64_t lastTime = SDL_GetTicks();
+    bool needsRebuild = false;
+
+    while (m_Running)
+    {
+        // --- Events ---
+        SDL_Event event;
+        while (SDL_PollEvent(&event))
+        {
+            ImGui_ImplSDL3_ProcessEvent(&event);
+            switch (event.type)
+            {
+                case SDL_EVENT_QUIT:
+                case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
+                    m_Running = false;
+                    break;
+                case SDL_EVENT_WINDOW_RESIZED:
+                    needsRebuild = true;
+                    break;
+            }
+        }
+
+        if (needsRebuild)
+        {
+            rebuildSwapchain();
+            needsRebuild = false;
+        }
+
+        // --- Timestep (capped at ~30 ms to avoid physics jumps on alt-tab) ---
+        uint64_t now = SDL_GetTicks();
+        float timestep = std::min(static_cast<float>(now - lastTime) / 1000.0f, 1.0f / 30.0f);
+        lastTime = now;
+
+        // --- Layer updates ---
+        for (auto* layer : app.GetLayerStack())
+            layer->OnUpdate(timestep);
+
+        // --- ImGui frame ---
+        ImGui_ImplVulkan_NewFrame();
+        ImGui_ImplSDL3_NewFrame();
+        ImGui::NewFrame();
+
+        for (auto* layer : app.GetLayerStack())
+            layer->OnUIRender();
+
+        ImGui::Render();
+        ImDrawData* drawData = ImGui::GetDrawData();
+
+        // Skip GPU work entirely while minimised
+        if (drawData->DisplaySize.x <= 0.0f || drawData->DisplaySize.y <= 0.0f)
+        {
+            SDL_Delay(5);
+            continue;
+        }
+
+        // --- Acquire swapchain image ---
+        uint32_t imageIndex;
+        VkResult result = vkAcquireNextImageKHR(data.device, data.swapchain, UINT64_MAX,
+                                                 data.presentSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
+        if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
+        {
+            rebuildSwapchain();
+            continue;
+        }
+        chk(result);
+
+        // --- Fence for this frame slot ---
+        chk(vkWaitForFences(data.device, 1, &data.fences[currentFrame], VK_TRUE, UINT64_MAX));
+        chk(vkResetFences(data.device, 1, &data.fences[currentFrame]));
+
+        // --- Record command buffer ---
+        VkCommandBuffer cb = data.commandBuffers[currentFrame];
+        VkCommandBufferBeginInfo beginInfo{
+            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+            .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
+        };
+        chk(vkBeginCommandBuffer(cb, &beginInfo));
+
+        // Transition swapchain image -> COLOR_ATTACHMENT, depth -> DEPTH_STENCIL_ATTACHMENT
+        VkImageMemoryBarrier2 colorBarrier{
+            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+            .srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+            .dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+            .dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+            .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            .newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .image = data.swapchainImages[imageIndex],
+            .subresourceRange{.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .levelCount = 1, .layerCount = 1}
+        };
+        VkImageMemoryBarrier2 depthBarrier{
+            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+            .srcStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
+            .dstStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
+            .dstAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+            .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            .newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .image = data.depthImage,
+            .subresourceRange{.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT, .levelCount = 1, .layerCount = 1}
+        };
+        VkImageMemoryBarrier2 preBarriers[] = { colorBarrier, depthBarrier };
+        VkDependencyInfo preDepInfo{
+            .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+            .imageMemoryBarrierCount = 2,
+            .pImageMemoryBarriers = preBarriers
+        };
+        vkCmdPipelineBarrier2(cb, &preDepInfo);
+
+        // --- Begin dynamic rendering ---
+        VkRenderingAttachmentInfo colorAttach{
+            .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+            .imageView = data.swapchainImageViews[imageIndex],
+            .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+            .clearValue{.color{.float32{0.45f, 0.55f, 0.60f, 1.0f}}}
+        };
+        VkRenderingAttachmentInfo depthAttach{
+            .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+            .imageView = data.depthImageView,
+            .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+            .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+            .clearValue{.depthStencil{.depth = 1.0f}}
+        };
+        VkRenderingInfo renderInfo{
+            .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+            .renderArea{.extent{.width = static_cast<uint32_t>(data.windowSize.x), .height = static_cast<uint32_t>(data.windowSize.y)}},
+            .layerCount = 1,
+            .colorAttachmentCount = 1,
+            .pColorAttachments = &colorAttach,
+            .pDepthAttachment = &depthAttach,
+        };
+        vkCmdBeginRendering(cb, &renderInfo);
+
+        // --- Layer rendering + ImGui draw calls ---
+        for (auto* layer : app.GetLayerStack())
+            layer->OnRender();
+
+        ImGui_ImplVulkan_RenderDrawData(drawData, cb);
+
+        vkCmdEndRendering(cb);
+
+        // Transition swapchain image -> PRESENT
+        VkImageMemoryBarrier2 presentBarrier{
+            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+            .srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+            .srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+            .oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            .newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .image = data.swapchainImages[imageIndex],
+            .subresourceRange{.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .levelCount = 1, .layerCount = 1}
+        };
+        VkDependencyInfo postDepInfo{
+            .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+            .imageMemoryBarrierCount = 1,
+            .pImageMemoryBarriers = &presentBarrier
+        };
+        vkCmdPipelineBarrier2(cb, &postDepInfo);
+
+        chk(vkEndCommandBuffer(cb));
+
+        // --- Submit ---
+        VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        VkSubmitInfo submitInfo{
+            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+            .waitSemaphoreCount = 1,
+            .pWaitSemaphores = &data.presentSemaphores[currentFrame],
+            .pWaitDstStageMask = &waitStage,
+            .commandBufferCount = 1,
+            .pCommandBuffers = &cb,
+            .signalSemaphoreCount = 1,
+            .pSignalSemaphores = &data.renderSemaphores[imageIndex]
+        };
+        chk(vkQueueSubmit(data.queue, 1, &submitInfo, data.fences[currentFrame]));
+
+        // --- Present ---
+        VkPresentInfoKHR presentInfo{
+            .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+            .waitSemaphoreCount = 1,
+            .pWaitSemaphores = &data.renderSemaphores[imageIndex],
+            .swapchainCount = 1,
+            .pSwapchains = &data.swapchain,
+            .pImageIndices = &imageIndex
+        };
+        result = vkQueuePresentKHR(data.queue, &presentInfo);
+        if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
+            needsRebuild = true;
+
+        currentFrame = (currentFrame + 1) % maxFramesInFlight;
+    }
+
+    chk(vkDeviceWaitIdle(data.device));
 }
 
