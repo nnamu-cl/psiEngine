@@ -55,8 +55,11 @@ struct ApplicationWindowData {
     std::array<VkCommandBuffer, maxFramesInFlight> commandBuffers{};
 };
 
+namespace Application { class Application; }
+
 class ApplicationWindow {
     ApplicationWindowSpecifications *specification;
+    bool m_Running{false};
 
 public:
     ApplicationWindowData data;
@@ -64,6 +67,10 @@ public:
     ApplicationWindow(ApplicationWindowSpecifications &spec);
 
     bool Init();
+    void Start(Application::Application& app);
+    void Close();
+
 private:
     bool init_imgui();
+    void rebuildSwapchain();
 };

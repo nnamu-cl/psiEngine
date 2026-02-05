@@ -5,6 +5,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "ApplicationWindow.h"
+#include "Application.h"
 #include "imgui.h"
 
 TEST_CASE("ApplicationWindow initializes all Vulkan resources") {
@@ -78,4 +79,102 @@ TEST_CASE("ApplicationWindow initializes all Vulkan resources") {
         // Vulkan renderer backend sets this on successful init
         REQUIRE(io.BackendRendererName != nullptr);
     }
+}
+
+// ---------------------------------------------------------------------------
+// Application layer-stack management  (no GPU / no loop required)
+// ---------------------------------------------------------------------------
+
+TEST_CASE("Application starts with an empty layer stack") {
+    Application::Application app;
+    REQUIRE(app.GetLayerStack().empty());
+}
+
+TEST_CASE("Application PushLayer and PopLayer manage the stack") {
+    struct TrackingLayer : Application::Layer {
+        bool attached = false;
+        bool detached = false;
+        void OnAttach() override { attached = true; }
+        void OnDetach() override { detached = true; }
+    };
+
+    Application::Application app;
+    TrackingLayer layerA, layerB;
+
+    SECTION("PushLayer adds to stack and calls OnAttach") {
+        app.PushLayer(&layerA);
+        REQUIRE(app.GetLayerStack().size() == 1);
+        REQUIRE(app.GetLayerStack()[0] == &layerA);
+        REQUIRE(layerA.attached);
+    }
+
+    SECTION("PopLayer removes from stack and calls OnDetach") {
+        app.PushLayer(&layerA);
+        app.PopLayer(&layerA);
+        REQUIRE(app.GetLayerStack().empty());
+        REQUIRE(layerA.detached);
+    }
+
+    SECTION("multiple layers maintain insertion order") {
+        app.PushLayer(&layerA);
+        app.PushLayer(&layerB);
+        REQUIRE(app.GetLayerStack().size() == 2);
+        REQUIRE(app.GetLayerStack()[0] == &layerA);
+        REQUIRE(app.GetLayerStack()[1] == &layerB);
+    }
+
+    SECTION("PopLayer on a layer not in the stack is a no-op") {
+        app.PushLayer(&layerA);
+        app.PopLayer(&layerB);
+        REQUIRE(app.GetLayerStack().size() == 1);
+        REQUIRE(!layerB.detached);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ApplicationWindow post-Init invariants  (GPU required, no loop entered)
+// ---------------------------------------------------------------------------
+
+TEST_CASE("ApplicationWindow fences are initially signaled") {
+    ApplicationWindowSpecifications specs{800, 600, "Fence Test", SDL_WINDOW_VULKAN};
+    ApplicationWindow window(specs);
+    REQUIRE(window.Init());
+
+    // Fences were created with VK_FENCE_CREATE_SIGNALED_BIT; the render loop
+    // relies on this being true before the first frame.
+    for (uint32_t i = 0; i < maxFramesInFlight; i++) {
+        VkResult status = vkGetFenceStatus(window.data.device, window.data.fences[i]);
+        REQUIRE(status == VK_SUCCESS);
+    }
+}
+
+TEST_CASE("ApplicationWindow physical device properties are populated") {
+    ApplicationWindowSpecifications specs{800, 600, "DevProps Test", SDL_WINDOW_VULKAN};
+    ApplicationWindow window(specs);
+    REQUIRE(window.Init());
+
+    REQUIRE(window.data.physicalDeviceProperties.properties.deviceName[0] != '\0');
+    REQUIRE(window.data.physicalDeviceProperties.properties.apiVersion >= VK_API_VERSION_1_3);
+}
+
+TEST_CASE("ApplicationWindow swapchain image count meets surface minimum") {
+    ApplicationWindowSpecifications specs{800, 600, "SwapMin Test", SDL_WINDOW_VULKAN};
+    ApplicationWindow window(specs);
+    REQUIRE(window.Init());
+
+    VkSurfaceCapabilitiesKHR caps{};
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
+        window.data.physicalDevice, window.data.surface, &caps);
+
+    REQUIRE(window.data.swapchainImages.size() >= caps.minImageCount);
+}
+
+TEST_CASE("ApplicationWindow Close does not crash and is idempotent") {
+    ApplicationWindowSpecifications specs{800, 600, "Close Test", SDL_WINDOW_VULKAN};
+    ApplicationWindow window(specs);
+    REQUIRE(window.Init());
+
+    // Close just flips m_Running; calling it multiple times must be safe.
+    window.Close();
+    window.Close();
 }
