@@ -141,5 +141,8 @@ simulation-suite/
 
 
 The above is simply a general struture to help align you with the thinking behind the project. 
+When writing tests I prefer minimum mocking possible, in general we try to use as much of the real object data as we can, only mocking when it 100% makes more sense to do so. Too much mocking creates tests that are less reliable (because everything is pretty much mocked to pass) so instead I prefer tests that are resembling being a bit in between unit tests but also integration tests since they to actually make use of external functions some times. The exception to this being cases where we really do need to isolate unit functionality, then mock data and object might make some sense. 
 
+
+I use clion, which tends to have a complex building system. As such whenever you need me to rebuild, tell me, then I can rebuild for you and you can try to run
 

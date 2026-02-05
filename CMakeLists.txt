@@ -272,6 +272,16 @@ add_custom_command(
         COMMENT "Copying assets to build directory"          # Message shown during build
 )
 
+# Copy LYGIA shader includes so the runtime shader compiler can
+# resolve #include "lygia/..." when using assets/ as the include root.
+add_custom_command(
+        TARGET ${NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_CURRENT_SOURCE_DIR}/external/lygia
+        $<TARGET_FILE_DIR:${NAME}>/assets/lygia
+        COMMENT "Copying LYGIA shaders to build directory"
+)
+
 # WHY WE NEED THIS:
 # Your .exe runs from cmake-build-debug/bin/
 # Without this, it can't find assets/suzanne.obj

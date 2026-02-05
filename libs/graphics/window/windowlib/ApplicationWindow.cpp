@@ -447,7 +447,7 @@ void ApplicationWindow::Start(Application::Application& app)
 
         // --- Layer rendering + ImGui draw calls ---
         for (auto* layer : app.GetLayerStack())
-            layer->OnRender();
+            layer->OnRender(cb, data.windowSize, currentFrame);
 
         ImGui_ImplVulkan_RenderDrawData(drawData, cb);
 
