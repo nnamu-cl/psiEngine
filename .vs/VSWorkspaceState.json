@@ -1,0 +1,21 @@
+{
+  "OutputFoldersPerTargetSystem": {
+    "Local Machine": [
+      "out\\build\\x64-Debug",
+      "out\\install\\x64-Debug"
+    ]
+  },
+  "ExpandedNodes": [
+    "",
+    "\\assets",
+    "\\libs",
+    "\\libs\\graphics",
+    "\\libs\\graphics\\window",
+    "\\libs\\graphics\\window\\examples",
+    "\\libs\\graphics\\window\\examples\\OpenWindow",
+    "\\libs\\graphics\\window\\windowlib",
+    "\\modules",
+    "\\out"
+  ],
+  "PreviewInSolutionExplorer": false
+}
