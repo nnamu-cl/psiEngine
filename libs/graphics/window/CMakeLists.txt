@@ -8,9 +8,10 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIGURATION>")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIGURATION>")
 
 find_library(SDL_LIBRARY NAMES SDL3 HINTS "$ENV{VULKAN_SDK}/lib" REQUIRED)
+find_library(SLANG_LIBRARY NAMES slang HINTS "$ENV{VULKAN_SDK}/lib" REQUIRED)
 
 # WindowLib
-file(GLOB WINDOWLIBFILES "windowlib/*.cpp" "windowlib/*.h")
+file(GLOB_RECURSE WINDOWLIBFILES CONFIGURE_DEPENDS "windowlib/*.cpp" "windowlib/*.h")
 add_library(WindowLib ${WINDOWLIBFILES})
 set(IMGUI_DIR ../../../external/imgui) #adding the imgui lib
 target_include_directories(WindowLib PUBLIC
@@ -30,12 +31,21 @@ target_sources(WindowLib PRIVATE
 )
 
 target_compile_definitions(WindowLib PRIVATE IMGUI_IMPL_VULKAN_USE_VOLK "IMGUI_IMPL_VULKAN_VOLK_FILENAME=<volk/volk.h>")
-target_link_libraries(WindowLib PRIVATE ${SDL_LIBRARY})
+target_link_libraries(WindowLib PRIVATE ${SDL_LIBRARY} ${SLANG_LIBRARY})
 
 # OpenWindow example
 file(GLOB OPENWINDOWFILES "examples/OpenWindow/*.cpp" "examples/OpenWindow/*.h")
 add_executable(OpenWindow ${OPENWINDOWFILES})
 target_link_libraries(OpenWindow PRIVATE WindowLib)
+
+# Copy LYGIA shader includes into build output so the runtime shader
+# compiler can resolve #include "lygia/..." with assets/ as the root.
+set(LYGIA_SRC ${CMAKE_CURRENT_SOURCE_DIR}/../../../external/lygia)
+add_custom_command(
+        TARGET OpenWindow POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory ${LYGIA_SRC} $<TARGET_FILE_DIR:OpenWindow>/assets/lygia
+        COMMENT "Copying LYGIA shaders to build directory"
+)
 
 # tests
 Include(FetchContent)
@@ -48,3 +58,27 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(Catch2)
 add_executable(tests tests/test_WindowTests.cpp)
 target_link_libraries(tests PRIVATE WindowLib Catch2::Catch2WithMain)
+
+# DefaultGameWorld CPU tests (no Vulkan required)
+add_executable(tests_dgw tests/test_DefaultGameWorld.cpp)
+target_link_libraries(tests_dgw PRIVATE WindowLib Catch2::Catch2WithMain)
+
+# DefaultGameWorld Vulkan setup tests (requires GPU)
+add_executable(tests_dgw_vulkan tests/test_DefaultGameWorld_VulkanSetup.cpp)
+target_link_libraries(tests_dgw_vulkan PRIVATE WindowLib Catch2::Catch2WithMain)
+
+# Copy DefaultGameWorld shaders to build directory for runtime Slang compilation
+# Preserve directory structure: libs/graphics/window/shaders/
+set(SHADER_SRC ${CMAKE_CURRENT_SOURCE_DIR}/shaders)
+add_custom_command(
+        TARGET tests_dgw_vulkan POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory ${SHADER_SRC} $<TARGET_FILE_DIR:tests_dgw_vulkan>/libs/graphics/window/shaders
+        COMMENT "Copying DefaultGameWorld shaders to test executable directory"
+)
+
+# Also copy shaders for OpenWindow example (in case DefaultGameWorld layer is used)
+add_custom_command(
+        TARGET OpenWindow POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory ${SHADER_SRC} $<TARGET_FILE_DIR:OpenWindow>/libs/graphics/window/shaders
+        COMMENT "Copying DefaultGameWorld shaders to OpenWindow executable directory"
+)
