@@ -19,6 +19,14 @@ void Scene::addObject(const GameObject& obj)
     objects.push_back(obj);
 }
 
+void Scene::deleteObject(int index)
+{
+    if (index >= 0 && index < static_cast<int>(objects.size()))
+    {
+        objects.erase(objects.begin() + index);
+    }
+}
+
 void Scene::clear()
 {
     objects.clear();

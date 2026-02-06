@@ -318,3 +318,14 @@ add_custom_command(
 # ${CMAKE_BINARY_DIR}          = Build folder (cmake-build-debug, etc.)
 # ${CMAKE_CURRENT_BINARY_DIR}  = Current build folder
 # $<TARGET_FILE_DIR:${NAME}>   = Where the executable is placed (e.g., bin/Debug)
+
+
+# ==============================================================================
+# ADD SUBDIRECTORIES FOR LIBRARIES AND APPLICATIONS
+# ==============================================================================
+
+# Add the graphics window library
+add_subdirectory(libs/graphics/window)
+
+# Add the PSI application
+add_subdirectory(apps/psi)
