@@ -2,19 +2,21 @@
 
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
+#include <glm/vec4.hpp>
 #include <vector>
 #include <string>
 #include <unordered_map>
 
 // ---------------------------------------------------------------------------
 // Vertex layout that will be mirrored in the vertex shader.
-// Offsets are tightly packed: pos(12) + normal(12) + texCoord(8) = 32 bytes.
+// Offsets are: pos(12) + normal(12) + texCoord(8) + color(16) = 48 bytes.
 // ---------------------------------------------------------------------------
 struct Vertex
 {
     glm::vec3 position;
     glm::vec3 normal;
     glm::vec2 texCoord;
+    glm::vec4 color;
 };
 
 // ---------------------------------------------------------------------------

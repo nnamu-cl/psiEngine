@@ -1,5 +1,6 @@
 #include "InspectorPanel.h"
 #include "layers/PsiWorldLayer.h"
+#include "Components/MeshRenderer.h"
 #include "imgui.h"
 #include <glm/gtc/type_ptr.hpp>
 #define GLM_ENABLE_EXPERIMENTAL
@@ -75,13 +76,18 @@ void InspectorPanel::Render()
         ImGui::Unindent();
     }
 
-    // Mesh and Material info (read-only for now)
-    if (ImGui::CollapsingHeader("Rendering"))
+    // MeshRenderer component (only show if present)
+    MeshRenderer* renderer = selectedObject.components.get<MeshRenderer>();
+    if (renderer && ImGui::CollapsingHeader("MeshRenderer", ImGuiTreeNodeFlags_DefaultOpen))
     {
+        // Mesh info (read-only)
         ImGui::Indent();
         ImGui::Text("Mesh Index: %u", selectedObject.meshIndex);
-        ImGui::Text("Material Index: %u", selectedObject.materialIndex);
         ImGui::Unindent();
+        ImGui::Spacing();
+
+        // Let the component render its own UI
+        renderer->OnInspectorGUI();
     }
 
     ImGui::End();

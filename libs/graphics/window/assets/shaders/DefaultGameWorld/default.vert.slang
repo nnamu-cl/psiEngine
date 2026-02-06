@@ -7,6 +7,9 @@ struct CameraUBO {
 
 struct PushConstants {
     float4x4 model;
+    float4 objectColor;     // RGB + alpha
+    uint colorMode;         // 0 = vertex color, 1 = object color
+    uint padding[3];        // Align to 16 bytes
 };
 
 [[vk::binding(0, 0)]]
@@ -17,14 +20,16 @@ ConstantBuffer<PushConstants> pc;
 
 struct VertexOutput {
     float4 position : SV_Position;
-    float3 color : COLOR0;
+    float3 worldNormal : NORMAL;
+    float4 vertexColor : COLOR0;
 };
 
 [shader("vertex")]
 VertexOutput main(
     float3 inPosition : POSITION,
     float3 inNormal : NORMAL,
-    float2 inTexCoord : TEXCOORD)
+    float2 inTexCoord : TEXCOORD,
+    float4 inColor : COLOR)
 {
     VertexOutput output;
 
@@ -33,8 +38,9 @@ VertexOutput main(
     float4 viewPos = mul(camera.view, worldPos);
     output.position = mul(camera.proj, viewPos);
 
-    // Use normal as color (map [-1,1] to [0,1])
-    output.color = inNormal * 0.5 + 0.5;
+    // Pass through for fragment shader
+    output.worldNormal = inNormal;
+    output.vertexColor = inColor;
 
     return output;
 }
