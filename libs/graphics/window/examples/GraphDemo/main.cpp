@@ -8,11 +8,36 @@
 #include "imgui.h"
 #include "ImGuiSkins/ShadSkin.h"
 #include "ImGuiSkins/SkinsBase.h"
-#include "Layers/DefaultGameWorld/DefaultGameWorld.h"
+#include "imgui_node_editor.h"
+#include "NodeSystemDrawer.h"
+
+namespace ed = ax::NodeEditor;
+
 
 class DemoNodeGraph : public Application::Layer
 {
+
+
+
 public:
+    ax::NodeEditor::EditorContext * m_NodeEditorContext;
+    NodeGraph m_NodeGraph;
+
+    std::unique_ptr<NodeSystemDrawer> m_NodeSystemDrawer;
+
+
+    void OnAttach() override {
+        // Create node editor context
+        ed::Config config;
+        m_NodeEditorContext = ed::CreateEditor(&config);
+
+
+        // Create node system drawer
+        m_NodeSystemDrawer = std::make_unique<NodeSystemDrawer>(&m_NodeGraph);
+
+
+    }
+
     void OnUIRender() override
     {
         ImGui::ShowDemoWindow();
@@ -22,7 +47,7 @@ public:
 int main()
 {
     ApplicationWindowSpecifications windowSpecs{1920, 1080, "Main Demo Window",
-                                                SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE};
+                                                SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_MAXIMIZED};
 
     ApplicationWindow window(windowSpecs);
     window.Init();
@@ -36,12 +61,10 @@ int main()
 
     // Create layers
     DemoNodeGraph guiLayer; // GUI layer
-    DefaultGameWorld gameWorld (&window.data); // World Layer
 
 
 
     // Attach layers
-    app.PushLayer(&gameWorld);
     app.PushLayer(&guiLayer);
 
 

@@ -1,6 +1,8 @@
 #include "PsiNodeEditorLayer.h"
 #include "layers/PsiWorldLayer.h"
 #include "GameObjectNodeDrawer.h"
+#include "NodeSystemDrawer.h"
+#include "ValueNodes.h"
 #include "imgui.h"
 #include "imgui_node_editor.h"
 
@@ -25,11 +27,15 @@ void PsiNodeEditorLayer::OnAttach()
     // Apply initial style
     UpdateNodeEditorStyle();
 
-    // Create node drawer for GameObjects
+    // Create drawers
     if (m_WorldLayer)
     {
-        m_NodeDrawer = std::make_unique<GameObjectNodeDrawer>(&m_WorldLayer->data.scene);
+        m_GameObjectDrawer = std::make_unique<GameObjectNodeDrawer>(&m_WorldLayer->data.scene);
+        m_PropertyBinding = std::make_unique<NodePropertyBinding>(&m_WorldLayer->data.scene);
     }
+
+    // Create node system drawer
+    m_NodeSystemDrawer = std::make_unique<NodeSystemDrawer>(&m_NodeGraph);
 }
 
 void PsiNodeEditorLayer::UpdateNodeEditorStyle()
@@ -44,9 +50,6 @@ void PsiNodeEditorLayer::UpdateNodeEditorStyle()
 
     // Set all border-related colors to transparent
     ImVec4 transparentBorder = ImVec4(nodeEditorBorderColor[0], nodeEditorBorderColor[1], nodeEditorBorderColor[2], nodeEditorBorderColor[3]);
-    style.Colors[ed::StyleColor_NodeBorder] = transparentBorder;
-    style.Colors[ed::StyleColor_HovNodeBorder] = transparentBorder;
-    style.Colors[ed::StyleColor_SelNodeBorder] = transparentBorder;
 
     ed::SetCurrentEditor(nullptr);
 }
@@ -63,7 +66,26 @@ void PsiNodeEditorLayer::OnDetach()
 
 void PsiNodeEditorLayer::OnUpdate(float ts)
 {
-    // Update logic called every frame
+    // Update elapsed time
+    m_ElapsedTime += ts;
+
+    // Update all TimeNodes with current elapsed time
+    for (const auto& node : m_NodeGraph.getNodes())
+    {
+        if (TimeNode* timeNode = dynamic_cast<TimeNode*>(node.get()))
+        {
+            timeNode->setTime(m_ElapsedTime);
+        }
+    }
+
+    // Mark all nodes dirty each frame (lazy evaluation system)
+    m_NodeGraph.markAllDirty();
+
+    // Update all GameObject properties bound to node outputs
+    if (m_PropertyBinding)
+    {
+        m_PropertyBinding->updateAll();
+    }
 }
 
 void PsiNodeEditorLayer::OnUIRender()
@@ -96,21 +118,39 @@ void PsiNodeEditorLayer::RenderNodeEditor()
     ed::SetCurrentEditor(m_NodeEditorContext);
     ed::Begin("My Editor");
 
-    // Draw all GameObject nodes
-    if (m_NodeDrawer)
+    // PHASE 1: Draw ALL nodes first (both GameObjects and NodeSystem)
+    if (m_GameObjectDrawer)
     {
-        int nodeCount = m_NodeDrawer->GetNodeCount();
+        int nodeCount = m_GameObjectDrawer->GetNodeCount();
         for (int i = 0; i < nodeCount; ++i)
         {
-            m_NodeDrawer->DrawNode(i);
+            m_GameObjectDrawer->DrawNode(i);
         }
-
-        // Draw connections between nodes
-        m_NodeDrawer->DrawLinks();
-
-        // Handle interactions (selection, deletion, etc.)
-        m_NodeDrawer->HandleInteractions();
     }
+
+    if (m_NodeSystemDrawer)
+    {
+        int nodeCount = m_NodeSystemDrawer->GetNodeCount();
+        for (int i = 0; i < nodeCount; ++i)
+        {
+            m_NodeSystemDrawer->DrawNode(i);
+        }
+    }
+
+    // PHASE 2: Draw ALL links (after all nodes are drawn)
+    if (m_GameObjectDrawer)
+    {
+        m_GameObjectDrawer->DrawLinks();
+    }
+
+    if (m_NodeSystemDrawer)
+    {
+        m_NodeSystemDrawer->DrawLinks();
+    }
+
+    // PHASE 3: Handle ALL interactions in ONE unified block
+    // NOTE: ed::BeginCreate() and ed::BeginDelete() can only be called ONCE per frame
+    HandleAllInteractions();
 
     // Navigate to show all content on first frame
     static bool firstFrame = true;
@@ -124,4 +164,16 @@ void PsiNodeEditorLayer::RenderNodeEditor()
     ed::SetCurrentEditor(nullptr);
 
     ImGui::End();
+}
+
+void PsiNodeEditorLayer::HandleAllInteractions()
+{
+    // Unified interaction handling for all node types
+    // This method can only be called once per frame (single BeginCreate/BeginDelete)
+
+    // For now, delegate to NodeSystemDrawer which has the pin ID logic
+    if (m_NodeSystemDrawer)
+    {
+        m_NodeSystemDrawer->HandleInteractions();
+    }
 }

@@ -11,6 +11,12 @@
 #include <generator/TorusMesh.hpp>
 #include <generator/ConeMesh.hpp>
 
+// Node system headers
+#include "NodeSystem.h"
+#include "ValueNodes.h"
+#include "MathNodes.h"
+#include "VectorNodes.h"
+
 namespace {
     // Helper function to convert generator mesh to our Mesh format
     template<typename GeneratorMesh>
@@ -184,6 +190,131 @@ void ControlPanel::Render()
             }
 
             ImGui::EndTabItem();
+        }
+
+        // Nodes Tab
+        if (ImGui::BeginTabItem("Nodes"))
+        {
+            // Special color for node buttons (cyan/blue theme with better contrast)
+            ImVec4 nodeButtonColor = ImVec4(0.15f, 0.35f, 0.55f, 1.0f);     // Darker for readability
+            ImVec4 nodeButtonHovered = ImVec4(0.2f, 0.45f, 0.65f, 1.0f);    // Hovered
+            ImVec4 nodeButtonActive = ImVec4(0.1f, 0.3f, 0.5f, 1.0f);       // Active
+
+            if (!m_NodeEditorLayer)
+            {
+                ImGui::TextWrapped("Node Editor not available");
+                ImGui::EndTabItem();
+            }
+            else
+            {
+                NodeGraph& graph = m_NodeEditorLayer->getNodeGraph();
+
+                ImGui::Text("Value Nodes");
+                ImGui::Separator();
+
+                ImGui::PushStyleColor(ImGuiCol_Button, nodeButtonColor);
+                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, nodeButtonHovered);
+                ImGui::PushStyleColor(ImGuiCol_ButtonActive, nodeButtonActive);
+
+                if (ImGui::Button("Float Constant", ImVec2(-1, 0)))
+                {
+                    graph.createNode<FloatConstantNode>(0.0f);
+                }
+
+                if (ImGui::Button("Int Constant", ImVec2(-1, 0)))
+                {
+                    graph.createNode<IntConstantNode>(0);
+                }
+
+                if (ImGui::Button("Vec3 Constant", ImVec2(-1, 0)))
+                {
+                    graph.createNode<Vec3ConstantNode>(glm::vec3(0.0f));
+                }
+
+                if (ImGui::Button("Time", ImVec2(-1, 0)))
+                {
+                    graph.createNode<TimeNode>();
+                }
+
+                ImGui::PopStyleColor(3);
+
+                ImGui::Spacing();
+                ImGui::Text("Math Nodes");
+                ImGui::Separator();
+
+                ImGui::PushStyleColor(ImGuiCol_Button, nodeButtonColor);
+                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, nodeButtonHovered);
+                ImGui::PushStyleColor(ImGuiCol_ButtonActive, nodeButtonActive);
+
+                if (ImGui::Button("Add", ImVec2(-1, 0)))
+                {
+                    graph.createNode<AddNode>();
+                }
+
+                if (ImGui::Button("Subtract", ImVec2(-1, 0)))
+                {
+                    graph.createNode<SubtractNode>();
+                }
+
+                if (ImGui::Button("Multiply", ImVec2(-1, 0)))
+                {
+                    graph.createNode<MultiplyNode>();
+                }
+
+                if (ImGui::Button("Divide", ImVec2(-1, 0)))
+                {
+                    graph.createNode<DivideNode>();
+                }
+
+                if (ImGui::Button("Sin", ImVec2(-1, 0)))
+                {
+                    graph.createNode<SinNode>();
+                }
+
+                if (ImGui::Button("Cos", ImVec2(-1, 0)))
+                {
+                    graph.createNode<CosNode>();
+                }
+
+                ImGui::PopStyleColor(3);
+
+                ImGui::Spacing();
+                ImGui::Text("Vector Nodes");
+                ImGui::Separator();
+
+                ImGui::PushStyleColor(ImGuiCol_Button, nodeButtonColor);
+                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, nodeButtonHovered);
+                ImGui::PushStyleColor(ImGuiCol_ButtonActive, nodeButtonActive);
+
+                if (ImGui::Button("Combine Vec3", ImVec2(-1, 0)))
+                {
+                    graph.createNode<CombineVec3Node>();
+                }
+
+                if (ImGui::Button("Separate Vec3", ImVec2(-1, 0)))
+                {
+                    graph.createNode<SeparateVec3Node>();
+                }
+
+                if (ImGui::Button("Dot Product", ImVec2(-1, 0)))
+                {
+                    graph.createNode<DotProductNode>();
+                }
+
+                if (ImGui::Button("Cross Product", ImVec2(-1, 0)))
+                {
+                    graph.createNode<CrossProductNode>();
+                }
+
+                if (ImGui::Button("Length", ImVec2(-1, 0)))
+                {
+                    graph.createNode<LengthNode>();
+                }
+
+                ImGui::PopStyleColor(3);
+
+                ImGui::EndTabItem();
+            }
         }
 
         // Objects Tab
