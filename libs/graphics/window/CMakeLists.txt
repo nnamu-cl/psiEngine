@@ -67,18 +67,22 @@ target_link_libraries(tests_dgw PRIVATE WindowLib Catch2::Catch2WithMain)
 add_executable(tests_dgw_vulkan tests/test_DefaultGameWorld_VulkanSetup.cpp)
 target_link_libraries(tests_dgw_vulkan PRIVATE WindowLib Catch2::Catch2WithMain)
 
-# Copy DefaultGameWorld shaders to build directory for runtime Slang compilation
-# Preserve directory structure: libs/graphics/window/shaders/
-set(SHADER_SRC ${CMAKE_CURRENT_SOURCE_DIR}/shaders)
+# ShadSkin tests (no Vulkan required, just ImGui)
+add_executable(tests_shadskin tests/test_ShadSkin.cpp)
+target_link_libraries(tests_shadskin PRIVATE WindowLib Catch2::Catch2WithMain)
+
+# Copy assets folder (shaders, fonts, etc.) to build directory
+# Preserve directory structure: libs/graphics/window/assets/
+set(ASSETS_SRC ${CMAKE_CURRENT_SOURCE_DIR}/assets)
 add_custom_command(
         TARGET tests_dgw_vulkan POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory ${SHADER_SRC} $<TARGET_FILE_DIR:tests_dgw_vulkan>/libs/graphics/window/shaders
-        COMMENT "Copying DefaultGameWorld shaders to test executable directory"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory ${ASSETS_SRC} $<TARGET_FILE_DIR:tests_dgw_vulkan>/libs/graphics/window/assets
+        COMMENT "Copying assets to test executable directory"
 )
 
-# Also copy shaders for OpenWindow example (in case DefaultGameWorld layer is used)
+# Also copy assets for OpenWindow example
 add_custom_command(
         TARGET OpenWindow POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory ${SHADER_SRC} $<TARGET_FILE_DIR:OpenWindow>/libs/graphics/window/shaders
-        COMMENT "Copying DefaultGameWorld shaders to OpenWindow executable directory"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory ${ASSETS_SRC} $<TARGET_FILE_DIR:OpenWindow>/libs/graphics/window/assets
+        COMMENT "Copying assets to OpenWindow executable directory"
 )

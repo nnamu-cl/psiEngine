@@ -6,6 +6,8 @@
 #include "Application.h"
 #include "../../windowlib/Layers/Layer.h"
 #include "imgui.h"
+#include "ImGuiSkins/ShadSkin.h"
+#include "ImGuiSkins/SkinsBase.h"
 #include "Layers/DefaultGameWorld/DefaultGameWorld.h"
 
 class DemoGUILayer : public Application::Layer
@@ -28,8 +30,11 @@ int main()
     Application::Application app;
 
 
-    // Create layers
+    //Apply out theme
+    Application::Skins::ShadSkin shadSkin;
+    shadSkin.ApplySkin();
 
+    // Create layers
     DemoGUILayer guiLayer; // GUI layer
     DefaultGameWorld gameWorld (&window.data); // World Layer
 
