@@ -1,10 +1,8 @@
 #include "InspectorPanel.h"
 #include "layers/PsiWorldLayer.h"
+#include "Components/Transform.h"
 #include "Components/MeshRenderer.h"
 #include "imgui.h"
-#include <glm/gtc/type_ptr.hpp>
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtx/euler_angles.hpp>
 
 InspectorPanel::InspectorPanel(PsiWorldLayer* worldLayer)
     : m_WorldLayer(worldLayer)
@@ -47,36 +45,15 @@ void InspectorPanel::Render()
     }
     ImGui::Separator();
 
-    // Transform section
-    if (ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen))
+    // Render all components generically
+    // Transform component
+    Transform* transform = selectedObject.components.get<Transform>();
+    if (transform && ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen))
     {
-        ImGui::Indent();
-
-        // Position
-        ImGui::Text("Position");
-        ImGui::DragFloat3("##Position", glm::value_ptr(selectedObject.transform.position), 0.1f);
-
-        ImGui::Spacing();
-
-        // Rotation (convert quaternion to Euler angles for editing)
-        glm::vec3 eulerAngles = glm::degrees(glm::eulerAngles(selectedObject.transform.rotation));
-        ImGui::Text("Rotation");
-        if (ImGui::DragFloat3("##Rotation", glm::value_ptr(eulerAngles), 1.0f))
-        {
-            // Convert back to quaternion
-            selectedObject.transform.rotation = glm::quat(glm::radians(eulerAngles));
-        }
-
-        ImGui::Spacing();
-
-        // Scale
-        ImGui::Text("Scale");
-        ImGui::DragFloat3("##Scale", glm::value_ptr(selectedObject.transform.scale), 0.01f, 0.001f, 100.0f);
-
-        ImGui::Unindent();
+        transform->OnInspectorGUI();
     }
 
-    // MeshRenderer component (only show if present)
+    // MeshRenderer component
     MeshRenderer* renderer = selectedObject.components.get<MeshRenderer>();
     if (renderer && ImGui::CollapsingHeader("MeshRenderer", ImGuiTreeNodeFlags_DefaultOpen))
     {

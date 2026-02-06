@@ -11,6 +11,7 @@
 
 #include "Layers/DefaultGameWorld/Camera.h"
 #include "Layers/DefaultGameWorld/Scene.h"
+#include "Components/Transform.h"
 #include "layers/PsiWorldLayer.h"
 
 // ---------------------------------------------------------------------------
@@ -35,39 +36,51 @@ static bool matApprox(const glm::mat4& a, const glm::mat4& b, float tol = EPS)
 TEST_CASE("Transform default values are correct for new objects")
 {
     GameObject obj{};
-    APPROX(obj.transform.position.x, 0.0f);
-    APPROX(obj.transform.position.y, 0.0f);
-    APPROX(obj.transform.position.z, 0.0f);
-    APPROX(obj.transform.scale.x, 1.0f);
-    APPROX(obj.transform.scale.y, 1.0f);
-    APPROX(obj.transform.scale.z, 1.0f);
+    obj.components.add(std::make_unique<Transform>());
+
+    const Transform* transform = obj.components.get<Transform>();
+    REQUIRE(transform != nullptr);
+    APPROX(transform->position.x, 0.0f);
+    APPROX(transform->position.y, 0.0f);
+    APPROX(transform->position.z, 0.0f);
+    APPROX(transform->scale.x, 1.0f);
+    APPROX(transform->scale.y, 1.0f);
+    APPROX(transform->scale.z, 1.0f);
 }
 
 TEST_CASE("Transform can be set via inspector-like operations")
 {
     GameObject obj{};
+    obj.components.add(std::make_unique<Transform>());
+
+    Transform* transform = obj.components.get<Transform>();
+    REQUIRE(transform != nullptr);
 
     // Simulate inspector editing position
-    obj.transform.position = glm::vec3(5.0f, 3.0f, -2.0f);
-    APPROX(obj.transform.position.x, 5.0f);
-    APPROX(obj.transform.position.y, 3.0f);
-    APPROX(obj.transform.position.z, -2.0f);
+    transform->position = glm::vec3(5.0f, 3.0f, -2.0f);
+    APPROX(transform->position.x, 5.0f);
+    APPROX(transform->position.y, 3.0f);
+    APPROX(transform->position.z, -2.0f);
 
     // Simulate inspector editing scale
-    obj.transform.scale = glm::vec3(2.0f, 1.5f, 0.5f);
-    APPROX(obj.transform.scale.x, 2.0f);
-    APPROX(obj.transform.scale.y, 1.5f);
-    APPROX(obj.transform.scale.z, 0.5f);
+    transform->scale = glm::vec3(2.0f, 1.5f, 0.5f);
+    APPROX(transform->scale.x, 2.0f);
+    APPROX(transform->scale.y, 1.5f);
+    APPROX(transform->scale.z, 0.5f);
 }
 
 TEST_CASE("Transform rotation via quaternion works correctly")
 {
     GameObject obj{};
+    obj.components.add(std::make_unique<Transform>());
+
+    Transform* transform = obj.components.get<Transform>();
+    REQUIRE(transform != nullptr);
 
     // 45 degree rotation around Y axis
-    obj.transform.rotation = glm::quat(glm::vec3(0.0f, glm::radians(45.0f), 0.0f));
+    transform->rotation = glm::quat(glm::vec3(0.0f, glm::radians(45.0f), 0.0f));
 
-    glm::mat4 M = obj.transform.toMatrix();
+    glm::mat4 M = transform->toMatrix();
 
     // Point at (1,0,0) should rotate approximately 45 degrees
     glm::vec4 point = M * glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
@@ -80,11 +93,16 @@ TEST_CASE("Transform rotation via quaternion works correctly")
 TEST_CASE("Transform matrix correctly combines all components")
 {
     GameObject obj{};
-    obj.transform.position = glm::vec3(10.0f, 5.0f, 0.0f);
-    obj.transform.rotation = glm::quat(glm::vec3(0.0f, glm::radians(90.0f), 0.0f));
-    obj.transform.scale = glm::vec3(2.0f, 2.0f, 2.0f);
+    obj.components.add(std::make_unique<Transform>(
+        glm::vec3(10.0f, 5.0f, 0.0f),
+        glm::quat(glm::vec3(0.0f, glm::radians(90.0f), 0.0f)),
+        glm::vec3(2.0f, 2.0f, 2.0f)
+    ));
 
-    glm::mat4 M = obj.transform.toMatrix();
+    const Transform* transform = obj.components.get<Transform>();
+    REQUIRE(transform != nullptr);
+
+    glm::mat4 M = transform->toMatrix();
 
     // Point at (1,0,0) -> scale to (2,0,0) -> rotate to (0,0,-2) -> translate to (10,5,-2)
     glm::vec4 result = M * glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
@@ -103,11 +121,11 @@ TEST_CASE("Scene can store multiple named objects")
 
     GameObject sphere{};
     sphere.name = "Sphere";
-    s.addObject(sphere);
+    s.addObject(std::move(sphere));
 
     GameObject cube{};
     cube.name = "Cube";
-    s.addObject(cube);
+    s.addObject(std::move(cube));
 
     REQUIRE(s.objects.size() == 2);
     REQUIRE(s.objects[0].name == "Sphere");
@@ -120,18 +138,23 @@ TEST_CASE("Scene objects preserve transform data after adding")
 
     GameObject obj{};
     obj.name = "TestObject";
-    obj.transform.position = glm::vec3(1.0f, 2.0f, 3.0f);
-    obj.transform.scale = glm::vec3(0.5f, 0.5f, 0.5f);
+    obj.components.add(std::make_unique<Transform>(
+        glm::vec3(1.0f, 2.0f, 3.0f),
+        glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
+        glm::vec3(0.5f, 0.5f, 0.5f)
+    ));
     obj.meshIndex = 42;
     obj.materialIndex = 7;
 
-    s.addObject(obj);
+    s.addObject(std::move(obj));
 
     REQUIRE(s.objects[0].name == "TestObject");
-    APPROX(s.objects[0].transform.position.x, 1.0f);
-    APPROX(s.objects[0].transform.position.y, 2.0f);
-    APPROX(s.objects[0].transform.position.z, 3.0f);
-    APPROX(s.objects[0].transform.scale.x, 0.5f);
+    const Transform* transform = s.objects[0].components.get<Transform>();
+    REQUIRE(transform != nullptr);
+    APPROX(transform->position.x, 1.0f);
+    APPROX(transform->position.y, 2.0f);
+    APPROX(transform->position.z, 3.0f);
+    APPROX(transform->scale.x, 0.5f);
     REQUIRE(s.objects[0].meshIndex == 42);
     REQUIRE(s.objects[0].materialIndex == 7);
 }
@@ -142,14 +165,17 @@ TEST_CASE("Scene can be modified after creation")
 
     GameObject obj{};
     obj.name = "Sphere";
-    s.addObject(obj);
+    obj.components.add(std::make_unique<Transform>());
+    s.addObject(std::move(obj));
 
     // Modify the object in the scene
-    s.objects[0].transform.position = glm::vec3(5.0f, 0.0f, 0.0f);
+    Transform* transform = s.objects[0].components.get<Transform>();
+    REQUIRE(transform != nullptr);
+    transform->position = glm::vec3(5.0f, 0.0f, 0.0f);
     s.objects[0].name = "ModifiedSphere";
 
     REQUIRE(s.objects[0].name == "ModifiedSphere");
-    APPROX(s.objects[0].transform.position.x, 5.0f);
+    APPROX(transform->position.x, 5.0f);
 }
 
 TEST_CASE("Scene clear removes all objects")
@@ -160,7 +186,7 @@ TEST_CASE("Scene clear removes all objects")
     {
         GameObject obj{};
         obj.name = "Object_" + std::to_string(i);
-        s.addObject(obj);
+        s.addObject(std::move(obj));
     }
 
     REQUIRE(s.objects.size() == 10);
@@ -198,7 +224,7 @@ TEST_CASE("Selection index validation works correctly")
     {
         GameObject obj{};
         obj.name = "Object_" + std::to_string(i);
-        s.addObject(obj);
+        s.addObject(std::move(obj));
     }
 
     int selectedObjectIndex = -1;
@@ -227,8 +253,8 @@ TEST_CASE("Selected object can be accessed and modified")
 
     GameObject obj{};
     obj.name = "Sphere";
-    obj.transform.position = glm::vec3(0.0f, 0.0f, 0.0f);
-    s.addObject(obj);
+    obj.components.add(std::make_unique<Transform>());
+    s.addObject(std::move(obj));
 
     int selectedObjectIndex = 0;
 
@@ -240,12 +266,16 @@ TEST_CASE("Selected object can be accessed and modified")
         REQUIRE(selected.name == "Sphere");
 
         // Modify via inspector
-        selected.transform.position = glm::vec3(10.0f, 5.0f, -3.0f);
+        Transform* transform = selected.components.get<Transform>();
+        REQUIRE(transform != nullptr);
+        transform->position = glm::vec3(10.0f, 5.0f, -3.0f);
 
         // Verify modification
-        APPROX(s.objects[0].transform.position.x, 10.0f);
-        APPROX(s.objects[0].transform.position.y, 5.0f);
-        APPROX(s.objects[0].transform.position.z, -3.0f);
+        const Transform* verifyTransform = s.objects[0].components.get<Transform>();
+        REQUIRE(verifyTransform != nullptr);
+        APPROX(verifyTransform->position.x, 10.0f);
+        APPROX(verifyTransform->position.y, 5.0f);
+        APPROX(verifyTransform->position.z, -3.0f);
     }
 }
 
@@ -291,38 +321,47 @@ TEST_CASE("Scene with multiple objects maintains independent transforms")
 
     GameObject obj1{};
     obj1.name = "Object1";
-    obj1.transform.position = glm::vec3(1.0f, 0.0f, 0.0f);
-    s.addObject(obj1);
+    obj1.components.add(std::make_unique<Transform>(glm::vec3(1.0f, 0.0f, 0.0f)));
+    s.addObject(std::move(obj1));
 
     GameObject obj2{};
     obj2.name = "Object2";
-    obj2.transform.position = glm::vec3(0.0f, 1.0f, 0.0f);
-    s.addObject(obj2);
+    obj2.components.add(std::make_unique<Transform>(glm::vec3(0.0f, 1.0f, 0.0f)));
+    s.addObject(std::move(obj2));
 
     GameObject obj3{};
     obj3.name = "Object3";
-    obj3.transform.position = glm::vec3(0.0f, 0.0f, 1.0f);
-    s.addObject(obj3);
+    obj3.components.add(std::make_unique<Transform>(glm::vec3(0.0f, 0.0f, 1.0f)));
+    s.addObject(std::move(obj3));
 
     // Verify all positions are independent
-    APPROX(s.objects[0].transform.position.x, 1.0f);
-    APPROX(s.objects[0].transform.position.y, 0.0f);
+    const Transform* t0 = s.objects[0].components.get<Transform>();
+    const Transform* t1 = s.objects[1].components.get<Transform>();
+    const Transform* t2 = s.objects[2].components.get<Transform>();
 
-    APPROX(s.objects[1].transform.position.x, 0.0f);
-    APPROX(s.objects[1].transform.position.y, 1.0f);
+    REQUIRE(t0 != nullptr);
+    REQUIRE(t1 != nullptr);
+    REQUIRE(t2 != nullptr);
 
-    APPROX(s.objects[2].transform.position.z, 1.0f);
+    APPROX(t0->position.x, 1.0f);
+    APPROX(t0->position.y, 0.0f);
+
+    APPROX(t1->position.x, 0.0f);
+    APPROX(t1->position.y, 1.0f);
+
+    APPROX(t2->position.z, 1.0f);
 
     // Modify one object
-    s.objects[1].transform.position = glm::vec3(5.0f, 5.0f, 5.0f);
+    Transform* t1_mut = s.objects[1].components.get<Transform>();
+    t1_mut->position = glm::vec3(5.0f, 5.0f, 5.0f);
 
     // Verify others are unaffected
-    APPROX(s.objects[0].transform.position.x, 1.0f);
-    APPROX(s.objects[2].transform.position.z, 1.0f);
+    APPROX(t0->position.x, 1.0f);
+    APPROX(t2->position.z, 1.0f);
 
     // Verify modified object
-    APPROX(s.objects[1].transform.position.x, 5.0f);
-    APPROX(s.objects[1].transform.position.y, 5.0f);
+    APPROX(t1_mut->position.x, 5.0f);
+    APPROX(t1_mut->position.y, 5.0f);
 }
 
 TEST_CASE("Simulated inspector workflow: select, edit, verify")
@@ -334,8 +373,10 @@ TEST_CASE("Simulated inspector workflow: select, edit, verify")
     {
         GameObject obj{};
         obj.name = "Object_" + std::to_string(i);
-        obj.transform.position = glm::vec3(static_cast<float>(i), 0.0f, 0.0f);
-        s.addObject(obj);
+        obj.components.add(std::make_unique<Transform>(
+            glm::vec3(static_cast<float>(i), 0.0f, 0.0f)
+        ));
+        s.addObject(std::move(obj));
     }
 
     int selectedObjectIndex = -1;
@@ -347,23 +388,31 @@ TEST_CASE("Simulated inspector workflow: select, edit, verify")
     if (selectedObjectIndex >= 0 && selectedObjectIndex < static_cast<int>(s.objects.size()))
     {
         GameObject& selected = s.objects[selectedObjectIndex];
+        Transform* transform = selected.components.get<Transform>();
+        REQUIRE(transform != nullptr);
 
         // User changes position in inspector
-        selected.transform.position = glm::vec3(100.0f, 200.0f, 300.0f);
+        transform->position = glm::vec3(100.0f, 200.0f, 300.0f);
 
         // User changes scale in inspector
-        selected.transform.scale = glm::vec3(2.0f, 2.0f, 2.0f);
+        transform->scale = glm::vec3(2.0f, 2.0f, 2.0f);
     }
 
     // Verify the edit was applied
-    APPROX(s.objects[2].transform.position.x, 100.0f);
-    APPROX(s.objects[2].transform.position.y, 200.0f);
-    APPROX(s.objects[2].transform.position.z, 300.0f);
-    APPROX(s.objects[2].transform.scale.x, 2.0f);
+    const Transform* t2 = s.objects[2].components.get<Transform>();
+    REQUIRE(t2 != nullptr);
+    APPROX(t2->position.x, 100.0f);
+    APPROX(t2->position.y, 200.0f);
+    APPROX(t2->position.z, 300.0f);
+    APPROX(t2->scale.x, 2.0f);
 
     // Verify other objects are unaffected
-    APPROX(s.objects[1].transform.position.x, 1.0f);
-    APPROX(s.objects[3].transform.position.x, 3.0f);
+    const Transform* t1 = s.objects[1].components.get<Transform>();
+    const Transform* t3 = s.objects[3].components.get<Transform>();
+    REQUIRE(t1 != nullptr);
+    REQUIRE(t3 != nullptr);
+    APPROX(t1->position.x, 1.0f);
+    APPROX(t3->position.x, 3.0f);
 }
 
 // ---------------------------------------------------------------------------
@@ -377,7 +426,7 @@ TEST_CASE("Scene deleteObject removes object at index")
     {
         GameObject obj{};
         obj.name = "Object_" + std::to_string(i);
-        s.addObject(obj);
+        s.addObject(std::move(obj));
     }
 
     REQUIRE(s.objects.size() == 3);
@@ -396,7 +445,7 @@ TEST_CASE("Scene deleteObject handles out of bounds gracefully")
 
     GameObject obj{};
     obj.name = "OnlyObject";
-    s.addObject(obj);
+    s.addObject(std::move(obj));
 
     REQUIRE(s.objects.size() == 1);
 
@@ -420,7 +469,7 @@ TEST_CASE("Deleting selected object clears selection")
     {
         GameObject obj{};
         obj.name = "Object_" + std::to_string(i);
-        s.addObject(obj);
+        s.addObject(std::move(obj));
     }
 
     int selectedObjectIndex = 1;
@@ -444,7 +493,7 @@ TEST_CASE("Deleting object before selection adjusts index")
     {
         GameObject obj{};
         obj.name = "Object_" + std::to_string(i);
-        s.addObject(obj);
+        s.addObject(std::move(obj));
     }
 
     int selectedObjectIndex = 3;
@@ -470,7 +519,7 @@ TEST_CASE("Deleting object after selection preserves index")
     {
         GameObject obj{};
         obj.name = "Object_" + std::to_string(i);
-        s.addObject(obj);
+        s.addObject(std::move(obj));
     }
 
     int selectedObjectIndex = 1;

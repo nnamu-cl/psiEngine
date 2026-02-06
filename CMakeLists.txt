@@ -324,6 +324,12 @@ add_custom_command(
 # ADD SUBDIRECTORIES FOR LIBRARIES AND APPLICATIONS
 # ==============================================================================
 
+# Add external libraries
+add_subdirectory(external/ScopeGuard)
+add_subdirectory(external/stb_image)
+add_subdirectory(external/imgui_node_editor)
+add_subdirectory(external/generator)
+
 # Add the core library
 add_subdirectory(libs/core)
 

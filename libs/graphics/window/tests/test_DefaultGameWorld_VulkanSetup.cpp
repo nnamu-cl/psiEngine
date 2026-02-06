@@ -6,6 +6,7 @@
 #include "../windowlib/Layers/DefaultGameWorld/Pipeline.h"
 #include "../windowlib/Layers/DefaultGameWorld/Camera.h"
 #include "../windowlib/Layers/DefaultGameWorld/Mesh.h"
+#include "../windowlib/Components/Transform.h"
 #include "../windowlib/ApplicationWindow.h"
 
 // Helper to initialize minimal Vulkan context for testing
@@ -646,8 +647,10 @@ TEST_CASE("DefaultGameWorld renders multiple objects with different transforms",
 
     // Verify objects have different transforms
     bool foundDifferentPositions = false;
+    const Transform* transform0 = layer.data.scene.objects[0].components.get<Transform>();
     for (size_t i = 1; i < layer.data.scene.objects.size(); i++) {
-        if (layer.data.scene.objects[i].transform.position != layer.data.scene.objects[0].transform.position) {
+        const Transform* transformI = layer.data.scene.objects[i].components.get<Transform>();
+        if (transform0 && transformI && transformI->position != transform0->position) {
             foundDifferentPositions = true;
             break;
         }
@@ -1144,16 +1147,16 @@ TEST_CASE("DefaultGameWorld push constants produce correct model matrices", "[in
 
     // Test 1: Identity transform
     GameObject identityObj{
-        .transform = Transform{
-            .position = glm::vec3(0.0f, 0.0f, 0.0f),
-            .rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
-            .scale = glm::vec3(1.0f)
-        },
         .meshIndex = 0
     };
-    layer.data.scene.addObject(identityObj);
-
-    glm::mat4 identityMatrix = identityObj.transform.toMatrix();
+    auto identityTransform = std::make_unique<Transform>(
+        glm::vec3(0.0f, 0.0f, 0.0f),
+        glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
+        glm::vec3(1.0f)
+    );
+    glm::mat4 identityMatrix = identityTransform->toMatrix();
+    identityObj.components.add(std::move(identityTransform));
+    layer.data.scene.addObject(std::move(identityObj));
     // Identity matrix should be close to glm::mat4(1.0f)
     for (int col = 0; col < 4; col++) {
         for (int row = 0; row < 4; row++) {
@@ -1165,16 +1168,16 @@ TEST_CASE("DefaultGameWorld push constants produce correct model matrices", "[in
 
     // Test 2: Translation only
     GameObject translatedObj{
-        .transform = Transform{
-            .position = glm::vec3(5.0f, 3.0f, -2.0f),
-            .rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
-            .scale = glm::vec3(1.0f)
-        },
         .meshIndex = 0
     };
-    layer.data.scene.addObject(translatedObj);
-
-    glm::mat4 translationMatrix = translatedObj.transform.toMatrix();
+    auto translatedTransform = std::make_unique<Transform>(
+        glm::vec3(5.0f, 3.0f, -2.0f),
+        glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
+        glm::vec3(1.0f)
+    );
+    glm::mat4 translationMatrix = translatedTransform->toMatrix();
+    translatedObj.components.add(std::move(translatedTransform));
+    layer.data.scene.addObject(std::move(translatedObj));
     // Translation should be in column 3
     REQUIRE(std::abs(translationMatrix[3][0] - 5.0f) < 1e-5f);
     REQUIRE(std::abs(translationMatrix[3][1] - 3.0f) < 1e-5f);
@@ -1183,16 +1186,16 @@ TEST_CASE("DefaultGameWorld push constants produce correct model matrices", "[in
 
     // Test 3: Scale only
     GameObject scaledObj{
-        .transform = Transform{
-            .position = glm::vec3(0.0f, 0.0f, 0.0f),
-            .rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
-            .scale = glm::vec3(2.0f, 3.0f, 4.0f)
-        },
         .meshIndex = 0
     };
-    layer.data.scene.addObject(scaledObj);
-
-    glm::mat4 scaleMatrix = scaledObj.transform.toMatrix();
+    auto scaledTransform = std::make_unique<Transform>(
+        glm::vec3(0.0f, 0.0f, 0.0f),
+        glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
+        glm::vec3(2.0f, 3.0f, 4.0f)
+    );
+    glm::mat4 scaleMatrix = scaledTransform->toMatrix();
+    scaledObj.components.add(std::move(scaledTransform));
+    layer.data.scene.addObject(std::move(scaledObj));
     // Scale should be on diagonal
     REQUIRE(std::abs(scaleMatrix[0][0] - 2.0f) < 1e-5f);
     REQUIRE(std::abs(scaleMatrix[1][1] - 3.0f) < 1e-5f);
@@ -1201,16 +1204,16 @@ TEST_CASE("DefaultGameWorld push constants produce correct model matrices", "[in
 
     // Test 4: Combined TRS (most common case)
     GameObject combinedObj{
-        .transform = Transform{
-            .position = glm::vec3(1.0f, 2.0f, 3.0f),
-            .rotation = glm::angleAxis(glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f)),
-            .scale = glm::vec3(2.0f)
-        },
         .meshIndex = 0
     };
-    layer.data.scene.addObject(combinedObj);
-
-    glm::mat4 combinedMatrix = combinedObj.transform.toMatrix();
+    auto combinedTransform = std::make_unique<Transform>(
+        glm::vec3(1.0f, 2.0f, 3.0f),
+        glm::angleAxis(glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f)),
+        glm::vec3(2.0f)
+    );
+    glm::mat4 combinedMatrix = combinedTransform->toMatrix();
+    combinedObj.components.add(std::move(combinedTransform));
+    layer.data.scene.addObject(std::move(combinedObj));
     // Verify translation component is preserved
     REQUIRE(std::abs(combinedMatrix[3][0] - 1.0f) < 1e-5f);
     REQUIRE(std::abs(combinedMatrix[3][1] - 2.0f) < 1e-5f);
@@ -1234,9 +1237,13 @@ TEST_CASE("DefaultGameWorld push constants produce correct model matrices", "[in
     REQUIRE(layer.data.scene.objects.size() == 4);
 
     bool foundDifferentMatrices = false;
-    glm::mat4 firstMatrix = layer.data.scene.objects[0].transform.toMatrix();
+    const Transform* firstTransform = layer.data.scene.objects[0].components.get<Transform>();
+    REQUIRE(firstTransform != nullptr);
+    glm::mat4 firstMatrix = firstTransform->toMatrix();
     for (size_t i = 1; i < layer.data.scene.objects.size(); i++) {
-        glm::mat4 currentMatrix = layer.data.scene.objects[i].transform.toMatrix();
+        const Transform* currentTransform = layer.data.scene.objects[i].components.get<Transform>();
+        REQUIRE(currentTransform != nullptr);
+        glm::mat4 currentMatrix = currentTransform->toMatrix();
         for (int col = 0; col < 4; col++) {
             for (int row = 0; row < 4; row++) {
                 if (std::abs(firstMatrix[col][row] - currentMatrix[col][row]) > 1e-5f) {
