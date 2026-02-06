@@ -14,9 +14,9 @@ glm::mat4 Transform::toMatrix() const
     return mat;
 }
 
-void Scene::addObject(const GameObject& obj)
+void Scene::addObject(GameObject obj)
 {
-    objects.push_back(obj);
+    objects.push_back(std::move(obj));
 }
 
 void Scene::deleteObject(int index)

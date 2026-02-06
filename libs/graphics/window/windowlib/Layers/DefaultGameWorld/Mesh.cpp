@@ -36,9 +36,9 @@ Mesh MeshTable::unitTriangle()
 {
     Mesh m;
     m.vertices = {
-        { glm::vec3{ 0.0f,  1.0f, 0.0f }, glm::vec3{ 0.0f, 0.0f, 1.0f }, glm::vec2{ 0.5f, 0.0f } },
-        { glm::vec3{-1.0f, -1.0f, 0.0f }, glm::vec3{ 0.0f, 0.0f, 1.0f }, glm::vec2{ 0.0f, 1.0f } },
-        { glm::vec3{ 1.0f, -1.0f, 0.0f }, glm::vec3{ 0.0f, 0.0f, 1.0f }, glm::vec2{ 1.0f, 1.0f } },
+        { glm::vec3{ 0.0f,  1.0f, 0.0f }, glm::vec3{ 0.0f, 0.0f, 1.0f }, glm::vec2{ 0.5f, 0.0f }, glm::vec4{ 1.0f, 1.0f, 1.0f, 1.0f } },
+        { glm::vec3{-1.0f, -1.0f, 0.0f }, glm::vec3{ 0.0f, 0.0f, 1.0f }, glm::vec2{ 0.0f, 1.0f }, glm::vec4{ 1.0f, 1.0f, 1.0f, 1.0f } },
+        { glm::vec3{ 1.0f, -1.0f, 0.0f }, glm::vec3{ 0.0f, 0.0f, 1.0f }, glm::vec2{ 1.0f, 1.0f }, glm::vec4{ 1.0f, 1.0f, 1.0f, 1.0f } },
     };
     m.indices = { 0, 1, 2 };
     return m;
@@ -85,7 +85,7 @@ Mesh MeshTable::unitCube()
         uint32_t base = static_cast<uint32_t>(m.vertices.size());
         for (int v = 0; v < 4; ++v)
         {
-            m.vertices.push_back({ faces[f].verts[v], faces[f].normal, uvs[v] });
+            m.vertices.push_back({ faces[f].verts[v], faces[f].normal, uvs[v], glm::vec4{ 1.0f, 1.0f, 1.0f, 1.0f } });
         }
         // Two triangles per face, CCW from outside.
         m.indices.insert(m.indices.end(), { base, base+1, base+2, base, base+2, base+3 });

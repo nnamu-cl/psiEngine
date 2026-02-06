@@ -50,7 +50,4 @@ private:
 
     // Render menu bar
     void RenderMenuBar();
-
-    // Helper: Add a primitive mesh to the scene
-    void AddPrimitiveMesh(const std::string& primitiveType);
 };

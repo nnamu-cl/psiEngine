@@ -17,6 +17,7 @@ set(IMGUI_DIR ../../../external/imgui) #adding the imgui lib
 target_include_directories(WindowLib PUBLIC
         $ENV{VULKAN_SDK}/include
         ${CMAKE_CURRENT_SOURCE_DIR}/windowlib
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../core/include
         ${IMGUI_DIR} ${IMGUI_DIR}/backends
 )
 
@@ -31,7 +32,7 @@ target_sources(WindowLib PRIVATE
 )
 
 target_compile_definitions(WindowLib PRIVATE IMGUI_IMPL_VULKAN_USE_VOLK "IMGUI_IMPL_VULKAN_VOLK_FILENAME=<volk/volk.h>")
-target_link_libraries(WindowLib PRIVATE ${SDL_LIBRARY} ${SLANG_LIBRARY})
+target_link_libraries(WindowLib PRIVATE ${SDL_LIBRARY} ${SLANG_LIBRARY} CoreLib)
 
 # OpenWindow example
 file(GLOB OPENWINDOWFILES "examples/OpenWindow/*.cpp" "examples/OpenWindow/*.h")

@@ -139,11 +139,11 @@ bool Pipeline::create(VkDevice device,
         return false;
     }
 
-    // Push constant range for model matrix (64 bytes)
+    // Push constant range for model matrix + color data (64 + 16 + 16 = 96 bytes)
     VkPushConstantRange pushConstantRange{
-        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
         .offset     = 0,
-        .size       = 64  // sizeof(glm::mat4)
+        .size       = 96  // sizeof(glm::mat4) + sizeof(glm::vec4) + sizeof(uint32_t) + 12 bytes padding
     };
 
     // Create pipeline layout
@@ -178,24 +178,25 @@ bool Pipeline::create(VkDevice device,
         }
     };
 
-    // Vertex input: matches Mesh::Vertex (vec3 pos, vec3 normal, vec2 uv)
+    // Vertex input: matches Mesh::Vertex (vec3 pos, vec3 normal, vec2 uv, vec4 color)
     VkVertexInputBindingDescription vertexBinding{
         .binding   = 0,
-        .stride    = 32,  // 12 + 12 + 8 bytes
+        .stride    = 48,  // 12 + 12 + 8 + 16 bytes
         .inputRate = VK_VERTEX_INPUT_RATE_VERTEX
     };
 
     VkVertexInputAttributeDescription vertexAttributes[] = {
-        { .location = 0, .binding = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = 0 },   // position
-        { .location = 1, .binding = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = 12 },  // normal
-        { .location = 2, .binding = 0, .format = VK_FORMAT_R32G32_SFLOAT,    .offset = 24 }   // texCoord
+        { .location = 0, .binding = 0, .format = VK_FORMAT_R32G32B32_SFLOAT,    .offset = 0 },   // position
+        { .location = 1, .binding = 0, .format = VK_FORMAT_R32G32B32_SFLOAT,    .offset = 12 },  // normal
+        { .location = 2, .binding = 0, .format = VK_FORMAT_R32G32_SFLOAT,       .offset = 24 },  // texCoord
+        { .location = 3, .binding = 0, .format = VK_FORMAT_R32G32B32A32_SFLOAT, .offset = 32 }   // color
     };
 
     VkPipelineVertexInputStateCreateInfo vertexInputState{
         .sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
         .vertexBindingDescriptionCount   = 1,
         .pVertexBindingDescriptions      = &vertexBinding,
-        .vertexAttributeDescriptionCount = 3,
+        .vertexAttributeDescriptionCount = 4,
         .pVertexAttributeDescriptions    = vertexAttributes
     };
 

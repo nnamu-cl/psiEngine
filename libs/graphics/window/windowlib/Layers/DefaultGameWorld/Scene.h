@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ecs/ComponentStore.h"
 #include <glm/mat4x4.hpp>
 #include <glm/vec3.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -22,13 +23,14 @@ struct GameObject
     Transform transform;
     uint32_t  meshIndex{     0 };
     uint32_t  materialIndex{ 0 };
+    ComponentStore components;
 };
 
 class Scene
 {
 public:
     std::vector<GameObject> objects;
-    void addObject(const GameObject& obj);
+    void addObject(GameObject obj);  // Take by value for move semantics
     void deleteObject(int index);
     void clear();
 };

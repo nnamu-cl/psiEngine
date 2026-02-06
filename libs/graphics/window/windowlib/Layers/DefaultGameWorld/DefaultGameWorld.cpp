@@ -1,5 +1,6 @@
 #include "DefaultGameWorld.h"
 #include "ApplicationWindow.h"   // full definition of ApplicationWindowData
+#include "Components/MeshRenderer.h"
 #include <iostream>
 #include <cstring>
 
@@ -49,8 +50,8 @@ void DefaultGameWorld::OnAttach()
     }
 
     // Create test scene with multiple objects
-    // Cube at origin
-    data.scene.addObject(GameObject{
+    // Cube at origin - red color
+    GameObject cubeObj{
         .name = "Cube",
         .transform = Transform{
             .position = glm::vec3(0.0f, 0.0f, 0.0f),
@@ -58,10 +59,14 @@ void DefaultGameWorld::OnAttach()
             .scale    = glm::vec3(1.0f)
         },
         .meshIndex = cubeIndex
-    });
+    };
+    cubeObj.components.add(std::make_unique<MeshRenderer>(
+        ColorMode::ObjectColor, glm::vec4(1.0f, 0.0f, 0.0f, 1.0f)
+    ));
+    data.scene.addObject(std::move(cubeObj));
 
-    // Triangle to the left
-    data.scene.addObject(GameObject{
+    // Triangle to the left - vertex colors
+    GameObject triObj{
         .name = "Triangle",
         .transform = Transform{
             .position = glm::vec3(-2.5f, 0.0f, 0.0f),
@@ -69,10 +74,14 @@ void DefaultGameWorld::OnAttach()
             .scale    = glm::vec3(1.0f)
         },
         .meshIndex = triIndex
-    });
+    };
+    triObj.components.add(std::make_unique<MeshRenderer>(
+        ColorMode::VertexColor
+    ));
+    data.scene.addObject(std::move(triObj));
 
-    // Smaller cube to the right
-    data.scene.addObject(GameObject{
+    // Smaller cube to the right - blue color
+    GameObject cube2Obj{
         .name = "Cube 2",
         .transform = Transform{
             .position = glm::vec3(2.5f, 0.0f, 0.0f),
@@ -80,7 +89,24 @@ void DefaultGameWorld::OnAttach()
             .scale    = glm::vec3(0.5f)
         },
         .meshIndex = cubeIndex
-    });
+    };
+    cube2Obj.components.add(std::make_unique<MeshRenderer>(
+        ColorMode::ObjectColor, glm::vec4(0.0f, 0.0f, 1.0f, 1.0f)
+    ));
+    data.scene.addObject(std::move(cube2Obj));
+
+    // Invisible object without MeshRenderer - should not render
+    GameObject invisibleObj{
+        .name = "Invisible (no MeshRenderer)",
+        .transform = Transform{
+            .position = glm::vec3(0.0f, 2.0f, 0.0f),
+            .rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
+            .scale    = glm::vec3(1.0f)
+        },
+        .meshIndex = cubeIndex
+    };
+    // Don't add MeshRenderer - this object won't render
+    data.scene.addObject(std::move(invisibleObj));
 
     std::cout << "DefaultGameWorld layer attached successfully\n";
     std::cout << "  Scene: " << data.scene.objects.size() << " objects\n";
@@ -231,6 +257,11 @@ void DefaultGameWorld::OnRender(VkCommandBuffer cb, const glm::ivec2& windowSize
 
     for (const auto& obj : data.scene.objects)
     {
+        // Skip objects without MeshRenderer component
+        const MeshRenderer* renderer = obj.components.get<MeshRenderer>();
+        if (!renderer)
+            continue;
+
         // Validate mesh index
         if (obj.meshIndex >= data.meshGPUInfo.size())
             continue;
@@ -239,10 +270,20 @@ void DefaultGameWorld::OnRender(VkCommandBuffer cb, const glm::ivec2& windowSize
         if (meshInfo.indexCount == 0)
             continue;
 
-        // Push model matrix constant
-        glm::mat4 modelMatrix = obj.transform.toMatrix();
-        vkCmdPushConstants(cb, data.pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT,
-                          0, sizeof(glm::mat4), &modelMatrix);
+        // Prepare push constants with model matrix, color mode, and object color
+        struct {
+            glm::mat4 model;
+            glm::vec4 objectColor;
+            uint32_t colorMode;
+            uint32_t padding[3];
+        } pushData;
+
+        pushData.model = obj.transform.toMatrix();
+        pushData.objectColor = renderer->objectColor;
+        pushData.colorMode = (renderer->colorMode == ColorMode::ObjectColor) ? 1u : 0u;
+
+        vkCmdPushConstants(cb, data.pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                          0, sizeof(pushData), &pushData);
 
         // Bind vertex buffer
         VkDeviceSize vertexOffsets[] = { meshInfo.vertexOffset };
