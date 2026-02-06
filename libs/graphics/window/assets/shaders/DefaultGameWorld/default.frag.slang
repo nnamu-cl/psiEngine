@@ -1,0 +1,11 @@
+// DefaultGameWorld fragment shader - Slang native format
+
+struct FragmentInput {
+    float3 color : COLOR0;
+};
+
+[shader("fragment")]
+float4 main(FragmentInput input) : SV_Target
+{
+    return float4(input.color, 1.0);
+}

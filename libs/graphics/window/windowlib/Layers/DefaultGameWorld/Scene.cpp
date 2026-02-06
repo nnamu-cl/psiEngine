@@ -1,0 +1,25 @@
+#include "Scene.h"
+
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/quaternion.hpp>
+
+glm::mat4 Transform::toMatrix() const
+{
+    // TRS order: scale first, then rotate, then translate.
+    // This matches the conventional column-major composition
+    // T * R * S applied right-to-left to a vertex.
+    glm::mat4 mat = glm::translate(glm::mat4(1.0f), position);
+    mat            = mat * glm::mat4_cast(rotation);
+    mat            = glm::scale(mat, scale);
+    return mat;
+}
+
+void Scene::addObject(const GameObject& obj)
+{
+    objects.push_back(obj);
+}
+
+void Scene::clear()
+{
+    objects.clear();
+}
