@@ -1,0 +1,65 @@
+#pragma once
+
+#include <glm/vec3.hpp>
+#include <glm/vec4.hpp>
+
+/**
+ * psi::Colors - Color palette for PSI application
+ *
+ * Defines the color scheme for dark mode UI and rendering.
+ * Colors are stored as normalized float values (0.0 - 1.0) for use with graphics APIs.
+ */
+namespace psi::Colors
+{
+    // Helper function to convert hex color to normalized RGB
+    constexpr glm::vec3 HexToRGB(uint32_t hex)
+    {
+        return glm::vec3(
+            ((hex >> 16) & 0xFF) / 255.0f,  // Red
+            ((hex >> 8) & 0xFF) / 255.0f,   // Green
+            (hex & 0xFF) / 255.0f           // Blue
+        );
+    }
+
+    // Helper function to convert hex color to normalized RGBA
+    constexpr glm::vec4 HexToRGBA(uint32_t hex, float alpha = 1.0f)
+    {
+        return glm::vec4(
+            ((hex >> 16) & 0xFF) / 255.0f,  // Red
+            ((hex >> 8) & 0xFF) / 255.0f,   // Green
+            (hex & 0xFF) / 255.0f,          // Blue
+            alpha                            // Alpha
+        );
+    }
+
+    // ========================================================================
+    // Background Colors (Dark Mode)
+    // ========================================================================
+
+    // Primary Background: The main/closest background layer (e.g., panels, windows)
+    constexpr glm::vec3 PrimaryBackground = HexToRGB(0x1E2228);
+
+    // Secondary Background: Further back than primary - used for the world/scene background
+    // This is the deepest layer, providing depth and separation from UI elements
+    constexpr glm::vec3 SecondaryBackground = HexToRGB(0x14181B);
+
+    // Tertiary Background: Slightly lighter than primary, for nested panels or hover states
+    constexpr glm::vec3 TertiaryBackground = HexToRGB(0x2A2F38);
+
+    // ========================================================================
+    // Accent Colors
+    // ========================================================================
+
+    constexpr glm::vec3 AccentBlue = HexToRGB(0x3B82F6);
+    constexpr glm::vec3 AccentGreen = HexToRGB(0x10B981);
+    constexpr glm::vec3 AccentRed = HexToRGB(0xEF4444);
+    constexpr glm::vec3 AccentYellow = HexToRGB(0xF59E0B);
+
+    // ========================================================================
+    // Text Colors
+    // ========================================================================
+
+    constexpr glm::vec3 TextPrimary = HexToRGB(0xF9FAFB);
+    constexpr glm::vec3 TextSecondary = HexToRGB(0x9CA3AF);
+    constexpr glm::vec3 TextDisabled = HexToRGB(0x6B7280);
+}

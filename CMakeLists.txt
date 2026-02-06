@@ -91,6 +91,26 @@ endif()
 
 
 # ==============================================================================
+# GENERATOR LIBRARY (For procedural mesh generation)
+# ==============================================================================
+
+# Generator can use GLM for math instead of its own GML library
+# Since we already use GLM, enable this option
+set(GENERATOR_USE_GLM ON CACHE BOOL "Use GLM in generator library")
+
+# Point generator to GLM include directory
+if (WIN32)
+    set(GLM_INCLUDE_DIR "$ENV{VULKAN_SDK}/include" CACHE PATH "GLM include directory")
+else()
+    # On non-Windows, GLM comes from FetchContent
+    get_target_property(GLM_INCLUDE_DIR glm::glm-header-only INTERFACE_INCLUDE_DIRECTORIES)
+endif()
+
+# Add generator library subdirectory
+add_subdirectory(external/generator)
+
+
+# ==============================================================================
 # BUILD KTX LIBRARY (For texture loading)
 # ==============================================================================
 

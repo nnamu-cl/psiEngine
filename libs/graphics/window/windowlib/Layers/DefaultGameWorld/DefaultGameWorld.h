@@ -54,9 +54,10 @@ public:
     // Public data for easy access and testing
     DefaultGameWorldData data;
 
+    // Helper: Upload all meshes in MeshTable to GPU
+    // Call this after adding new meshes to the mesh table
+    bool uploadMeshesToGPU();
+
 private:
     ApplicationWindowData* m_WindowData{ nullptr };
-
-    // Helper: Upload all meshes in MeshTable to GPU
-    bool uploadMeshesToGPU();
 };

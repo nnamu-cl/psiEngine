@@ -3,6 +3,7 @@
   <component name="VcsDirectoryMappings">
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/cmake-build-debug/_deps/catch2-src" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/external/generator" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/external/lygia" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/libs/graphics/window/cmake-build-debug/Debug/assets/lygia" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/libs/graphics/window/cmake-build-debug/_deps/catch2-src" vcs="Git" />
