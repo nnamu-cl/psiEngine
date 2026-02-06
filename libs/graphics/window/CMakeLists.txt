@@ -104,3 +104,24 @@ add_custom_command(
         COMMAND ${CMAKE_COMMAND} -E copy_directory ${ASSETS_SRC} $<TARGET_FILE_DIR:OpenWindow>/libs/graphics/window/assets
         COMMENT "Copying assets to OpenWindow executable directory"
 )
+
+
+
+# GraphDemo example
+file(GLOB GRAPHDEMOFILES "examples/GraphDemo/*.cpp" "examples/GraphDemo/*.h")
+add_executable(GraphDemo ${GRAPHDEMOFILES})
+target_link_libraries(GraphDemo PRIVATE WindowLib)
+
+# Copy LYGIA shader includes for GraphDemo
+add_custom_command(
+        TARGET GraphDemo POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory ${LYGIA_SRC} $<TARGET_FILE_DIR:GraphDemo>/assets/lygia
+        COMMENT "Copying LYGIA shaders to GraphDemo build directory"
+)
+
+# Also copy assets for GraphDemo example
+add_custom_command(
+        TARGET GraphDemo POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory ${ASSETS_SRC} $<TARGET_FILE_DIR:GraphDemo>/libs/graphics/window/assets
+        COMMENT "Copying assets to GraphDemo executable directory"
+)

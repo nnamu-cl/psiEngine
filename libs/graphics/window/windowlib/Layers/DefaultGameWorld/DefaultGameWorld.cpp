@@ -24,8 +24,8 @@ void DefaultGameWorld::OnAttach()
 
     // Create pipeline with default shaders
     PipelineDesc desc{
-        .vertexShaderPath   = "libs/graphics/window/shaders/DefaultGameWorld/default.vert.slang",
-        .fragmentShaderPath = "libs/graphics/window/shaders/DefaultGameWorld/default.frag.slang"
+        .vertexShaderPath   = "libs/graphics/window/assets/shaders/DefaultGameWorld/default.vert.slang",
+        .fragmentShaderPath = "libs/graphics/window/assets/shaders/DefaultGameWorld/default.frag.slang"
     };
 
     std::vector<VkDescriptorSetLayout> setLayouts = { data.resources.globalSetLayout };
