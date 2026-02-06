@@ -4,6 +4,7 @@
 
 // Forward declarations
 class PsiWorldLayer;
+class PsiNodeEditorLayer;
 namespace Application { class Application; }
 
 /**
@@ -15,7 +16,7 @@ namespace Application { class Application; }
 class ControlPanel
 {
 public:
-    ControlPanel(PsiWorldLayer* worldLayer, Application::Application* app);
+    ControlPanel(PsiWorldLayer* worldLayer, PsiNodeEditorLayer* nodeEditorLayer, Application::Application* app);
 
     void Render();
 
@@ -24,6 +25,7 @@ public:
 
 private:
     PsiWorldLayer* m_WorldLayer;
+    PsiNodeEditorLayer* m_NodeEditorLayer;
     Application::Application* m_Application;
     bool m_Visible = true;
 };

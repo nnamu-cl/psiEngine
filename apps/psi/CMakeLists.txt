@@ -32,6 +32,7 @@ target_include_directories(${NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/colors
     ${CMAKE_CURRENT_SOURCE_DIR}/../../libs/graphics/window/windowlib
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../libs/graphics/nodeGraph
     ${CMAKE_CURRENT_SOURCE_DIR}/../../external/imgui
     ${CMAKE_CURRENT_SOURCE_DIR}/../../external/imgui/backends
     ${CMAKE_CURRENT_SOURCE_DIR}/../../external/imgui_node_editor

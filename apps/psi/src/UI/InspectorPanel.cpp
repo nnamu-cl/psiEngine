@@ -24,8 +24,8 @@ void InspectorPanel::Render()
     // Position below stats panel at top right
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
     ImVec2 windowPos = ImVec2(viewport->WorkPos.x + viewport->WorkSize.x - 10.0f, viewport->WorkPos.y + 120.0f);
-    ImGui::SetNextWindowPos(windowPos, ImGuiCond_Always, ImVec2(1.0f, 0.0f));
-    ImGui::SetNextWindowSize(ImVec2(300, 0), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowPos(windowPos, ImGuiCond_FirstUseEver, ImVec2(1.0f, 0.0f));
+    ImGui::SetNextWindowSize(ImVec2(300, 400), ImGuiCond_FirstUseEver);
 
     ImGui::Begin("Inspector", &m_Visible);
 
@@ -48,15 +48,24 @@ void InspectorPanel::Render()
     // Render all components generically
     // Transform component
     Transform* transform = selectedObject.components.get<Transform>();
-    if (transform && ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen))
+    if (transform)
     {
+        ImGui::Spacing();
+        ImGui::Spacing();
+        ImGui::SeparatorText("Transform");
+        ImGui::Spacing();
         transform->OnInspectorGUI();
     }
 
     // MeshRenderer component
     MeshRenderer* renderer = selectedObject.components.get<MeshRenderer>();
-    if (renderer && ImGui::CollapsingHeader("MeshRenderer", ImGuiTreeNodeFlags_DefaultOpen))
+    if (renderer)
     {
+        ImGui::Spacing();
+        ImGui::Spacing();
+        ImGui::SeparatorText("MeshRenderer");
+        ImGui::Spacing();
+
         // Mesh info (read-only)
         ImGui::Indent();
         ImGui::Text("Mesh Index: %u", selectedObject.meshIndex);
