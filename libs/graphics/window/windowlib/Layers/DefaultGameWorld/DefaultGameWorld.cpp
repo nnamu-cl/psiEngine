@@ -51,6 +51,7 @@ void DefaultGameWorld::OnAttach()
     // Create test scene with multiple objects
     // Cube at origin
     data.scene.addObject(GameObject{
+        .name = "Cube",
         .transform = Transform{
             .position = glm::vec3(0.0f, 0.0f, 0.0f),
             .rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
@@ -61,6 +62,7 @@ void DefaultGameWorld::OnAttach()
 
     // Triangle to the left
     data.scene.addObject(GameObject{
+        .name = "Triangle",
         .transform = Transform{
             .position = glm::vec3(-2.5f, 0.0f, 0.0f),
             .rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
@@ -71,6 +73,7 @@ void DefaultGameWorld::OnAttach()
 
     // Smaller cube to the right
     data.scene.addObject(GameObject{
+        .name = "Cube 2",
         .transform = Transform{
             .position = glm::vec3(2.5f, 0.0f, 0.0f),
             .rotation = glm::angleAxis(glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f)),
@@ -251,10 +254,4 @@ void DefaultGameWorld::OnRender(VkCommandBuffer cb, const glm::ivec2& windowSize
         // Draw indexed
         vkCmdDrawIndexed(cb, meshInfo.indexCount, 1, 0, 0, 0);
     }
-}
-
-void DefaultGameWorld::OnUIRender() {
-    ImGui::Begin("Hello");
-    ImGui::Button("Click me ");
-    ImGui::End();
 }

@@ -5,6 +5,7 @@
 #include <glm/gtc/quaternion.hpp>
 #include <vector>
 #include <cstdint>
+#include <string>
 
 struct Transform
 {
@@ -17,6 +18,7 @@ struct Transform
 
 struct GameObject
 {
+    std::string name;
     Transform transform;
     uint32_t  meshIndex{     0 };
     uint32_t  materialIndex{ 0 };
@@ -26,7 +28,7 @@ class Scene
 {
 public:
     std::vector<GameObject> objects;
-
     void addObject(const GameObject& obj);
+    void deleteObject(int index);
     void clear();
 };

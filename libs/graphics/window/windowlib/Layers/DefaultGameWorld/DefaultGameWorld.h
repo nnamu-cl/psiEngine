@@ -50,7 +50,6 @@ public:
     void OnDetach()  override;
     void OnUpdate(float ts)  override;
     void OnRender(VkCommandBuffer cb, const glm::ivec2& windowSize, uint32_t frameIndex) override;
-    void OnUIRender() override;
 
     // Public data for easy access and testing
     DefaultGameWorldData data;

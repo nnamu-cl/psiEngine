@@ -425,7 +425,7 @@ void ApplicationWindow::Start(Application::Application& app)
             .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
             .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-            .clearValue{.color{.float32{0.45f, 0.55f, 0.60f, 1.0f}}}
+            .clearValue{.color{app.clearColorValue}}
         };
         VkRenderingAttachmentInfo depthAttach{
             .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
