@@ -14,9 +14,8 @@ void StatsPanel::Render()
 
     // Position at top right as an overlay
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
-    ImVec2 windowPos = ImVec2(viewport->WorkPos.x + viewport->WorkSize.x - 10.0f, viewport->WorkPos.y + 10.0f);
+    ImVec2 windowPos = ImVec2(viewport->WorkPos.x + viewport->WorkSize.x - 10.0f, viewport->WorkPos.y + 50.0f);
     ImGui::SetNextWindowPos(windowPos, ImGuiCond_Always, ImVec2(1.0f, 0.0f));
-    ImGui::SetNextWindowBgAlpha(0.7f); // Semi-transparent background for overlay effect
 
     // Overlay style flags
     ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoDecoration |

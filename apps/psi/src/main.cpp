@@ -10,6 +10,7 @@
 #include "ImGuiSkins/ShadSkin.h"
 #include "layers/PsiUILayer.h"
 #include "layers/PsiWorldLayer.h"
+#include "layers/PsiNodeEditorLayer.h"
 #include "PsiColors.h"
 #include <iostream>
 
@@ -20,7 +21,7 @@ int main(int argc, char* argv[])
         1920,
         1080,
         "psiQuantum",
-        SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE
+        SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_MAXIMIZED
     };
 
     // Initialize the application window
@@ -45,12 +46,14 @@ int main(int argc, char* argv[])
     shadSkin.ApplySkin();
 
     // Create layers
-    PsiWorldLayer worldLayer(&window.data);  // PSI 3D world rendering layer
-    PsiUILayer uiLayer(&worldLayer, &app);   // PSI-specific UI layer (with app reference for settings)
+    PsiWorldLayer worldLayer(&window.data);                  // PSI 3D world rendering layer
+    PsiNodeEditorLayer nodeEditorLayer(&worldLayer);         // Node editor layer (below UI)
+    PsiUILayer uiLayer(&worldLayer, &nodeEditorLayer, &app); // PSI-specific UI layer (with app reference for settings)
 
     // Attach layers to the application
-    // Order matters: worldLayer renders first, then UI overlays
+    // Order matters: worldLayer renders first, then node editor, then UI overlays on top
     app.PushLayer(&worldLayer);
+    app.PushLayer(&nodeEditorLayer);
     app.PushLayer(&uiLayer);
 
     // Start the main application loop

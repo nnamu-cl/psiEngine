@@ -6,11 +6,11 @@
 
 // Forward declarations
 class PsiWorldLayer;
+class PsiNodeEditorLayer;
 class ControlPanel;
 class StatsPanel;
 class InspectorPanel;
 namespace Application { class Application; }
-namespace ax::NodeEditor { struct EditorContext; }
 
 /**
  * PsiUILayer - Custom UI layer for PSI application
@@ -24,7 +24,7 @@ namespace ax::NodeEditor { struct EditorContext; }
 class PsiUILayer : public Application::Layer
 {
 public:
-    PsiUILayer(PsiWorldLayer* worldLayer, Application::Application* app);
+    PsiUILayer(PsiWorldLayer* worldLayer, PsiNodeEditorLayer* nodeEditorLayer, Application::Application* app);
     ~PsiUILayer() override;
 
     // Layer lifecycle methods
@@ -35,6 +35,7 @@ public:
 
 private:
     PsiWorldLayer* m_WorldLayer;
+    PsiNodeEditorLayer* m_NodeEditorLayer;
     Application::Application* m_Application;
 
     // UI Panels
@@ -44,16 +45,11 @@ private:
 
     // UI state
     bool m_ShowDemoWindow = true;
-    bool m_ShowNodeEditor = true;
 
     // Simulation parameters
     float m_TimeScale = 1.0f;
     bool m_SimulationPaused = false;
 
-    // Node Editor
-    ax::NodeEditor::EditorContext* m_NodeEditorContext = nullptr;
-
     // Render methods
     void RenderMenuBar();
-    void RenderNodeEditor();
 };

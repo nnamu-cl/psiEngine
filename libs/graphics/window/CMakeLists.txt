@@ -12,13 +12,19 @@ find_library(SLANG_LIBRARY NAMES slang HINTS "$ENV{VULKAN_SDK}/lib" REQUIRED)
 
 # WindowLib
 file(GLOB_RECURSE WINDOWLIBFILES CONFIGURE_DEPENDS "windowlib/*.cpp" "windowlib/*.h")
-add_library(WindowLib ${WINDOWLIBFILES})
+
+# NodeGraph files (in sibling directory)
+file(GLOB_RECURSE NODEGRAPHFILES CONFIGURE_DEPENDS "../nodeGraph/*.cpp" "../nodeGraph/*.h")
+
+add_library(WindowLib ${WINDOWLIBFILES} ${NODEGRAPHFILES})
 set(IMGUI_DIR ../../../external/imgui) #adding the imgui lib
 target_include_directories(WindowLib PUBLIC
         $ENV{VULKAN_SDK}/include
         ${CMAKE_CURRENT_SOURCE_DIR}/windowlib
+        ${CMAKE_CURRENT_SOURCE_DIR}/../nodeGraph
         ${CMAKE_CURRENT_SOURCE_DIR}/../../core/include
         ${IMGUI_DIR} ${IMGUI_DIR}/backends
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../../external/imgui_node_editor
 )
 
 target_sources(WindowLib PRIVATE
@@ -34,7 +40,7 @@ target_sources(WindowLib PRIVATE
 target_compile_definitions(WindowLib PRIVATE IMGUI_IMPL_VULKAN_USE_VOLK "IMGUI_IMPL_VULKAN_VOLK_FILENAME=<volk/volk.h>")
 target_link_libraries(WindowLib
     PRIVATE ${SDL_LIBRARY} ${SLANG_LIBRARY} CoreLib
-    PUBLIC generator
+    PUBLIC generator imgui_node_editor
 )
 
 # OpenWindow example
@@ -78,6 +84,10 @@ target_link_libraries(tests_shadskin PRIVATE WindowLib Catch2::Catch2WithMain)
 # Mesh generation tests (no Vulkan required, tests generator library integration)
 add_executable(tests_meshgen tests/test_MeshGeneration.cpp)
 target_link_libraries(tests_meshgen PRIVATE WindowLib Catch2::Catch2WithMain)
+
+# Node graph tests (no Vulkan required, tests GameObjectNodeDrawer)
+add_executable(tests_nodegraph tests/test_NodeGraph.cpp)
+target_link_libraries(tests_nodegraph PRIVATE WindowLib Catch2::Catch2WithMain)
 
 # Copy assets folder (shaders, fonts, etc.) to build directory
 # Preserve directory structure: libs/graphics/window/assets/
