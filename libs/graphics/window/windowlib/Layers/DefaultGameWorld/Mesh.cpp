@@ -1,4 +1,45 @@
 #include "Mesh.h"
+#include <generator/BoxMesh.hpp>
+#include <generator/TriangleMesh.hpp>
+
+namespace {
+    // Helper function to convert generator mesh to our Mesh format
+    template<typename GeneratorMesh>
+    Mesh convertFromGenerator(GeneratorMesh&& genMesh, const glm::vec4& color = glm::vec4{1.0f})
+    {
+        Mesh mesh;
+
+        // Extract vertices
+        auto vertexGen = genMesh.vertices();
+        while (!vertexGen.done()) {
+            auto v = vertexGen.generate();
+            mesh.vertices.push_back({
+                glm::vec3(static_cast<float>(v.position[0]),
+                         static_cast<float>(v.position[1]),
+                         static_cast<float>(v.position[2])),
+                glm::vec3(static_cast<float>(v.normal[0]),
+                         static_cast<float>(v.normal[1]),
+                         static_cast<float>(v.normal[2])),
+                glm::vec2(static_cast<float>(v.texCoord[0]),
+                         static_cast<float>(v.texCoord[1])),
+                color
+            });
+            vertexGen.next();
+        }
+
+        // Extract indices
+        auto triangleGen = genMesh.triangles();
+        while (!triangleGen.done()) {
+            auto tri = triangleGen.generate();
+            mesh.indices.push_back(static_cast<uint32_t>(tri.vertices[0]));
+            mesh.indices.push_back(static_cast<uint32_t>(tri.vertices[1]));
+            mesh.indices.push_back(static_cast<uint32_t>(tri.vertices[2]));
+            triangleGen.next();
+        }
+
+        return mesh;
+    }
+}
 
 uint32_t MeshTable::add(const std::string& name, Mesh mesh)
 {
@@ -34,14 +75,8 @@ const Mesh* MeshTable::get(const std::string& name) const
 // ---------------------------------------------------------------------------
 Mesh MeshTable::unitTriangle()
 {
-    Mesh m;
-    m.vertices = {
-        { glm::vec3{ 0.0f,  1.0f, 0.0f }, glm::vec3{ 0.0f, 0.0f, 1.0f }, glm::vec2{ 0.5f, 0.0f }, glm::vec4{ 1.0f, 1.0f, 1.0f, 1.0f } },
-        { glm::vec3{-1.0f, -1.0f, 0.0f }, glm::vec3{ 0.0f, 0.0f, 1.0f }, glm::vec2{ 0.0f, 1.0f }, glm::vec4{ 1.0f, 1.0f, 1.0f, 1.0f } },
-        { glm::vec3{ 1.0f, -1.0f, 0.0f }, glm::vec3{ 0.0f, 0.0f, 1.0f }, glm::vec2{ 1.0f, 1.0f }, glm::vec4{ 1.0f, 1.0f, 1.0f, 1.0f } },
-    };
-    m.indices = { 0, 1, 2 };
-    return m;
+    // Create a triangle with radius 1.0, 1 segment (simple triangle)
+    return convertFromGenerator(generator::TriangleMesh(1.0, 1));
 }
 
 // ---------------------------------------------------------------------------
@@ -51,45 +86,7 @@ Mesh MeshTable::unitTriangle()
 // ---------------------------------------------------------------------------
 Mesh MeshTable::unitCube()
 {
-    // Each face: 4 vertices, 2 triangles (indices 0,1,2 and 0,2,3).
-    // Layout per block: positions, shared normal, UV corners.
-    struct FaceData {
-        glm::vec3 verts[4];
-        glm::vec3 normal;
-    };
-
-    constexpr FaceData faces[6] = {
-        // +Z (front)
-        { { { -1,-1, 1 }, {  1,-1, 1 }, {  1, 1, 1 }, { -1, 1, 1 } }, { 0, 0, 1 } },
-        // -Z (back)
-        { { {  1,-1,-1 }, { -1,-1,-1 }, { -1, 1,-1 }, {  1, 1,-1 } }, { 0, 0,-1 } },
-        // +Y (top)
-        { { { -1, 1, 1 }, {  1, 1, 1 }, {  1, 1,-1 }, { -1, 1,-1 } }, { 0, 1, 0 } },
-        // -Y (bottom)
-        { { { -1,-1,-1 }, {  1,-1,-1 }, {  1,-1, 1 }, { -1,-1, 1 } }, { 0,-1, 0 } },
-        // +X (right)
-        { { {  1,-1, 1 }, {  1,-1,-1 }, {  1, 1,-1 }, {  1, 1, 1 } }, { 1, 0, 0 } },
-        // -X (left)
-        { { { -1,-1,-1 }, { -1,-1, 1 }, { -1, 1, 1 }, { -1, 1,-1 } }, {-1, 0, 0 } },
-    };
-
-    // UV layout: each face maps its quad to the full [0,1]x[0,1] tile.
-    constexpr glm::vec2 uvs[4] = { { 0, 1 }, { 1, 1 }, { 1, 0 }, { 0, 0 } };
-
-    Mesh m;
-    m.vertices.reserve(24);
-    m.indices.reserve(36);
-
-    for (int f = 0; f < 6; ++f)
-    {
-        uint32_t base = static_cast<uint32_t>(m.vertices.size());
-        for (int v = 0; v < 4; ++v)
-        {
-            m.vertices.push_back({ faces[f].verts[v], faces[f].normal, uvs[v], glm::vec4{ 1.0f, 1.0f, 1.0f, 1.0f } });
-        }
-        // Two triangles per face, CCW from outside.
-        m.indices.insert(m.indices.end(), { base, base+1, base+2, base, base+2, base+3 });
-    }
-
-    return m;
+    // BoxMesh takes half-extents, so {1, 1, 1} gives a box from [-1,-1,-1] to [1,1,1]
+    // Segments {1, 1, 1} gives us the simplest box with hard edges
+    return convertFromGenerator(generator::BoxMesh({1.0, 1.0, 1.0}, {1, 1, 1}));
 }

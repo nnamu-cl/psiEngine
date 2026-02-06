@@ -32,7 +32,10 @@ target_sources(WindowLib PRIVATE
 )
 
 target_compile_definitions(WindowLib PRIVATE IMGUI_IMPL_VULKAN_USE_VOLK "IMGUI_IMPL_VULKAN_VOLK_FILENAME=<volk/volk.h>")
-target_link_libraries(WindowLib PRIVATE ${SDL_LIBRARY} ${SLANG_LIBRARY} CoreLib)
+target_link_libraries(WindowLib
+    PRIVATE ${SDL_LIBRARY} ${SLANG_LIBRARY} CoreLib
+    PUBLIC generator
+)
 
 # OpenWindow example
 file(GLOB OPENWINDOWFILES "examples/OpenWindow/*.cpp" "examples/OpenWindow/*.h")
@@ -71,6 +74,10 @@ target_link_libraries(tests_dgw_vulkan PRIVATE WindowLib Catch2::Catch2WithMain)
 # ShadSkin tests (no Vulkan required, just ImGui)
 add_executable(tests_shadskin tests/test_ShadSkin.cpp)
 target_link_libraries(tests_shadskin PRIVATE WindowLib Catch2::Catch2WithMain)
+
+# Mesh generation tests (no Vulkan required, tests generator library integration)
+add_executable(tests_meshgen tests/test_MeshGeneration.cpp)
+target_link_libraries(tests_meshgen PRIVATE WindowLib Catch2::Catch2WithMain)
 
 # Copy assets folder (shaders, fonts, etc.) to build directory
 # Preserve directory structure: libs/graphics/window/assets/

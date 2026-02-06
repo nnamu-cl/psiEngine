@@ -51,6 +51,11 @@ public:
     void OnUpdate(float ts)  override;
     void OnRender(VkCommandBuffer cb, const glm::ivec2& windowSize, uint32_t frameIndex) override;
 
+    // Add a mesh primitive to the scene
+    void addMeshPrimitive(const std::string& name, Mesh mesh,
+                         const glm::vec3& position = glm::vec3(0.0f),
+                         const glm::vec4& color = glm::vec4(1.0f));
+
     // Public data for easy access and testing
     DefaultGameWorldData data;
 

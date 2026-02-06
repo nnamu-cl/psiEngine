@@ -41,7 +41,7 @@ namespace psi::Colors
 
     // Secondary Background: Further back than primary - used for the world/scene background
     // This is the deepest layer, providing depth and separation from UI elements
-    constexpr glm::vec3 SecondaryBackground = HexToRGB(0x14181B);
+    constexpr glm::vec3 SecondaryBackground = HexToRGB(0x000000);
 
     // Tertiary Background: Slightly lighter than primary, for nested panels or hover states
     constexpr glm::vec3 TertiaryBackground = HexToRGB(0x2A2F38);

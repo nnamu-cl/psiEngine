@@ -12,6 +12,7 @@
 #include "Layers/DefaultGameWorld/Camera.h"
 #include "Layers/DefaultGameWorld/Scene.h"
 #include "Layers/DefaultGameWorld/Mesh.h"
+#include "Components/Transform.h"
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -221,11 +222,12 @@ TEST_CASE("Scene starts empty")
 TEST_CASE("Scene addObject increases count")
 {
     Scene s;
-    GameObject obj{};
-    s.addObject(obj);
+    GameObject obj1{};
+    s.addObject(std::move(obj1));
     REQUIRE(s.objects.size() == 1);
 
-    s.addObject(obj);
+    GameObject obj2{};
+    s.addObject(std::move(obj2));
     REQUIRE(s.objects.size() == 2);
 }
 
@@ -235,22 +237,25 @@ TEST_CASE("Scene addObject preserves data")
     GameObject obj{};
     obj.meshIndex     = 5;
     obj.materialIndex = 3;
-    obj.transform.position = { 1.0f, 2.0f, 3.0f };
+    obj.components.add(std::make_unique<Transform>(
+        glm::vec3(1.0f, 2.0f, 3.0f)
+    ));
 
-    s.addObject(obj);
+    s.addObject(std::move(obj));
 
     REQUIRE(s.objects[0].meshIndex     == 5);
     REQUIRE(s.objects[0].materialIndex == 3);
-    APPROX(s.objects[0].transform.position.x, 1.0f);
+    const Transform* transform = s.objects[0].components.get<Transform>();
+    REQUIRE(transform != nullptr);
+    APPROX(transform->position.x, 1.0f);
 }
 
 TEST_CASE("Scene clear empties the object list")
 {
     Scene s;
-    GameObject obj{};
-    s.addObject(obj);
-    s.addObject(obj);
-    s.addObject(obj);
+    s.addObject(GameObject{});
+    s.addObject(GameObject{});
+    s.addObject(GameObject{});
     REQUIRE(s.objects.size() == 3);
 
     s.clear();
@@ -279,16 +284,15 @@ TEST_CASE("Scene with empty objects can be safely iterated")
 TEST_CASE("Scene objects can be accessed after clearing")
 {
     Scene s;
-    GameObject obj{};
-    s.addObject(obj);
-    s.addObject(obj);
+    s.addObject(GameObject{});
+    s.addObject(GameObject{});
     REQUIRE(s.objects.size() == 2);
 
     s.clear();
     REQUIRE(s.objects.size() == 0);
 
     // After clear, we should be able to add objects again
-    s.addObject(obj);
+    s.addObject(GameObject{});
     REQUIRE(s.objects.size() == 1);
 }
 

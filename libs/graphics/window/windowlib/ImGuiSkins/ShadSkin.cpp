@@ -94,9 +94,9 @@ namespace Application::Skins {
         colors[ImGuiCol_SeparatorHovered] = ImColor(39, 185, 242, 150);
 
         // Window Background
-        colors[ImGuiCol_WindowBg] = ImGui::ColorConvertU32ToFloat4(Colors::Theme::titlebar);
-        colors[ImGuiCol_ChildBg] = ImGui::ColorConvertU32ToFloat4(Colors::Theme::background);
-        colors[ImGuiCol_PopupBg] = ImGui::ColorConvertU32ToFloat4(Colors::Theme::backgroundPopup);
+        colors[ImGuiCol_WindowBg] = ImColor(20, 24, 27, 255);  // #14181b
+        colors[ImGuiCol_ChildBg] = ImColor(20, 24, 27, 255);   // #14181b
+        colors[ImGuiCol_PopupBg] = ImColor(20, 24, 27, 255);   // #14181b
         colors[ImGuiCol_Border] = ImGui::ColorConvertU32ToFloat4(Colors::Theme::backgroundDark);
 
         // Tables

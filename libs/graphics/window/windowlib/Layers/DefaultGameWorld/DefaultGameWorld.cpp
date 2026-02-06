@@ -1,5 +1,6 @@
 #include "DefaultGameWorld.h"
 #include "ApplicationWindow.h"   // full definition of ApplicationWindowData
+#include "Components/Transform.h"
 #include "Components/MeshRenderer.h"
 #include <iostream>
 #include <cstring>
@@ -38,79 +39,9 @@ void DefaultGameWorld::OnAttach()
         return;
     }
 
-    // Populate mesh table with test geometry
-    uint32_t cubeIndex = data.meshTable.add("cube", MeshTable::unitCube());
-    uint32_t triIndex  = data.meshTable.add("triangle", MeshTable::unitTriangle());
-
-    // Upload all meshes to GPU
-    if (!uploadMeshesToGPU())
-    {
-        std::cerr << "Failed to upload meshes to GPU\n";
-        return;
-    }
-
-    // Create test scene with multiple objects
-    // Cube at origin - red color
-    GameObject cubeObj{
-        .name = "Cube",
-        .transform = Transform{
-            .position = glm::vec3(0.0f, 0.0f, 0.0f),
-            .rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
-            .scale    = glm::vec3(1.0f)
-        },
-        .meshIndex = cubeIndex
-    };
-    cubeObj.components.add(std::make_unique<MeshRenderer>(
-        ColorMode::ObjectColor, glm::vec4(1.0f, 0.0f, 0.0f, 1.0f)
-    ));
-    data.scene.addObject(std::move(cubeObj));
-
-    // Triangle to the left - vertex colors
-    GameObject triObj{
-        .name = "Triangle",
-        .transform = Transform{
-            .position = glm::vec3(-2.5f, 0.0f, 0.0f),
-            .rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
-            .scale    = glm::vec3(1.0f)
-        },
-        .meshIndex = triIndex
-    };
-    triObj.components.add(std::make_unique<MeshRenderer>(
-        ColorMode::VertexColor
-    ));
-    data.scene.addObject(std::move(triObj));
-
-    // Smaller cube to the right - blue color
-    GameObject cube2Obj{
-        .name = "Cube 2",
-        .transform = Transform{
-            .position = glm::vec3(2.5f, 0.0f, 0.0f),
-            .rotation = glm::angleAxis(glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f)),
-            .scale    = glm::vec3(0.5f)
-        },
-        .meshIndex = cubeIndex
-    };
-    cube2Obj.components.add(std::make_unique<MeshRenderer>(
-        ColorMode::ObjectColor, glm::vec4(0.0f, 0.0f, 1.0f, 1.0f)
-    ));
-    data.scene.addObject(std::move(cube2Obj));
-
-    // Invisible object without MeshRenderer - should not render
-    GameObject invisibleObj{
-        .name = "Invisible (no MeshRenderer)",
-        .transform = Transform{
-            .position = glm::vec3(0.0f, 2.0f, 0.0f),
-            .rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
-            .scale    = glm::vec3(1.0f)
-        },
-        .meshIndex = cubeIndex
-    };
-    // Don't add MeshRenderer - this object won't render
-    data.scene.addObject(std::move(invisibleObj));
-
+    // Scene starts empty - meshes can be added via UI
     std::cout << "DefaultGameWorld layer attached successfully\n";
-    std::cout << "  Scene: " << data.scene.objects.size() << " objects\n";
-    std::cout << "  Meshes: " << data.meshTable.count() << " loaded\n";
+    std::cout << "  Scene ready - use UI to add objects\n";
 }
 
 bool DefaultGameWorld::uploadMeshesToGPU()
@@ -204,6 +135,41 @@ bool DefaultGameWorld::uploadMeshesToGPU()
     return true;
 }
 
+void DefaultGameWorld::addMeshPrimitive(const std::string& name, Mesh mesh,
+                                        const glm::vec3& position,
+                                        const glm::vec4& color)
+{
+    // Add mesh to table
+    uint32_t meshIndex = data.meshTable.add(name, std::move(mesh));
+
+    // Re-upload all meshes to GPU (includes the new one)
+    // Destroy old buffer first
+    if (data.meshBuffer != VK_NULL_HANDLE)
+        vmaDestroyBuffer(m_WindowData->allocator, data.meshBuffer, data.meshBufferAllocation);
+
+    if (!uploadMeshesToGPU())
+    {
+        std::cerr << "Failed to upload meshes to GPU after adding " << name << "\n";
+        return;
+    }
+
+    // Create game object with the mesh
+    GameObject obj{
+        .name = name,
+        .meshIndex = meshIndex
+    };
+    obj.components.add(std::make_unique<Transform>(
+        position,
+        glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
+        glm::vec3(1.0f)
+    ));
+    obj.components.add(std::make_unique<MeshRenderer>(
+        ColorMode::ObjectColor, color
+    ));
+
+    data.scene.addObject(std::move(obj));
+}
+
 void DefaultGameWorld::OnDetach()
 {
     // Destroy mesh buffer
@@ -257,6 +223,11 @@ void DefaultGameWorld::OnRender(VkCommandBuffer cb, const glm::ivec2& windowSize
 
     for (const auto& obj : data.scene.objects)
     {
+        // Skip objects without Transform component
+        const Transform* transform = obj.components.get<Transform>();
+        if (!transform)
+            continue;
+
         // Skip objects without MeshRenderer component
         const MeshRenderer* renderer = obj.components.get<MeshRenderer>();
         if (!renderer)
@@ -278,7 +249,7 @@ void DefaultGameWorld::OnRender(VkCommandBuffer cb, const glm::ivec2& windowSize
             uint32_t padding[3];
         } pushData;
 
-        pushData.model = obj.transform.toMatrix();
+        pushData.model = transform->toMatrix();
         pushData.objectColor = renderer->objectColor;
         pushData.colorMode = (renderer->colorMode == ColorMode::ObjectColor) ? 1u : 0u;
 
