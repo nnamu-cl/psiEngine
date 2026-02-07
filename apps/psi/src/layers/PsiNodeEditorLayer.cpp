@@ -49,7 +49,8 @@ void PsiNodeEditorLayer::OnUpdate(float ts)
     }
 
     // Mark all nodes dirty each frame (lazy evaluation system)
-    m_NodeGraph.markAllDirty();
+    //m_NodeGraph.markAllDirty();
+    m_NodeGraph.evaluateAll();
 
     // Update all GameObject properties bound to node outputs
     if (m_PropertyBinding)

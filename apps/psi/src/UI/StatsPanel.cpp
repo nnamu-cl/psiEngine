@@ -23,11 +23,10 @@ void StatsPanel::Render()
                                     ImGuiWindowFlags_NoFocusOnAppearing |
                                     ImGuiWindowFlags_NoNav;
     ImGui::SetNextWindowSize(ImVec2(300, 0), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowBgAlpha(0);
 
     ImGui::Begin("Statistics", &m_Visible, windowFlags);
 
-    ImGui::Text("Performance");
-    ImGui::Separator();
 
     // Frame stats
     ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);

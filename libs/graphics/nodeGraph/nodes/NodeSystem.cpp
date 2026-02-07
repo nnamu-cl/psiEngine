@@ -220,11 +220,12 @@ void NodeGraph::markAllDirty() {
     for (auto& node : m_Nodes) {
         node->markDirty();
     }
+}
 
+void NodeGraph::evaluateAll() {
     for (auto& node : m_Nodes) {
         if (node->isDirty()) {
             node->evaluate();
-            node->markClean();
         }
     }
 }

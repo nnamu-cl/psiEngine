@@ -68,6 +68,12 @@ void NodeSystemDrawer::DrawNodeGraph()
     ImGui::Begin("Node Editor", &Open, windowFlags);
 
     ed::SetCurrentEditor(m_NodeEditorContext);
+
+    // Set background and grid to fully transparent
+    auto& style = ed::GetStyle();
+    style.Colors[ed::StyleColor_Bg] = ImVec4(0, 0, 0, 0);
+    style.Colors[ed::StyleColor_Grid] = ImVec4(0, 0, 0, 0);
+
     ed::Begin("My Editor");
 
     DrawAllNodes();
