@@ -2,6 +2,7 @@
 
 // Forward declarations
 class PsiWorldLayer;
+class PsiNodeEditorLayer;
 
 /**
  * InspectorPanel - Object property inspector
@@ -13,7 +14,7 @@ class PsiWorldLayer;
 class InspectorPanel
 {
 public:
-    explicit InspectorPanel(PsiWorldLayer* worldLayer);
+    InspectorPanel(PsiWorldLayer* worldLayer, PsiNodeEditorLayer* nodeEditorLayer);
 
     void Render();
 
@@ -22,5 +23,6 @@ public:
 
 private:
     PsiWorldLayer* m_WorldLayer;
+    PsiNodeEditorLayer* m_NodeEditorLayer;
     bool m_Visible = true;
 };

@@ -220,6 +220,13 @@ void NodeGraph::markAllDirty() {
     for (auto& node : m_Nodes) {
         node->markDirty();
     }
+
+    for (auto& node : m_Nodes) {
+        if (node->isDirty()) {
+            node->evaluate();
+            node->markClean();
+        }
+    }
 }
 
 NodeValue NodeGraph::evaluate(OutputSocket* output) {

@@ -61,7 +61,7 @@ PsiUILayer::PsiUILayer(PsiWorldLayer* worldLayer, PsiNodeEditorLayer* nodeEditor
     // Create UI panels
     m_ControlPanel = std::make_unique<ControlPanel>(worldLayer, nodeEditorLayer, app);
     m_StatsPanel = std::make_unique<StatsPanel>(worldLayer);
-    m_InspectorPanel = std::make_unique<InspectorPanel>(worldLayer);
+    m_InspectorPanel = std::make_unique<InspectorPanel>(worldLayer, nodeEditorLayer);
 }
 
 PsiUILayer::~PsiUILayer()

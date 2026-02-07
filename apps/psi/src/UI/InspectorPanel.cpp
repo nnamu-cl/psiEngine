@@ -1,11 +1,13 @@
 #include "InspectorPanel.h"
 #include "layers/PsiWorldLayer.h"
+#include "layers/PsiNodeEditorLayer.h"
 #include "Components/Transform.h"
 #include "Components/MeshRenderer.h"
 #include "imgui.h"
 
-InspectorPanel::InspectorPanel(PsiWorldLayer* worldLayer)
+InspectorPanel::InspectorPanel(PsiWorldLayer* worldLayer, PsiNodeEditorLayer* nodeEditorLayer)
     : m_WorldLayer(worldLayer)
+    , m_NodeEditorLayer(nodeEditorLayer)
 {
 }
 
@@ -54,7 +56,16 @@ void InspectorPanel::Render()
         ImGui::Spacing();
         ImGui::SeparatorText("Transform");
         ImGui::Spacing();
-        transform->OnInspectorGUI();
+
+        // Pass NodeGraph to Transform if available
+        if (m_NodeEditorLayer)
+        {
+            transform->OnInspectorGUI(&m_NodeEditorLayer->getNodeGraph());
+        }
+        else
+        {
+            transform->OnInspectorGUI();
+        }
     }
 
     // MeshRenderer component

@@ -4,6 +4,10 @@
 #include <glm/vec3.hpp>
 #include <glm/gtc/quaternion.hpp>
 
+// Forward declarations
+class TransformNode;
+class NodeGraph;
+
 class Transform : public IComponent
 {
 public:
@@ -21,6 +25,16 @@ public:
     // Convert to model matrix
     glm::mat4 toMatrix() const;
 
+    // Getters that return node values if linked, otherwise component values
+    glm::vec3 getPos() const;
+    glm::vec3 getRot() const;  // Returns euler angles in degrees
+    glm::vec3 getScale() const;
+
+    // Node linking
+    void linkToNode(TransformNode* node);
+    void clearNodeLink();
+    TransformNode* getLinkedNode() const { return m_LinkedNode; }
+
     std::unique_ptr<IComponent> clone() const override
     {
         return std::make_unique<Transform>(*this);
@@ -28,4 +42,8 @@ public:
 
     // Render inspector UI for this component
     void OnInspectorGUI() override;
+    void OnInspectorGUI(NodeGraph* nodeGraph);  // Overload with NodeGraph access
+
+private:
+    TransformNode* m_LinkedNode = nullptr;
 };

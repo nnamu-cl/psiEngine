@@ -153,17 +153,14 @@ void NodeSystemDrawer::DrawInputSockets(Node* node)
     {
         uint64_t pinId = GetPinId(node->getId(), input.name, true);
         ed::BeginPin(pinId, ed::PinKind::Input);
-        ed::PinPivotAlignment(ImVec2(1.0f, 0.5f));
+        ed::PinPivotAlignment(ImVec2(0.0f, 0.5f));
         ed::PinPivotSize(ImVec2(0, 0));
         ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 1);
 
-        ImGui::Text(input.name.c_str());  // Value name
-        Pin pin {static_cast<int> (pinId), input.name.c_str(), PinType::Object};
-        DrawPinIcon(pin, false, (int)(1 * 255));
+        DrawInputSocketPin(&input, pinId);
+
         ImGui::PopStyleVar();
         ed::EndPin();
-
-
     }
 }
 
@@ -173,16 +170,13 @@ void NodeSystemDrawer::DrawOutputSockets(Node* node)
     {
         uint64_t pinId = GetPinId(node->getId(), output.name, false);
 
-
-
         ed::BeginPin(pinId, ed::PinKind::Output);
             ed::PinPivotAlignment(ImVec2(1.0f, 0.5f));
             ed::PinPivotSize(ImVec2(0, 0));
             ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 1);
 
-            ImGui::Text(output.name.c_str());  // Value name
-            Pin pin {static_cast<int> (pinId), output.name.c_str(), PinType::Float};
-            DrawPinIcon(pin, false, (int)(1 * 255));
+            DrawOutputSocketPin(&output, pinId);
+
             ImGui::PopStyleVar();
         ed::EndPin();
     }
@@ -229,7 +223,7 @@ void NodeSystemDrawer::HandleInteractions()
     ed::BeginCreate();
     {
         ed::PinId inputPinId, outputPinId;
-        if (ed::QueryNewLink(&inputPinId, &outputPinId))
+        if (ed::QueryNewLink(&outputPinId, &inputPinId))
         {
             // Find the sockets from pin IDs
             OutputSocket* outputSocket = nullptr;
