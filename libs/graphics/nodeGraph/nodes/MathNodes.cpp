@@ -1,5 +1,10 @@
 #include "MathNodes.h"
 #include <cmath>
+#include "imgui.h"
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 // Helper template for binary operations that work with both float and vec3
 template<typename Op>
@@ -166,4 +171,126 @@ void CosNode::evaluate() {
 
     getOutput("Result")->setValue(result);
     markClean();
+}
+
+// TanNode implementation
+TanNode::TanNode() {
+    addInput("Value", SocketType::Float, 0.0f);
+    addOutput("Result", SocketType::Float, 0.0f);
+}
+
+void TanNode::evaluate() {
+    if (!isDirty()) return;
+
+    float value = std::get<float>(getInput("Value")->getValue());
+    float result = std::tan(value);
+
+    getOutput("Result")->setValue(result);
+    markClean();
+}
+
+// ArctanNode implementation
+ArctanNode::ArctanNode() {
+    addInput("Value", SocketType::Float, 0.0f);
+    addOutput("Result", SocketType::Float, 0.0f);
+}
+
+void ArctanNode::evaluate() {
+    if (!isDirty()) return;
+
+    float value = std::get<float>(getInput("Value")->getValue());
+    float result = std::atan(value);
+
+    getOutput("Result")->setValue(result);
+    markClean();
+}
+
+// ArcsinNode implementation
+ArcsinNode::ArcsinNode() {
+    addInput("Value", SocketType::Float, 0.0f);
+    addOutput("Result", SocketType::Float, 0.0f);
+}
+
+void ArcsinNode::evaluate() {
+    if (!isDirty()) return;
+
+    float value = std::get<float>(getInput("Value")->getValue());
+    // Clamp value to [-1, 1] to avoid NaN
+    value = std::max(-1.0f, std::min(1.0f, value));
+    float result = std::asin(value);
+
+    getOutput("Result")->setValue(result);
+    markClean();
+}
+
+// ArccosNode implementation
+ArccosNode::ArccosNode() {
+    addInput("Value", SocketType::Float, 0.0f);
+    addOutput("Result", SocketType::Float, 0.0f);
+}
+
+void ArccosNode::evaluate() {
+    if (!isDirty()) return;
+
+    float value = std::get<float>(getInput("Value")->getValue());
+    // Clamp value to [-1, 1] to avoid NaN
+    value = std::max(-1.0f, std::min(1.0f, value));
+    float result = std::acos(value);
+
+    getOutput("Result")->setValue(result);
+    markClean();
+}
+
+// PowNode implementation
+PowNode::PowNode() {
+    addInput("Base", SocketType::Float, 1.0f);
+    addInput("Exponent", SocketType::Float, 2.0f);
+    addOutput("Result", SocketType::Float, 1.0f);
+}
+
+void PowNode::evaluate() {
+    if (!isDirty()) return;
+
+    float base = std::get<float>(getInput("Base")->getValue());
+    float exponent = std::get<float>(getInput("Exponent")->getValue());
+    float result = std::pow(base, exponent);
+
+    getOutput("Result")->setValue(result);
+    markClean();
+}
+
+// RootNode implementation
+RootNode::RootNode() {
+    addInput("Value", SocketType::Float, 0.0f);
+    addOutput("Result", SocketType::Float, 0.0f);
+}
+
+void RootNode::evaluate() {
+    if (!isDirty()) return;
+
+    float value = std::get<float>(getInput("Value")->getValue());
+    // Clamp to non-negative to avoid NaN
+    value = std::max(0.0f, value);
+    float result = std::sqrt(value);
+
+    getOutput("Result")->setValue(result);
+    markClean();
+}
+
+// PINode implementation
+PINode::PINode() {
+    addOutput("Value", SocketType::Float, static_cast<float>(M_PI));
+}
+
+void PINode::evaluate() {
+    if (!isDirty()) return;
+
+    getOutput("Value")->setValue(static_cast<float>(M_PI));
+    markClean();
+}
+
+void PINode::OnDrawNodeUI() {
+    ImGui::PushID(this);
+    ImGui::Text("3.14159...");
+    ImGui::PopID();
 }

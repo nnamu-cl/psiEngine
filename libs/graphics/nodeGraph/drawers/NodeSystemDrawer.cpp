@@ -62,7 +62,7 @@ void NodeSystemDrawer::DrawNodeGraph()
 
     windowFlags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse |
                    ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
-                   ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+                   ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus ;
 
     ImGui::SetNextWindowBgAlpha(0.0f); // Fully transparent window background
     ImGui::Begin("Node Editor", &Open, windowFlags);
@@ -125,16 +125,56 @@ void NodeSystemDrawer::DrawNodeInternal(Node* node, int arrayIndex)
     // Begin node
     ed::BeginNode(nodeId);
 
-    // Node header with type name
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.3f, 0.7f, 1.0f, 1.0f));  // Cyan for node system nodes
-    ImGui::TextUnformatted(node->getTypeName());
-    ImGui::PopStyleColor();
+    // Layout: Input pins on left, custom UI in middle, output pins on right
+    ImGui::BeginGroup();
 
-    ImGui::Spacing();
+    {
+        // Node header with type name (smaller text)
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.3f, 0.7f, 1.0f, 0.6f));  // Cyan with reduced opacity
+        ImGui::SetWindowFontScale(0.8f);  // 80% of normal size
+        ImGui::TextUnformatted(node->getTypeName());
+        ImGui::SetWindowFontScale(1.0f);  // Reset to normal size
+        ImGui::PopStyleColor();
+
+        // Node name input field
+        ImGui::PushID(node);
+        ImGui::SameLine();
+
+        ImGui::PushItemWidth(100.0f);
+
+        // Get or create buffer for this node
+        std::string& nameBuffer = m_NodeNameBuffers[nodeId];
+
+        // Sync buffer with node's current name if it differs
+        if (nameBuffer != node->getName())
+        {
+            nameBuffer = node->getName();
+        }
+
+        // Resize buffer to accommodate input (256 chars max)
+        nameBuffer.resize(256);
+
+        if (ImGui::InputText("##nodename", nameBuffer.data(), nameBuffer.capacity()))
+        {
+            // Trim to actual string length and update node
+            nameBuffer.resize(strlen(nameBuffer.c_str()));
+            node->setName(nameBuffer);
+        }
+
+        ImGui::PopItemWidth();
+        ImGui::PopID();
+    }
+    ImGui::EndGroup();
+
+
 
     // Layout: Input pins on left, custom UI in middle, output pins on right
     ImGui::BeginGroup();
+
+    {
+
         DrawInputSockets(node);
+    }
     ImGui::EndGroup();
 
     ImGui::SameLine();
@@ -276,6 +316,7 @@ void NodeSystemDrawer::HandleInteractions()
     // Handle deletions - MUST call EndDelete() regardless of BeginDelete() result
     ed::BeginDelete();
     {
+        // Handle link deletion
         ed::LinkId deletedLinkId;
         while (ed::QueryDeletedLink(&deletedLinkId))
         {
@@ -300,6 +341,24 @@ void NodeSystemDrawer::HandleInteractions()
                             }
                         }
                     }
+                }
+            }
+        }
+
+        // Handle node deletion
+        ed::NodeId deletedNodeId;
+        while (ed::QueryDeletedNode(&deletedNodeId))
+        {
+            if (ed::AcceptDeletedItem())
+            {
+                uint64_t nodeId = deletedNodeId.Get();
+
+                // Remove node from graph (this also disconnects all connections)
+                if (m_NodeGraph->deleteNode(nodeId))
+                {
+                    // Clean up drawer-specific data
+                    m_PositionedNodes.erase(nodeId);
+                    m_NodeNameBuffers.erase(nodeId);
                 }
             }
         }
