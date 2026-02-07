@@ -224,5 +224,8 @@ add_subdirectory(libs/core)
 # Add the graphics window library
 add_subdirectory(libs/graphics/window)
 
+# Add the implot library
+add_subdirectory(libs/graphics/implot)
+
 # Add the PSI application
 add_subdirectory(apps/psi)

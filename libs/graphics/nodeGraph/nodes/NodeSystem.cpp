@@ -50,7 +50,7 @@ std::optional<NodeValue> TypeConverter::convert(const NodeValue& from, SocketTyp
 }
 
 bool TypeConverter::isCompatible(SocketType from, SocketType to) {
-    if (from == to || to == SocketType::Any) return true;
+    if (from == to || to == SocketType::Any || from == SocketType::Any) return true;
 
     // Define compatible type pairs
     static const std::unordered_map<SocketType, std::unordered_set<SocketType>> compatibilityMap = {

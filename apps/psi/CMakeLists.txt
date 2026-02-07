@@ -36,12 +36,14 @@ target_include_directories(${NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../../external/imgui
     ${CMAKE_CURRENT_SOURCE_DIR}/../../external/imgui/backends
     ${CMAKE_CURRENT_SOURCE_DIR}/../../external/imgui_node_editor
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../libs/graphics/implot
 )
 
 # Link against WindowLib and other dependencies
 target_link_libraries(${NAME} PRIVATE
     WindowLib
     imgui_node_editor
+    implot
     ${SDL_LIBRARY}
     ${SLANG_LIBRARY}
 )
