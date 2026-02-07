@@ -1,12 +1,30 @@
 #include "NodeSystemDrawer.h"
+#include "NodeEditorIcons.h"
+#include "NodeEditorPinTypes.h"
+#include "NodeEditorPinDrawing.h"
 #include "imgui.h"
 #include "imgui_node_editor.h"
+#include "imgui_node_editor_internal.h"
 
 namespace ed = ax::NodeEditor;
+
 
 NodeSystemDrawer::NodeSystemDrawer(NodeGraph* nodeGraph)
     : m_NodeGraph(nodeGraph)
 {
+    // Create node editor context
+    ed::Config config;
+    m_NodeEditorContext = ed::CreateEditor(&config);
+}
+
+NodeSystemDrawer::~NodeSystemDrawer()
+{
+    // Destroy node editor context
+    if (m_NodeEditorContext)
+    {
+        ed::DestroyEditor(m_NodeEditorContext);
+        m_NodeEditorContext = nullptr;
+    }
 }
 
 int NodeSystemDrawer::GetNodeCount() const
@@ -20,6 +38,54 @@ void NodeSystemDrawer::DrawNode(int nodeId)
         return;
 
     DrawNodeInternal(m_NodeGraph->getNodes()[nodeId].get(), nodeId);
+}
+
+void NodeSystemDrawer::DrawAllNodes()
+{
+    if (!m_NodeGraph) return;
+
+    int nodeCount = m_NodeGraph->getNodes().size();
+    for (int i = 0; i < nodeCount; ++i)
+    {
+        DrawNode(i);
+    }
+}
+
+void NodeSystemDrawer::DrawNodeGraph()
+{
+    ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
+
+    // Get main viewport
+    const ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(viewport->WorkPos);
+    ImGui::SetNextWindowSize(viewport->WorkSize);
+
+    windowFlags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse |
+                   ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
+                   ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+
+    ImGui::SetNextWindowBgAlpha(0.0f); // Fully transparent window background
+    ImGui::Begin("Node Editor", &Open, windowFlags);
+
+    ed::SetCurrentEditor(m_NodeEditorContext);
+    ed::Begin("My Editor");
+
+    DrawAllNodes();
+    DrawLinks();
+    HandleInteractions();
+
+    // Navigate to show all content on first frame
+    static bool firstFrame = true;
+    if (firstFrame)
+    {
+        ed::NavigateToContent();
+        firstFrame = false;
+    }
+
+    ed::End();
+    ed::SetCurrentEditor(nullptr);
+
+    ImGui::End();
 }
 
 uint64_t NodeSystemDrawer::GetPinId(uint64_t nodeId, const std::string& socketName, bool isInput) const
@@ -62,20 +128,20 @@ void NodeSystemDrawer::DrawNodeInternal(Node* node, int arrayIndex)
 
     // Layout: Input pins on left, custom UI in middle, output pins on right
     ImGui::BeginGroup();
-    DrawInputSockets(node);
+        DrawInputSockets(node);
     ImGui::EndGroup();
 
     ImGui::SameLine();
 
     // Custom node UI (sliders, inputs, etc.)
     ImGui::BeginGroup();
-    node->OnDrawNodeUI();
+        node->OnDrawNodeUI();
     ImGui::EndGroup();
 
     ImGui::SameLine();
 
     ImGui::BeginGroup();
-    DrawOutputSockets(node);
+        DrawOutputSockets(node);
     ImGui::EndGroup();
 
     ed::EndNode();
@@ -87,14 +153,17 @@ void NodeSystemDrawer::DrawInputSockets(Node* node)
     {
         uint64_t pinId = GetPinId(node->getId(), input.name, true);
         ed::BeginPin(pinId, ed::PinKind::Input);
-        ImGui::Text(">");  // Simple input arrow
+        ed::PinPivotAlignment(ImVec2(1.0f, 0.5f));
+        ed::PinPivotSize(ImVec2(0, 0));
+        ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 1);
+
+        ImGui::Text(input.name.c_str());  // Value name
+        Pin pin {static_cast<int> (pinId), input.name.c_str(), PinType::Object};
+        DrawPinIcon(pin, false, (int)(1 * 255));
+        ImGui::PopStyleVar();
         ed::EndPin();
 
-        if (node->getInputs().size() > 1)
-        {
-            ImGui::SameLine();
-            ImGui::TextDisabled("%s", input.name.c_str());
-        }
+
     }
 }
 
@@ -104,14 +173,17 @@ void NodeSystemDrawer::DrawOutputSockets(Node* node)
     {
         uint64_t pinId = GetPinId(node->getId(), output.name, false);
 
-        if (node->getOutputs().size() > 1)
-        {
-            ImGui::TextDisabled("%s", output.name.c_str());
-            ImGui::SameLine();
-        }
+
 
         ed::BeginPin(pinId, ed::PinKind::Output);
-        ImGui::Text(">");  // Simple output arrow
+            ed::PinPivotAlignment(ImVec2(1.0f, 0.5f));
+            ed::PinPivotSize(ImVec2(0, 0));
+            ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 1);
+
+            ImGui::Text(output.name.c_str());  // Value name
+            Pin pin {static_cast<int> (pinId), output.name.c_str(), PinType::Float};
+            DrawPinIcon(pin, false, (int)(1 * 255));
+            ImGui::PopStyleVar();
         ed::EndPin();
     }
 }

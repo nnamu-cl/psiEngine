@@ -12,10 +12,10 @@
 #include <generator/ConeMesh.hpp>
 
 // Node system headers
-#include "NodeSystem.h"
-#include "ValueNodes.h"
-#include "MathNodes.h"
-#include "VectorNodes.h"
+#include "nodes/NodeSystem.h"
+#include "nodes/ValueNodes.h"
+#include "nodes/MathNodes.h"
+#include "nodes/VectorNodes.h"
 
 namespace {
     // Helper function to convert generator mesh to our Mesh format

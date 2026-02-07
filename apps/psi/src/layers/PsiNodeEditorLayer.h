@@ -1,15 +1,14 @@
 #pragma once
 
 #include "Layers/Layer.h"
-#include "NodeSystem.h"
-#include "NodePropertyBinding.h"
+#include "nodes/NodeSystem.h"
+#include "nodes/NodePropertyBinding.h"
 #include <memory>
 
 // Forward declarations
 class PsiWorldLayer;
 class GameObjectNodeDrawer;
 class NodeSystemDrawer;
-namespace ax::NodeEditor { struct EditorContext; }
 
 /**
  * PsiNodeEditorLayer - Node editor layer for PSI application
@@ -29,24 +28,15 @@ public:
     void OnUpdate(float ts) override;
     void OnUIRender() override;
 
-    // Style control methods
-    void UpdateNodeEditorStyle();
-
     // Node system access
     NodeGraph& getNodeGraph() { return m_NodeGraph; }
     NodePropertyBinding& getPropertyBinding() { return *m_PropertyBinding; }
     float getElapsedTime() const { return m_ElapsedTime; }
 
-    // Public style properties
-    float nodeEditorBgColor[4] = {0.1f, 0.1f, 0.1f, 0.0f};
-    float nodeEditorGridColor[4] = {1.0f, 1.0f, 1.0f, 0.0f};
-    float nodeEditorBorderColor[4] = {0.0f, 0.0f, 0.0f, 0.0f}; // Fully transparent border
-
 private:
     PsiWorldLayer* m_WorldLayer;
 
     // Node Editor
-    ax::NodeEditor::EditorContext* m_NodeEditorContext = nullptr;
     std::unique_ptr<GameObjectNodeDrawer> m_GameObjectDrawer;
     std::unique_ptr<NodeSystemDrawer> m_NodeSystemDrawer;
 
@@ -61,5 +51,4 @@ private:
 
     // Render methods
     void RenderNodeEditor();
-    void HandleAllInteractions();
 };
