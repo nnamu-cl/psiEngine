@@ -4,8 +4,20 @@
 // Helper template for binary operations that work with both float and vec3
 template<typename Op>
 NodeValue binaryOp(const NodeValue& a, const NodeValue& b, Op op) {
+    // Both int
+    if (std::holds_alternative<int>(a) && std::holds_alternative<int>(b)) {
+        return op(std::get<int>(a), std::get<int>(b));
+    }
+    // Int and float
+    else if (std::holds_alternative<int>(a) && std::holds_alternative<float>(b)) {
+        return op(static_cast<float>(std::get<int>(a)), std::get<float>(b));
+    }
+    // Float and int
+    else if (std::holds_alternative<float>(a) && std::holds_alternative<int>(b)) {
+        return op(std::get<float>(a), static_cast<float>(std::get<int>(b)));
+    }
     // Both float
-    if (std::holds_alternative<float>(a) && std::holds_alternative<float>(b)) {
+    else if (std::holds_alternative<float>(a) && std::holds_alternative<float>(b)) {
         return op(std::get<float>(a), std::get<float>(b));
     }
     // Both vec3
@@ -21,6 +33,18 @@ NodeValue binaryOp(const NodeValue& a, const NodeValue& b, Op op) {
     // Float and vec3 (scalar operation)
     else if (std::holds_alternative<float>(a) && std::holds_alternative<glm::vec3>(b)) {
         float scalar = std::get<float>(a);
+        glm::vec3 vec = std::get<glm::vec3>(b);
+        return glm::vec3(op(scalar, vec.x), op(scalar, vec.y), op(scalar, vec.z));
+    }
+    // Vec3 and int (scalar operation)
+    else if (std::holds_alternative<glm::vec3>(a) && std::holds_alternative<int>(b)) {
+        glm::vec3 vec = std::get<glm::vec3>(a);
+        float scalar = static_cast<float>(std::get<int>(b));
+        return glm::vec3(op(vec.x, scalar), op(vec.y, scalar), op(vec.z, scalar));
+    }
+    // Int and vec3 (scalar operation)
+    else if (std::holds_alternative<int>(a) && std::holds_alternative<glm::vec3>(b)) {
+        float scalar = static_cast<float>(std::get<int>(a));
         glm::vec3 vec = std::get<glm::vec3>(b);
         return glm::vec3(op(scalar, vec.x), op(scalar, vec.y), op(scalar, vec.z));
     }

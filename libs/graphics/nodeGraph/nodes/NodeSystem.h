@@ -151,6 +151,9 @@ public:
     // Mark all nodes dirty (call this each frame)
     void markAllDirty();
 
+    // Evaluate all nodes in the graph
+    void evaluateAll();
+
     // Evaluate a specific output (will recursively evaluate dependencies)
     NodeValue evaluate(OutputSocket* output);
 
