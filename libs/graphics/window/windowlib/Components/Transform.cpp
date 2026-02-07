@@ -13,12 +13,33 @@ glm::mat4 Transform::toMatrix() const
     // This matches the conventional column-major composition
     // T * R * S applied right-to-left to a vertex.
     glm::vec3 pos = getPos();
-    glm::vec3 rot = getRot();
     glm::vec3 scl = getScale();
 
     glm::mat4 mat = glm::translate(glm::mat4(1.0f), pos);
-    mat            = mat * glm::mat4_cast(glm::quat(glm::radians(rot)));
-    mat            = glm::scale(mat, scl);
+
+    // Handle rotation: use quaternion directly if not linked to avoid lossy conversion
+    if (m_LinkedNode != nullptr)
+    {
+        OutputSocket* rotOutput = m_LinkedNode->getOutput("Rot");
+        if (rotOutput)
+        {
+            // Node outputs Euler angles in degrees, convert to quaternion
+            glm::vec3 rot = std::get<glm::vec3>(rotOutput->getValue());
+            mat = mat * glm::mat4_cast(glm::quat(glm::radians(rot)));
+        }
+        else
+        {
+            // No rotation output, use stored quaternion directly
+            mat = mat * glm::mat4_cast(rotation);
+        }
+    }
+    else
+    {
+        // Not linked: use stored quaternion directly to avoid quat->euler->quat conversion
+        mat = mat * glm::mat4_cast(rotation);
+    }
+
+    mat = glm::scale(mat, scl);
     return mat;
 }
 

@@ -111,10 +111,20 @@ public:
 
     // Unique ID for this node
     uint64_t getId() const { return m_Id; }
-    void setId(uint64_t id) { m_Id = id; }
+    void setId(uint64_t id) {
+        m_Id = id;
+        // Initialize name with type name if not set
+        if (m_Name.empty()) {
+            m_Name = getTypeName();
+        }
+    }
 
     // Node name/type
     virtual const char* getTypeName() const = 0;
+
+    // Node display name
+    const std::string& getName() const { return m_Name; }
+    void setName(const std::string& name) { m_Name = name; }
 
 protected:
     // Helper to add sockets during construction
@@ -126,6 +136,7 @@ private:
     std::vector<OutputSocket> m_Outputs;
     bool m_Dirty = true;
     uint64_t m_Id = 0;
+    std::string m_Name;
 };
 
 // Node graph manager
@@ -147,6 +158,9 @@ public:
     // Connect two sockets
     bool connect(OutputSocket* output, InputSocket* input);
     void disconnect(InputSocket* input);
+
+    // Delete a node and clear all its connections
+    bool deleteNode(uint64_t nodeId);
 
     // Mark all nodes dirty (call this each frame)
     void markAllDirty();

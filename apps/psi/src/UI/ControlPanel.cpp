@@ -277,6 +277,51 @@ void ControlPanel::Render()
                     graph.createNode<CosNode>();
                 }
 
+                if (ImGui::Button("Tan", ImVec2(-1, 0)))
+                {
+                    graph.createNode<TanNode>();
+                }
+
+                if (ImGui::Button("Arcsin", ImVec2(-1, 0)))
+                {
+                    graph.createNode<ArcsinNode>();
+                }
+
+                if (ImGui::Button("Arccos", ImVec2(-1, 0)))
+                {
+                    graph.createNode<ArccosNode>();
+                }
+
+                if (ImGui::Button("Arctan", ImVec2(-1, 0)))
+                {
+                    graph.createNode<ArctanNode>();
+                }
+
+                if (ImGui::Button("Pow", ImVec2(-1, 0)))
+                {
+                    graph.createNode<PowNode>();
+                }
+
+                if (ImGui::Button("Root", ImVec2(-1, 0)))
+                {
+                    graph.createNode<RootNode>();
+                }
+
+                ImGui::PopStyleColor(3);
+
+                ImGui::Spacing();
+                ImGui::Text("Constants");
+                ImGui::Separator();
+
+                ImGui::PushStyleColor(ImGuiCol_Button, nodeButtonColor);
+                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, nodeButtonHovered);
+                ImGui::PushStyleColor(ImGuiCol_ButtonActive, nodeButtonActive);
+
+                if (ImGui::Button("PI", ImVec2(-1, 0)))
+                {
+                    graph.createNode<PINode>();
+                }
+
                 ImGui::PopStyleColor(3);
 
                 ImGui::Spacing();

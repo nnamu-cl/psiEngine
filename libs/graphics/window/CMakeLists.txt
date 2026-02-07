@@ -89,6 +89,10 @@ target_link_libraries(tests_meshgen PRIVATE WindowLib Catch2::Catch2WithMain)
 add_executable(tests_nodegraph tests/test_NodeGraph.cpp)
 target_link_libraries(tests_nodegraph PRIVATE WindowLib Catch2::Catch2WithMain)
 
+# Node deletion tests (no Vulkan required)
+add_executable(tests_nodedeletion tests/test_NodeDeletion.cpp)
+target_link_libraries(tests_nodedeletion PRIVATE WindowLib Catch2::Catch2WithMain)
+
 # Copy assets folder (shaders, fonts, etc.) to build directory
 # Preserve directory structure: libs/graphics/window/assets/
 set(ASSETS_SRC ${CMAKE_CURRENT_SOURCE_DIR}/assets)

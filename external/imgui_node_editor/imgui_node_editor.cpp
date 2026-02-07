@@ -1579,13 +1579,14 @@ void ed::EditorContext::End()
     ImDrawList_SwapSplitter(m_DrawList, m_Splitter);
 
     // Draw border
-    {
-        auto& style = ImGui::GetStyle();
-        auto borderShadoColor = style.Colors[ImGuiCol_BorderShadow];
-        auto borderColor = style.Colors[ImGuiCol_Border];
-        m_DrawList->AddRect(m_Canvas.Rect().Min + ImVec2(1, 1), m_Canvas.Rect().Max - ImVec2(1, 1), ImColor(borderShadoColor));
-        m_DrawList->AddRect(m_Canvas.Rect().Min, m_Canvas.Rect().Max, ImColor(borderColor));
-    }
+    // Commented out cause we don't want the border any more
+    // {
+    //     auto& style = ImGui::GetStyle();
+    //     auto borderShadoColor = style.Colors[ImGuiCol_BorderShadow];
+    //     auto borderColor = style.Colors[ImGuiCol_Border];
+    //     m_DrawList->AddRect(m_Canvas.Rect().Min + ImVec2(1, 1), m_Canvas.Rect().Max - ImVec2(1, 1), ImColor(borderShadoColor));
+    //     m_DrawList->AddRect(m_Canvas.Rect().Min, m_Canvas.Rect().Max, ImColor(borderColor));
+    // }
 
     // #metrics
     // ShowMetrics(control);
