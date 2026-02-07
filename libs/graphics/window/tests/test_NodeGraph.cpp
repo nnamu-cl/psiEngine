@@ -5,7 +5,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-#include "GameObjectNodeDrawer.h"
+#include "drawers/GameObjectNodeDrawer.h"
 #include "Layers/DefaultGameWorld/Scene.h"
 #include "Components/Transform.h"
 #include "Components/MeshRenderer.h"

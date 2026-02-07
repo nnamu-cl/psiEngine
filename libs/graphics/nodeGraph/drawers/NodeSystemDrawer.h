@@ -1,7 +1,7 @@
 #pragma once
 
 #include "INodeDrawer.h"
-#include "NodeSystem.h"
+#include "../nodes/NodeSystem.h"
 #include <unordered_map>
 
 /**
@@ -13,11 +13,18 @@
 class NodeSystemDrawer : public INodeDrawer {
 public:
     explicit NodeSystemDrawer(NodeGraph* nodeGraph);
+    ~NodeSystemDrawer();
 
+    ax::NodeEditor::EditorContext* m_NodeEditorContext = nullptr;
+    bool Open = true;
     void DrawNode(int nodeId) override;
+    void DrawAllNodes();  // Draw all nodes in the node graph
     void DrawLinks() override;
     void HandleInteractions() override;
     int GetNodeCount() const override;
+
+    // High-level method to draw the entire node graph (nodes, links, and handle interactions)
+    void DrawNodeGraph();
 
 private:
     NodeGraph* m_NodeGraph;

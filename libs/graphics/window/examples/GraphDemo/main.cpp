@@ -9,7 +9,9 @@
 #include "ImGuiSkins/ShadSkin.h"
 #include "ImGuiSkins/SkinsBase.h"
 #include "imgui_node_editor.h"
-#include "NodeSystemDrawer.h"
+#include "nodes/MathNodes.h"
+#include "drawers/NodeSystemDrawer.h"
+#include "nodes/ValueNodes.h"
 
 namespace ed = ax::NodeEditor;
 
@@ -20,27 +22,25 @@ class DemoNodeGraph : public Application::Layer
 
 
 public:
-    ax::NodeEditor::EditorContext * m_NodeEditorContext;
-    NodeGraph m_NodeGraph;
-
-    std::unique_ptr<NodeSystemDrawer> m_NodeSystemDrawer;
+    NodeGraph nodeGraph;
+    std::unique_ptr<NodeSystemDrawer> nodeSystemDrawer;
 
 
     void OnAttach() override {
-        // Create node editor context
-        ed::Config config;
-        m_NodeEditorContext = ed::CreateEditor(&config);
-
-
         // Create node system drawer
-        m_NodeSystemDrawer = std::make_unique<NodeSystemDrawer>(&m_NodeGraph);
+        nodeSystemDrawer = std::make_unique<NodeSystemDrawer>(&nodeGraph);
 
+        // Add a demo node to the node system
+        TimeNode *timeNode = nodeGraph.createNode<TimeNode>();
+
+        SinNode *sineNode = nodeGraph.createNode<SinNode>();
 
     }
 
     void OnUIRender() override
     {
-        ImGui::ShowDemoWindow();
+        //Tell the node system drawer to draw all the nodes
+        nodeSystemDrawer->DrawNodeGraph();
     }
 };
 
@@ -61,8 +61,6 @@ int main()
 
     // Create layers
     DemoNodeGraph guiLayer; // GUI layer
-
-
 
     // Attach layers
     app.PushLayer(&guiLayer);
