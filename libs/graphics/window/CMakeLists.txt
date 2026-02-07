@@ -85,7 +85,7 @@ target_link_libraries(tests_shadskin PRIVATE WindowLib Catch2::Catch2WithMain)
 add_executable(tests_meshgen tests/test_MeshGeneration.cpp)
 target_link_libraries(tests_meshgen PRIVATE WindowLib Catch2::Catch2WithMain)
 
-# Node graph tests (no Vulkan required, tests GameObjectNodeDrawer)
+# Node graph tests (no Vulkan required)
 add_executable(tests_nodegraph tests/test_NodeGraph.cpp)
 target_link_libraries(tests_nodegraph PRIVATE WindowLib Catch2::Catch2WithMain)
 

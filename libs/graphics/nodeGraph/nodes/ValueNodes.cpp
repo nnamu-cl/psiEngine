@@ -1,4 +1,7 @@
 #include "ValueNodes.h"
+
+#include <glm/gtc/type_ptr.hpp>
+
 #include "imgui.h"
 
 // FloatConstantNode implementation
@@ -16,11 +19,13 @@ void FloatConstantNode::evaluate() {
 }
 
 void FloatConstantNode::OnDrawNodeUI() {
+    ImGui::PushID(this);
     ImGui::PushItemWidth(120.0f);
     if (ImGui::DragFloat("##value", &m_Value, 0.01f)) {
         markDirty();
     }
     ImGui::PopItemWidth();
+    ImGui::PopID();
 }
 
 void FloatConstantNode::setValue(float value) {
@@ -49,11 +54,13 @@ void IntConstantNode::evaluate() {
 }
 
 void IntConstantNode::OnDrawNodeUI() {
+    ImGui::PushID(this);
     ImGui::PushItemWidth(120.0f);
     if (ImGui::DragInt("##value", &m_Value, 0.1f)) {
         markDirty();
     }
     ImGui::PopItemWidth();
+    ImGui::PopID();
 }
 
 void IntConstantNode::setValue(int value) {
@@ -82,11 +89,13 @@ void Vec3ConstantNode::evaluate() {
 }
 
 void Vec3ConstantNode::OnDrawNodeUI() {
+    ImGui::PushID(this);
     ImGui::PushItemWidth(150.0f);
-    if (ImGui::DragFloat3("##value", &m_Value.x, 0.01f)) {
+    if (ImGui::DragFloat3("##value", glm::value_ptr(m_Value), 0.01f)) {
         markDirty();
     }
     ImGui::PopItemWidth();
+    ImGui::PopID();
 }
 
 void Vec3ConstantNode::setValue(const glm::vec3& value) {
@@ -115,7 +124,9 @@ void TimeNode::evaluate() {
 }
 
 void TimeNode::OnDrawNodeUI() {
+    ImGui::PushID(this);
     ImGui::Text("%.2fs", m_Time);
+    ImGui::PopID();
 }
 
 void TimeNode::setTime(float time) {

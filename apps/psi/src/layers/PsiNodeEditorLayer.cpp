@@ -1,6 +1,5 @@
 #include "PsiNodeEditorLayer.h"
 #include "layers/PsiWorldLayer.h"
-#include "drawers/GameObjectNodeDrawer.h"
 #include "drawers/NodeSystemDrawer.h"
 #include "nodes/ValueNodes.h"
 #include "imgui.h"
@@ -23,7 +22,6 @@ void PsiNodeEditorLayer::OnAttach()
     // Create drawers
     if (m_WorldLayer)
     {
-        m_GameObjectDrawer = std::make_unique<GameObjectNodeDrawer>(&m_WorldLayer->data.scene);
         m_PropertyBinding = std::make_unique<NodePropertyBinding>(&m_WorldLayer->data.scene);
     }
 

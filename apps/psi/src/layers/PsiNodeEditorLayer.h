@@ -7,7 +7,6 @@
 
 // Forward declarations
 class PsiWorldLayer;
-class GameObjectNodeDrawer;
 class NodeSystemDrawer;
 
 /**
@@ -37,7 +36,6 @@ private:
     PsiWorldLayer* m_WorldLayer;
 
     // Node Editor
-    std::unique_ptr<GameObjectNodeDrawer> m_GameObjectDrawer;
     std::unique_ptr<NodeSystemDrawer> m_NodeSystemDrawer;
 
     // Node System

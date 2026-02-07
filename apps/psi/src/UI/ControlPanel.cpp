@@ -16,6 +16,7 @@
 #include "nodes/ValueNodes.h"
 #include "nodes/MathNodes.h"
 #include "nodes/VectorNodes.h"
+#include "nodes/ObjectNodes.h"
 
 namespace {
     // Helper function to convert generator mesh to our Mesh format
@@ -117,22 +118,22 @@ void ControlPanel::Render()
             {
                 ImGui::Text("Node Editor Appearance");
                 ImGui::Spacing();
-
-                // Background Color
-                ImGui::Text("Background Color");
-                if (ImGui::ColorEdit4("##NodeEditorBgColor", m_NodeEditorLayer->nodeEditorBgColor))
-                {
-                    m_NodeEditorLayer->UpdateNodeEditorStyle();
-                }
-
-                ImGui::Spacing();
-
-                // Grid Color
-                ImGui::Text("Grid Color");
-                if (ImGui::ColorEdit4("##NodeEditorGridColor", m_NodeEditorLayer->nodeEditorGridColor))
-                {
-                    m_NodeEditorLayer->UpdateNodeEditorStyle();
-                }
+                //
+                // // Background Color
+                // ImGui::Text("Background Color");
+                // if (ImGui::ColorEdit4("##NodeEditorBgColor", m_NodeEditorLayer->nodeEditorBgColor))
+                // {
+                //     m_NodeEditorLayer->UpdateNodeEditorStyle();
+                // }
+                //
+                // ImGui::Spacing();
+                //
+                // // Grid Color
+                // ImGui::Text("Grid Color");
+                // if (ImGui::ColorEdit4("##NodeEditorGridColor", m_NodeEditorLayer->nodeEditorGridColor))
+                // {
+                //     m_NodeEditorLayer->UpdateNodeEditorStyle();
+                // }
             }
 
             ImGui::EndTabItem();
@@ -309,6 +310,21 @@ void ControlPanel::Render()
                 if (ImGui::Button("Length", ImVec2(-1, 0)))
                 {
                     graph.createNode<LengthNode>();
+                }
+
+                ImGui::PopStyleColor(3);
+
+                ImGui::Spacing();
+                ImGui::Text("Object Nodes");
+                ImGui::Separator();
+
+                ImGui::PushStyleColor(ImGuiCol_Button, nodeButtonColor);
+                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, nodeButtonHovered);
+                ImGui::PushStyleColor(ImGuiCol_ButtonActive, nodeButtonActive);
+
+                if (ImGui::Button("Transform", ImVec2(-1, 0)))
+                {
+                    graph.createNode<TransformNode>();
                 }
 
                 ImGui::PopStyleColor(3);

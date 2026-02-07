@@ -249,6 +249,7 @@ void DefaultGameWorld::OnRender(VkCommandBuffer cb, const glm::ivec2& windowSize
             uint32_t padding[3];
         } pushData;
 
+        // toMatrix() internally uses getPos(), getRot(), getScale()
         pushData.model = transform->toMatrix();
         pushData.objectColor = renderer->objectColor;
         pushData.colorMode = (renderer->colorMode == ColorMode::ObjectColor) ? 1u : 0u;

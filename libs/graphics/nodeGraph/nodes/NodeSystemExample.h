@@ -12,6 +12,7 @@
 #include "ValueNodes.h"
 #include "MathNodes.h"
 #include "VectorNodes.h"
+#include "ObjectNodes.h"
 
 /**
  * Example 1: Oscillating Y Position
