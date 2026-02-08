@@ -7,6 +7,17 @@
 class ComponentStore
 {
 public:
+    // Delete copy operations since unique_ptr is not copyable
+    ComponentStore(const ComponentStore&) = delete;
+    ComponentStore& operator=(const ComponentStore&) = delete;
+
+    // Default move operations
+    ComponentStore(ComponentStore&&) noexcept = default;
+    ComponentStore& operator=(ComponentStore&&) noexcept = default;
+
+    // Default constructor
+    ComponentStore() = default;
+
     template<typename T>
     T* add(std::unique_ptr<T> component)
     {

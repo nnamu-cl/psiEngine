@@ -13,6 +13,7 @@
 class Node;
 struct InputSocket;
 struct OutputSocket;
+class NodeGraph;
 
 // All possible data types in the node system
 using NodeValue = std::variant<
@@ -126,6 +127,9 @@ public:
     const std::string& getName() const { return m_Name; }
     void setName(const std::string& name) { m_Name = name; }
 
+    // Save the node graph we belong to
+    NodeGraph* graph = nullptr;
+
 protected:
     // Helper to add sockets during construction
     InputSocket& addInput(const std::string& name, SocketType type, const NodeValue& defaultValue = 0.0f);
@@ -151,6 +155,7 @@ public:
         auto node = std::make_unique<T>(std::forward<Args>(args)...);
         T* ptr = node.get();
         ptr->setId(generateNodeId());
+        ptr->graph = this;
         m_Nodes.push_back(std::move(node));
         return ptr;
     }

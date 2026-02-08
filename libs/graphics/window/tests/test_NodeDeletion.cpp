@@ -189,9 +189,9 @@ TEST_CASE("Delete node with output connections", "[NodeGraph][NodeDeletion]") {
         targetNode2->evaluate();
         targetNode3->evaluate();
 
-        // Default values: Add(0,0) = 0, Multiply(0,0) = 0, Sin(0) = 0
+        // Default values: Add(0,0) = 0, Multiply(1,1) = 1, Sin(0) = 0
         REQUIRE_THAT(std::get<float>(targetNode1->getOutput("Result")->getValue()), WithinAbs(0.0f, 0.001f));
-        REQUIRE_THAT(std::get<float>(targetNode2->getOutput("Result")->getValue()), WithinAbs(0.0f, 0.001f));
+        REQUIRE_THAT(std::get<float>(targetNode2->getOutput("Result")->getValue()), WithinAbs(1.0f, 0.001f));
         REQUIRE_THAT(std::get<float>(targetNode3->getOutput("Result")->getValue()), WithinAbs(0.0f, 0.001f));
     }
 }
