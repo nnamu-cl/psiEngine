@@ -221,6 +221,9 @@ add_subdirectory(external/generator)
 # Add the core library
 add_subdirectory(libs/core)
 
+# Add the tools library
+add_subdirectory(libs/tools)
+
 # Add the graphics window library
 add_subdirectory(libs/graphics/window)
 

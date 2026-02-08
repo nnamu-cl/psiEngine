@@ -4,6 +4,7 @@ set(NAME window)
 project(${NAME})
 set(CMAKE_CXX_STANDARD 20)
 
+
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIGURATION>")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIGURATION>")
 
@@ -40,7 +41,7 @@ target_sources(WindowLib PRIVATE
 target_compile_definitions(WindowLib PRIVATE IMGUI_IMPL_VULKAN_USE_VOLK "IMGUI_IMPL_VULKAN_VOLK_FILENAME=<volk/volk.h>")
 target_link_libraries(WindowLib
     PRIVATE ${SDL_LIBRARY} ${SLANG_LIBRARY} CoreLib
-    PUBLIC generator imgui_node_editor
+    PUBLIC generator imgui_node_editor implot
 )
 
 # OpenWindow example
@@ -92,6 +93,10 @@ target_link_libraries(tests_nodegraph PRIVATE WindowLib Catch2::Catch2WithMain)
 # Node deletion tests (no Vulkan required)
 add_executable(tests_nodedeletion tests/test_NodeDeletion.cpp)
 target_link_libraries(tests_nodedeletion PRIVATE WindowLib Catch2::Catch2WithMain)
+
+# Graph nodes tests (no Vulkan required, tests LineGraphNode and visualization nodes)
+add_executable(tests_graphnodes tests/test_GraphNodes.cpp)
+target_link_libraries(tests_graphnodes PRIVATE WindowLib Catch2::Catch2WithMain)
 
 # Copy assets folder (shaders, fonts, etc.) to build directory
 # Preserve directory structure: libs/graphics/window/assets/

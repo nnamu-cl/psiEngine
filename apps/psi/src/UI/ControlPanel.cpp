@@ -10,8 +10,10 @@
 #include <generator/CylinderMesh.hpp>
 #include <generator/TorusMesh.hpp>
 #include <generator/ConeMesh.hpp>
+#include <generator/DiskMesh.hpp>
 
 // Node system headers
+#include "nodes/GraphNodes.h"
 #include "nodes/NodeSystem.h"
 #include "nodes/ValueNodes.h"
 #include "nodes/MathNodes.h"
@@ -118,22 +120,7 @@ void ControlPanel::Render()
             {
                 ImGui::Text("Node Editor Appearance");
                 ImGui::Spacing();
-                //
-                // // Background Color
-                // ImGui::Text("Background Color");
-                // if (ImGui::ColorEdit4("##NodeEditorBgColor", m_NodeEditorLayer->nodeEditorBgColor))
-                // {
-                //     m_NodeEditorLayer->UpdateNodeEditorStyle();
-                // }
-                //
-                // ImGui::Spacing();
-                //
-                // // Grid Color
-                // ImGui::Text("Grid Color");
-                // if (ImGui::ColorEdit4("##NodeEditorGridColor", m_NodeEditorLayer->nodeEditorGridColor))
-                // {
-                //     m_NodeEditorLayer->UpdateNodeEditorStyle();
-                // }
+
             }
 
             ImGui::EndTabItem();
@@ -176,7 +163,7 @@ void ControlPanel::Render()
 
             if (ImGui::Button("Torus", ImVec2(-1, 0)))
             {
-                auto mesh = convertFromGenerator(generator::TorusMesh(1.0, 0.25, 32, 16));
+                auto mesh = convertFromGenerator(generator::TorusMesh(0.25, 1.0, 32, 16));
                 m_WorldLayer->addMeshPrimitive("Torus", std::move(mesh),
                     glm::vec3(0.0f, 0.0f, 0.0f),
                     glm::vec4(1.0f, 0.0f, 1.0f, 1.0f));
@@ -188,6 +175,14 @@ void ControlPanel::Render()
                 m_WorldLayer->addMeshPrimitive("Cone", std::move(mesh),
                     glm::vec3(0.0f, 0.0f, 0.0f),
                     glm::vec4(0.0f, 1.0f, 1.0f, 1.0f));
+            }
+
+            if (ImGui::Button("Circle", ImVec2(-1, 0)))
+            {
+                auto mesh = convertFromGenerator(generator::DiskMesh(1.0, 0.0, 32, 4));
+                m_WorldLayer->addMeshPrimitive("Circle", std::move(mesh),
+                    glm::vec3(0.0f, 0.0f, 0.0f),
+                    glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
             }
 
             ImGui::EndTabItem();
@@ -209,6 +204,20 @@ void ControlPanel::Render()
             else
             {
                 NodeGraph& graph = m_NodeEditorLayer->getNodeGraph();
+
+                ImGui::Text("Graph Nodes");
+                ImGui::Separator();
+
+                ImGui::PushStyleColor(ImGuiCol_Button, nodeButtonColor);
+                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, nodeButtonHovered);
+                ImGui::PushStyleColor(ImGuiCol_ButtonActive, nodeButtonActive);
+
+                if (ImGui::Button("Graph Node", ImVec2(-1, 0)))
+                {
+                    graph.createNode<LineGraphNode>();
+                }
+
+                ImGui::PopStyleColor(3);
 
                 ImGui::Text("Value Nodes");
                 ImGui::Separator();
