@@ -32,6 +32,9 @@ private:
     // Track positioned nodes (node ID -> positioned flag)
     std::unordered_map<uint64_t, bool> m_PositionedNodes;
 
+    // Track node name buffers (node ID -> name buffer)
+    std::unordered_map<uint64_t, std::string> m_NodeNameBuffers;
+
     // Helper to draw a single node
     void DrawNodeInternal(Node* node, int arrayIndex);
 

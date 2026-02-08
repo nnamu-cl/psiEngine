@@ -13,6 +13,7 @@
 class Node;
 struct InputSocket;
 struct OutputSocket;
+class NodeGraph;
 
 // All possible data types in the node system
 using NodeValue = std::variant<
@@ -111,10 +112,23 @@ public:
 
     // Unique ID for this node
     uint64_t getId() const { return m_Id; }
-    void setId(uint64_t id) { m_Id = id; }
+    void setId(uint64_t id) {
+        m_Id = id;
+        // Initialize name with type name if not set
+        if (m_Name.empty()) {
+            m_Name = getTypeName();
+        }
+    }
 
     // Node name/type
     virtual const char* getTypeName() const = 0;
+
+    // Node display name
+    const std::string& getName() const { return m_Name; }
+    void setName(const std::string& name) { m_Name = name; }
+
+    // Save the node graph we belong to
+    NodeGraph* graph = nullptr;
 
 protected:
     // Helper to add sockets during construction
@@ -126,6 +140,7 @@ private:
     std::vector<OutputSocket> m_Outputs;
     bool m_Dirty = true;
     uint64_t m_Id = 0;
+    std::string m_Name;
 };
 
 // Node graph manager
@@ -140,6 +155,7 @@ public:
         auto node = std::make_unique<T>(std::forward<Args>(args)...);
         T* ptr = node.get();
         ptr->setId(generateNodeId());
+        ptr->graph = this;
         m_Nodes.push_back(std::move(node));
         return ptr;
     }
@@ -147,6 +163,9 @@ public:
     // Connect two sockets
     bool connect(OutputSocket* output, InputSocket* input);
     void disconnect(InputSocket* input);
+
+    // Delete a node and clear all its connections
+    bool deleteNode(uint64_t nodeId);
 
     // Mark all nodes dirty (call this each frame)
     void markAllDirty();

@@ -5,6 +5,8 @@
     <mapping directory="$PROJECT_DIR$/cmake-build-debug/_deps/catch2-src" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/cmake-build-debug/bin/assets/lygia" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/external/lygia" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/libs/graphics/implot/example/cmake-build-debug/_deps/glfw-src" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/libs/graphics/implot/example/cmake-build-debug/_deps/imgui-src" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/libs/graphics/window/cmake-build-debug/Debug/assets/lygia" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/libs/graphics/window/cmake-build-debug/_deps/catch2-src" vcs="Git" />
   </component>

@@ -8,6 +8,7 @@
 // Forward declarations
 class PsiWorldLayer;
 class NodeSystemDrawer;
+class GraphDrawer;
 
 /**
  * PsiNodeEditorLayer - Node editor layer for PSI application
@@ -37,6 +38,7 @@ private:
 
     // Node Editor
     std::unique_ptr<NodeSystemDrawer> m_NodeSystemDrawer;
+    std::unique_ptr<GraphDrawer> m_GraphDrawer;
 
     // Node System
     NodeGraph m_NodeGraph;

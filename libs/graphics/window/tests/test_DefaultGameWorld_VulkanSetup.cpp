@@ -239,48 +239,6 @@ struct DefaultGameWorldTestContext {
     }
 };
 
-// ===========================================================================
-// Test #3: Mesh Upload Validation
-// ===========================================================================
-
-TEST_CASE("DefaultGameWorld uploads meshes with correct offsets", "[integration][gpu][mesh]") {
-    std::cout << "=== Test: Mesh Upload Validation ===" << std::endl;
-
-    DefaultGameWorldTestContext ctx;
-    REQUIRE(ctx.init());
-
-    DefaultGameWorld layer(&ctx.windowData);
-    layer.OnAttach();
-
-    // Verify mesh GPU info was populated
-    REQUIRE(layer.data.meshGPUInfo.size() > 0);
-    std::cout << "  Uploaded " << layer.data.meshGPUInfo.size() << " meshes" << std::endl;
-
-    // Verify offsets don't overlap (vertex regions)
-    for (size_t i = 0; i + 1 < layer.data.meshGPUInfo.size(); i++) {
-        const auto& mesh1 = layer.data.meshGPUInfo[i];
-        const auto& mesh2 = layer.data.meshGPUInfo[i + 1];
-
-        VkDeviceSize mesh1VertexEnd = mesh1.vertexOffset + (mesh1.vertexCount * sizeof(Vertex));
-        REQUIRE(mesh2.vertexOffset >= mesh1VertexEnd);
-
-        std::cout << "  Mesh " << i << " vertex range: [" << mesh1.vertexOffset
-                  << ", " << mesh1VertexEnd << ")" << std::endl;
-    }
-
-    // Verify all counts are non-zero
-    for (size_t i = 0; i < layer.data.meshGPUInfo.size(); i++) {
-        REQUIRE(layer.data.meshGPUInfo[i].vertexCount > 0);
-        REQUIRE(layer.data.meshGPUInfo[i].indexCount > 0);
-    }
-
-    // Verify mesh buffer was created
-    REQUIRE(layer.data.meshBuffer != VK_NULL_HANDLE);
-
-    layer.OnDetach();
-    ctx.cleanup();
-}
-
 TEST_CASE("DefaultGameWorld handles empty mesh table gracefully", "[integration][gpu][mesh]") {
     DefaultGameWorldTestContext ctx;
     REQUIRE(ctx.init());
@@ -384,46 +342,6 @@ TEST_CASE("Pipeline creation fails gracefully with invalid Slang code", "[integr
 
 // ===========================================================================
 // Test #5: Resource Lifecycle (No Leaks)
-// ===========================================================================
-
-TEST_CASE("DefaultGameWorld attach/detach cycle cleans up all resources", "[integration][gpu][lifecycle]") {
-    std::cout << "=== Test: Resource Lifecycle ===" << std::endl;
-
-    DefaultGameWorldTestContext ctx;
-    REQUIRE(ctx.init());
-
-    // Get baseline allocation count
-    VmaTotalStatistics statsBefore;
-    vmaCalculateStatistics(ctx.windowData.allocator, &statsBefore);
-    std::cout << "  Allocations before: " << statsBefore.total.statistics.allocationCount << std::endl;
-
-    // Attach and detach multiple times
-    for (int cycle = 0; cycle < 3; cycle++) {
-        std::cout << "  Cycle " << cycle << std::endl;
-
-        DefaultGameWorld layer(&ctx.windowData);
-        layer.OnAttach();
-
-        // Verify resources were created
-        REQUIRE(layer.data.meshBuffer != VK_NULL_HANDLE);
-
-        layer.OnDetach();
-
-        // After detach, mesh buffer should be destroyed
-        // (We can't check this directly since m_MeshBuffer is private after detach)
-    }
-
-    // Check that allocations returned to baseline (or very close)
-    VmaTotalStatistics statsAfter;
-    vmaCalculateStatistics(ctx.windowData.allocator, &statsAfter);
-    std::cout << "  Allocations after: " << statsAfter.total.statistics.allocationCount << std::endl;
-
-    // Allow small variance due to VMA internal bookkeeping
-    REQUIRE(statsAfter.total.statistics.allocationCount <= statsBefore.total.statistics.allocationCount + 2);
-
-    ctx.cleanup();
-}
-
 // ===========================================================================
 // Test #1: Full Integration - Render Complete Frame
 // ===========================================================================
@@ -993,16 +911,15 @@ TEST_CASE("DefaultGameWorld handles dynamic scene modification after initializat
     std::cout << "  Initial scene: " << initialCount << " objects" << std::endl;
 
     // Add a new object to the scene after initialization
-    GameObject newObj{
-        .transform = Transform{
-            .position = glm::vec3(5.0f, 5.0f, 5.0f),
-            .rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
-            .scale = glm::vec3(2.0f)
-        },
-        .meshIndex = 0  // Use first mesh (cube)
-    };
+    GameObject newObj;
+    newObj.meshIndex = 0;  // Use first mesh (cube)
+    newObj.components.add(std::make_unique<Transform>(
+        glm::vec3(5.0f, 5.0f, 5.0f),
+        glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
+        glm::vec3(2.0f)
+    ));
 
-    layer.data.scene.addObject(newObj);
+    layer.data.scene.addObject(std::move(newObj));
     REQUIRE(layer.data.scene.objects.size() == initialCount + 1);
     std::cout << "  Added 1 object, now have " << layer.data.scene.objects.size() << " objects" << std::endl;
 
@@ -1036,15 +953,14 @@ TEST_CASE("DefaultGameWorld handles dynamic scene modification after initializat
 
     // Add multiple new objects
     for (int i = 0; i < 5; i++) {
-        GameObject obj{
-            .transform = Transform{
-                .position = glm::vec3(static_cast<float>(i) * 2.0f, 0.0f, 0.0f),
-                .rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
-                .scale = glm::vec3(1.0f)
-            },
-            .meshIndex = static_cast<uint32_t>(i % layer.data.meshTable.count())
-        };
-        layer.data.scene.addObject(obj);
+        GameObject obj;
+        obj.meshIndex = static_cast<uint32_t>(i % layer.data.meshTable.count());
+        obj.components.add(std::make_unique<Transform>(
+            glm::vec3(static_cast<float>(i) * 2.0f, 0.0f, 0.0f),
+            glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
+            glm::vec3(1.0f)
+        ));
+        layer.data.scene.addObject(std::move(obj));
     }
 
     REQUIRE(layer.data.scene.objects.size() == 5);

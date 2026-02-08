@@ -50,7 +50,7 @@ std::optional<NodeValue> TypeConverter::convert(const NodeValue& from, SocketTyp
 }
 
 bool TypeConverter::isCompatible(SocketType from, SocketType to) {
-    if (from == to || to == SocketType::Any) return true;
+    if (from == to || to == SocketType::Any || from == SocketType::Any) return true;
 
     // Define compatible type pairs
     static const std::unordered_map<SocketType, std::unordered_set<SocketType>> compatibilityMap = {
@@ -213,7 +213,46 @@ void NodeGraph::disconnect(InputSocket* input) {
         if (input->owner) {
             input->owner->markDirty();
         }
+
     }
+}
+
+bool NodeGraph::deleteNode(uint64_t nodeId) {
+    // Find the node
+    auto it = std::find_if(m_Nodes.begin(), m_Nodes.end(),
+        [nodeId](const std::unique_ptr<Node>& node) {
+            return node->getId() == nodeId;
+        });
+
+    if (it == m_Nodes.end()) {
+        return false; // Node not found
+    }
+
+    Node* nodeToDelete = it->get();
+
+    // Disconnect all input sockets
+    for (auto& input : nodeToDelete->getInputs()) {
+        if (input.isConnected()) {
+            disconnect(&input);
+        }
+    }
+
+    // Disconnect all output sockets from their connected inputs
+    for (auto& output : nodeToDelete->getOutputs()) {
+        // Make a copy of connections vector since we'll be modifying it
+        auto connectionsCopy = output.connections;
+        for (auto* inputSocket : connectionsCopy) {
+            disconnect(inputSocket);
+        }
+    }
+
+    // Remove the node from the vector
+    m_Nodes.erase(it);
+
+    // Evaluate all remaining nodes in the graph after deletion
+    evaluateAll();
+
+    return true;
 }
 
 void NodeGraph::markAllDirty() {
@@ -224,9 +263,7 @@ void NodeGraph::markAllDirty() {
 
 void NodeGraph::evaluateAll() {
     for (auto& node : m_Nodes) {
-        if (node->isDirty()) {
-            node->evaluate();
-        }
+        node->evaluate();
     }
 }
 
