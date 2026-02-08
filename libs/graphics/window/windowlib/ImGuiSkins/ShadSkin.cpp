@@ -15,6 +15,16 @@ namespace Application::Skins {
         auto &style = ImGui::GetStyle();
         auto &colors = ImGui::GetStyle().Colors;
 
+        //Add some rounding
+        style.TabRounding = 8.f;
+        style.FrameRounding = 16.f;
+        style.GrabRounding = 8.f;
+        style.WindowRounding = 16.f;
+        style.PopupRounding = 16.f;
+
+        //No window borders
+        style.WindowBorderSize = 0.0f;
+
         // DPI scale (defined here for use throughout the function)
         float x_scale = 1.0f;
 

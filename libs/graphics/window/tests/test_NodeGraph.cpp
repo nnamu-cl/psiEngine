@@ -444,7 +444,673 @@ TEST_CASE("Trigonometric nodes compute correctly", "[NodeGraph][MathNodes]") {
 }
 
 // ====================================================================================
-// TEST 9: Lazy Evaluation with Dirty Flags
+// TEST 9: TanNode Computation
+// ====================================================================================
+TEST_CASE("TanNode computes tangent correctly", "[NodeGraph][MathNodes]") {
+    NodeGraph graph;
+    const float PI = 3.14159265f;
+
+    SECTION("Compute tan(0) = 0") {
+        auto* floatNode = graph.createNode<FloatConstantNode>(0.0f);
+        auto* tanNode = graph.createNode<TanNode>();
+
+        graph.connect(floatNode->getOutput("Value"), tanNode->getInput("Value"));
+
+        floatNode->evaluate();
+        tanNode->evaluate();
+
+        auto* output = tanNode->getOutput("Result");
+        REQUIRE(std::holds_alternative<float>(output->getValue()));
+        REQUIRE_THAT(std::get<float>(output->getValue()), WithinAbs(0.0f, 0.001f));
+    }
+
+    SECTION("Compute tan(π/4) ≈ 1.0") {
+        auto* floatNode = graph.createNode<FloatConstantNode>(PI / 4.0f);
+        auto* tanNode = graph.createNode<TanNode>();
+
+        graph.connect(floatNode->getOutput("Value"), tanNode->getInput("Value"));
+
+        floatNode->evaluate();
+        tanNode->evaluate();
+
+        auto* output = tanNode->getOutput("Result");
+        REQUIRE(std::holds_alternative<float>(output->getValue()));
+        REQUIRE_THAT(std::get<float>(output->getValue()), WithinAbs(1.0f, 0.001f));
+    }
+
+    SECTION("Compute tan(π/6) ≈ 0.577") {
+        auto* floatNode = graph.createNode<FloatConstantNode>(PI / 6.0f);
+        auto* tanNode = graph.createNode<TanNode>();
+
+        graph.connect(floatNode->getOutput("Value"), tanNode->getInput("Value"));
+
+        floatNode->evaluate();
+        tanNode->evaluate();
+
+        auto* output = tanNode->getOutput("Result");
+        REQUIRE(std::holds_alternative<float>(output->getValue()));
+        REQUIRE_THAT(std::get<float>(output->getValue()), WithinAbs(0.57735f, 0.001f));
+    }
+
+    SECTION("TanNode in connected graph") {
+        auto* floatNode = graph.createNode<FloatConstantNode>(PI / 4.0f);
+        auto* tanNode = graph.createNode<TanNode>();
+
+        graph.connect(floatNode->getOutput("Value"), tanNode->getInput("Value"));
+
+        floatNode->evaluate();
+        tanNode->evaluate();
+
+        auto* output = tanNode->getOutput("Result");
+        REQUIRE_THAT(std::get<float>(output->getValue()), WithinAbs(1.0f, 0.001f));
+    }
+}
+
+// ====================================================================================
+// TEST 10: Inverse Trigonometric Nodes
+// ====================================================================================
+TEST_CASE("Inverse trigonometric nodes compute correctly", "[NodeGraph][MathNodes]") {
+    NodeGraph graph;
+    const float PI = 3.14159265f;
+
+    SECTION("ArctanNode: arctan(0) = 0") {
+        auto* floatNode = graph.createNode<FloatConstantNode>(0.0f);
+        auto* arctanNode = graph.createNode<ArctanNode>();
+
+        graph.connect(floatNode->getOutput("Value"), arctanNode->getInput("Value"));
+
+        floatNode->evaluate();
+        arctanNode->evaluate();
+
+        auto* output = arctanNode->getOutput("Result");
+        REQUIRE(std::holds_alternative<float>(output->getValue()));
+        REQUIRE_THAT(std::get<float>(output->getValue()), WithinAbs(0.0f, 0.001f));
+    }
+
+    SECTION("ArctanNode: arctan(1) ≈ π/4") {
+        auto* floatNode = graph.createNode<FloatConstantNode>(1.0f);
+        auto* arctanNode = graph.createNode<ArctanNode>();
+
+        graph.connect(floatNode->getOutput("Value"), arctanNode->getInput("Value"));
+
+        floatNode->evaluate();
+        arctanNode->evaluate();
+
+        auto* output = arctanNode->getOutput("Result");
+        REQUIRE(std::holds_alternative<float>(output->getValue()));
+        REQUIRE_THAT(std::get<float>(output->getValue()), WithinAbs(PI / 4.0f, 0.001f));
+    }
+
+    SECTION("ArctanNode: arctan(-1) ≈ -π/4") {
+        auto* floatNode = graph.createNode<FloatConstantNode>(-1.0f);
+        auto* arctanNode = graph.createNode<ArctanNode>();
+
+        graph.connect(floatNode->getOutput("Value"), arctanNode->getInput("Value"));
+
+        floatNode->evaluate();
+        arctanNode->evaluate();
+
+        auto* output = arctanNode->getOutput("Result");
+        REQUIRE(std::holds_alternative<float>(output->getValue()));
+        REQUIRE_THAT(std::get<float>(output->getValue()), WithinAbs(-PI / 4.0f, 0.001f));
+    }
+
+    SECTION("ArcsinNode: asin(0) = 0") {
+        auto* floatNode = graph.createNode<FloatConstantNode>(0.0f);
+        auto* arcsinNode = graph.createNode<ArcsinNode>();
+
+        graph.connect(floatNode->getOutput("Value"), arcsinNode->getInput("Value"));
+
+        floatNode->evaluate();
+        arcsinNode->evaluate();
+
+        auto* output = arcsinNode->getOutput("Result");
+        REQUIRE(std::holds_alternative<float>(output->getValue()));
+        REQUIRE_THAT(std::get<float>(output->getValue()), WithinAbs(0.0f, 0.001f));
+    }
+
+    SECTION("ArcsinNode: asin(1) ≈ π/2") {
+        auto* floatNode = graph.createNode<FloatConstantNode>(1.0f);
+        auto* arcsinNode = graph.createNode<ArcsinNode>();
+
+        graph.connect(floatNode->getOutput("Value"), arcsinNode->getInput("Value"));
+
+        floatNode->evaluate();
+        arcsinNode->evaluate();
+
+        auto* output = arcsinNode->getOutput("Result");
+        REQUIRE(std::holds_alternative<float>(output->getValue()));
+        REQUIRE_THAT(std::get<float>(output->getValue()), WithinAbs(PI / 2.0f, 0.001f));
+    }
+
+    SECTION("ArcsinNode: asin(-1) ≈ -π/2") {
+        auto* floatNode = graph.createNode<FloatConstantNode>(-1.0f);
+        auto* arcsinNode = graph.createNode<ArcsinNode>();
+
+        graph.connect(floatNode->getOutput("Value"), arcsinNode->getInput("Value"));
+
+        floatNode->evaluate();
+        arcsinNode->evaluate();
+
+        auto* output = arcsinNode->getOutput("Result");
+        REQUIRE(std::holds_alternative<float>(output->getValue()));
+        REQUIRE_THAT(std::get<float>(output->getValue()), WithinAbs(-PI / 2.0f, 0.001f));
+    }
+
+    SECTION("ArcsinNode: input clamping for asin(2.0) -> asin(1.0)") {
+        auto* floatNode = graph.createNode<FloatConstantNode>(2.0f);
+        auto* arcsinNode = graph.createNode<ArcsinNode>();
+
+        graph.connect(floatNode->getOutput("Value"), arcsinNode->getInput("Value"));
+
+        floatNode->evaluate();
+        arcsinNode->evaluate();
+
+        auto* output = arcsinNode->getOutput("Result");
+        REQUIRE(std::holds_alternative<float>(output->getValue()));
+        // Should clamp to 1.0 and return π/2
+        REQUIRE_THAT(std::get<float>(output->getValue()), WithinAbs(PI / 2.0f, 0.001f));
+    }
+
+    SECTION("ArcsinNode: input clamping for asin(-2.0) -> asin(-1.0)") {
+        auto* floatNode = graph.createNode<FloatConstantNode>(-2.0f);
+        auto* arcsinNode = graph.createNode<ArcsinNode>();
+
+        graph.connect(floatNode->getOutput("Value"), arcsinNode->getInput("Value"));
+
+        floatNode->evaluate();
+        arcsinNode->evaluate();
+
+        auto* output = arcsinNode->getOutput("Result");
+        REQUIRE(std::holds_alternative<float>(output->getValue()));
+        // Should clamp to -1.0 and return -π/2
+        REQUIRE_THAT(std::get<float>(output->getValue()), WithinAbs(-PI / 2.0f, 0.001f));
+    }
+
+    SECTION("ArccosNode: acos(1) = 0") {
+        auto* floatNode = graph.createNode<FloatConstantNode>(1.0f);
+        auto* arccosNode = graph.createNode<ArccosNode>();
+
+        graph.connect(floatNode->getOutput("Value"), arccosNode->getInput("Value"));
+
+        floatNode->evaluate();
+        arccosNode->evaluate();
+
+        auto* output = arccosNode->getOutput("Result");
+        REQUIRE(std::holds_alternative<float>(output->getValue()));
+        REQUIRE_THAT(std::get<float>(output->getValue()), WithinAbs(0.0f, 0.001f));
+    }
+
+    SECTION("ArccosNode: acos(0) ≈ π/2") {
+        auto* floatNode = graph.createNode<FloatConstantNode>(0.0f);
+        auto* arccosNode = graph.createNode<ArccosNode>();
+
+        graph.connect(floatNode->getOutput("Value"), arccosNode->getInput("Value"));
+
+        floatNode->evaluate();
+        arccosNode->evaluate();
+
+        auto* output = arccosNode->getOutput("Result");
+        REQUIRE(std::holds_alternative<float>(output->getValue()));
+        REQUIRE_THAT(std::get<float>(output->getValue()), WithinAbs(PI / 2.0f, 0.001f));
+    }
+
+    SECTION("ArccosNode: acos(-1) ≈ π") {
+        auto* floatNode = graph.createNode<FloatConstantNode>(-1.0f);
+        auto* arccosNode = graph.createNode<ArccosNode>();
+
+        graph.connect(floatNode->getOutput("Value"), arccosNode->getInput("Value"));
+
+        floatNode->evaluate();
+        arccosNode->evaluate();
+
+        auto* output = arccosNode->getOutput("Result");
+        REQUIRE(std::holds_alternative<float>(output->getValue()));
+        REQUIRE_THAT(std::get<float>(output->getValue()), WithinAbs(PI, 0.001f));
+    }
+
+    SECTION("ArccosNode: input clamping for acos(2.0) -> acos(1.0)") {
+        auto* floatNode = graph.createNode<FloatConstantNode>(2.0f);
+        auto* arccosNode = graph.createNode<ArccosNode>();
+
+        graph.connect(floatNode->getOutput("Value"), arccosNode->getInput("Value"));
+
+        floatNode->evaluate();
+        arccosNode->evaluate();
+
+        auto* output = arccosNode->getOutput("Result");
+        REQUIRE(std::holds_alternative<float>(output->getValue()));
+        // Should clamp to 1.0 and return 0
+        REQUIRE_THAT(std::get<float>(output->getValue()), WithinAbs(0.0f, 0.001f));
+    }
+
+    SECTION("ArccosNode: input clamping for acos(-2.0) -> acos(-1.0)") {
+        auto* floatNode = graph.createNode<FloatConstantNode>(-2.0f);
+        auto* arccosNode = graph.createNode<ArccosNode>();
+
+        graph.connect(floatNode->getOutput("Value"), arccosNode->getInput("Value"));
+
+        floatNode->evaluate();
+        arccosNode->evaluate();
+
+        auto* output = arccosNode->getOutput("Result");
+        REQUIRE(std::holds_alternative<float>(output->getValue()));
+        // Should clamp to -1.0 and return π
+        REQUIRE_THAT(std::get<float>(output->getValue()), WithinAbs(PI, 0.001f));
+    }
+}
+
+// ====================================================================================
+// TEST 11: PowNode Computation
+// ====================================================================================
+TEST_CASE("PowNode computes power correctly", "[NodeGraph][MathNodes]") {
+    NodeGraph graph;
+
+    SECTION("pow(2, 3) = 8") {
+        auto* baseNode = graph.createNode<FloatConstantNode>(2.0f);
+        auto* expNode = graph.createNode<FloatConstantNode>(3.0f);
+        auto* powNode = graph.createNode<PowNode>();
+
+        graph.connect(baseNode->getOutput("Value"), powNode->getInput("Base"));
+        graph.connect(expNode->getOutput("Value"), powNode->getInput("Exponent"));
+
+        baseNode->evaluate();
+        expNode->evaluate();
+        powNode->evaluate();
+
+        auto* output = powNode->getOutput("Result");
+        REQUIRE(std::holds_alternative<float>(output->getValue()));
+        REQUIRE_THAT(std::get<float>(output->getValue()), WithinAbs(8.0f, 0.001f));
+    }
+
+    SECTION("pow(5, 2) = 25") {
+        auto* baseNode = graph.createNode<FloatConstantNode>(5.0f);
+        auto* expNode = graph.createNode<FloatConstantNode>(2.0f);
+        auto* powNode = graph.createNode<PowNode>();
+
+        graph.connect(baseNode->getOutput("Value"), powNode->getInput("Base"));
+        graph.connect(expNode->getOutput("Value"), powNode->getInput("Exponent"));
+
+        baseNode->evaluate();
+        expNode->evaluate();
+        powNode->evaluate();
+
+        auto* output = powNode->getOutput("Result");
+        REQUIRE(std::holds_alternative<float>(output->getValue()));
+        REQUIRE_THAT(std::get<float>(output->getValue()), WithinAbs(25.0f, 0.001f));
+    }
+
+    SECTION("pow(10, 0) = 1") {
+        auto* baseNode = graph.createNode<FloatConstantNode>(10.0f);
+        auto* expNode = graph.createNode<FloatConstantNode>(0.0f);
+        auto* powNode = graph.createNode<PowNode>();
+
+        graph.connect(baseNode->getOutput("Value"), powNode->getInput("Base"));
+        graph.connect(expNode->getOutput("Value"), powNode->getInput("Exponent"));
+
+        baseNode->evaluate();
+        expNode->evaluate();
+        powNode->evaluate();
+
+        auto* output = powNode->getOutput("Result");
+        REQUIRE(std::holds_alternative<float>(output->getValue()));
+        REQUIRE_THAT(std::get<float>(output->getValue()), WithinAbs(1.0f, 0.001f));
+    }
+
+    SECTION("pow(2, -1) = 0.5 (negative exponents)") {
+        auto* baseNode = graph.createNode<FloatConstantNode>(2.0f);
+        auto* expNode = graph.createNode<FloatConstantNode>(-1.0f);
+        auto* powNode = graph.createNode<PowNode>();
+
+        graph.connect(baseNode->getOutput("Value"), powNode->getInput("Base"));
+        graph.connect(expNode->getOutput("Value"), powNode->getInput("Exponent"));
+
+        baseNode->evaluate();
+        expNode->evaluate();
+        powNode->evaluate();
+
+        auto* output = powNode->getOutput("Result");
+        REQUIRE(std::holds_alternative<float>(output->getValue()));
+        REQUIRE_THAT(std::get<float>(output->getValue()), WithinAbs(0.5f, 0.001f));
+    }
+
+    SECTION("pow(4, 0.5) = 2 (fractional exponents)") {
+        auto* baseNode = graph.createNode<FloatConstantNode>(4.0f);
+        auto* expNode = graph.createNode<FloatConstantNode>(0.5f);
+        auto* powNode = graph.createNode<PowNode>();
+
+        graph.connect(baseNode->getOutput("Value"), powNode->getInput("Base"));
+        graph.connect(expNode->getOutput("Value"), powNode->getInput("Exponent"));
+
+        baseNode->evaluate();
+        expNode->evaluate();
+        powNode->evaluate();
+
+        auto* output = powNode->getOutput("Result");
+        REQUIRE(std::holds_alternative<float>(output->getValue()));
+        REQUIRE_THAT(std::get<float>(output->getValue()), WithinAbs(2.0f, 0.001f));
+    }
+
+    SECTION("PowNode in connected graph") {
+        auto* baseNode = graph.createNode<FloatConstantNode>(3.0f);
+        auto* expNode = graph.createNode<FloatConstantNode>(4.0f);
+        auto* powNode = graph.createNode<PowNode>();
+
+        graph.connect(baseNode->getOutput("Value"), powNode->getInput("Base"));
+        graph.connect(expNode->getOutput("Value"), powNode->getInput("Exponent"));
+
+        baseNode->evaluate();
+        expNode->evaluate();
+        powNode->evaluate();
+
+        auto* output = powNode->getOutput("Result");
+        REQUIRE_THAT(std::get<float>(output->getValue()), WithinAbs(81.0f, 0.001f));
+    }
+}
+
+// ====================================================================================
+// TEST 12: RootNode Computation
+// ====================================================================================
+TEST_CASE("RootNode computes square root correctly", "[NodeGraph][MathNodes]") {
+    NodeGraph graph;
+
+    SECTION("sqrt(0) = 0") {
+        auto* floatNode = graph.createNode<FloatConstantNode>(0.0f);
+        auto* rootNode = graph.createNode<RootNode>();
+
+        graph.connect(floatNode->getOutput("Value"), rootNode->getInput("Value"));
+
+        floatNode->evaluate();
+        rootNode->evaluate();
+
+        auto* output = rootNode->getOutput("Result");
+        REQUIRE(std::holds_alternative<float>(output->getValue()));
+        REQUIRE_THAT(std::get<float>(output->getValue()), WithinAbs(0.0f, 0.001f));
+    }
+
+    SECTION("sqrt(4) = 2") {
+        auto* floatNode = graph.createNode<FloatConstantNode>(4.0f);
+        auto* rootNode = graph.createNode<RootNode>();
+
+        graph.connect(floatNode->getOutput("Value"), rootNode->getInput("Value"));
+
+        floatNode->evaluate();
+        rootNode->evaluate();
+
+        auto* output = rootNode->getOutput("Result");
+        REQUIRE(std::holds_alternative<float>(output->getValue()));
+        REQUIRE_THAT(std::get<float>(output->getValue()), WithinAbs(2.0f, 0.001f));
+    }
+
+    SECTION("sqrt(16) = 4") {
+        auto* floatNode = graph.createNode<FloatConstantNode>(16.0f);
+        auto* rootNode = graph.createNode<RootNode>();
+
+        graph.connect(floatNode->getOutput("Value"), rootNode->getInput("Value"));
+
+        floatNode->evaluate();
+        rootNode->evaluate();
+
+        auto* output = rootNode->getOutput("Result");
+        REQUIRE(std::holds_alternative<float>(output->getValue()));
+        REQUIRE_THAT(std::get<float>(output->getValue()), WithinAbs(4.0f, 0.001f));
+    }
+
+    SECTION("sqrt(2) ≈ 1.414") {
+        auto* floatNode = graph.createNode<FloatConstantNode>(2.0f);
+        auto* rootNode = graph.createNode<RootNode>();
+
+        graph.connect(floatNode->getOutput("Value"), rootNode->getInput("Value"));
+
+        floatNode->evaluate();
+        rootNode->evaluate();
+
+        auto* output = rootNode->getOutput("Result");
+        REQUIRE(std::holds_alternative<float>(output->getValue()));
+        REQUIRE_THAT(std::get<float>(output->getValue()), WithinAbs(1.41421f, 0.001f));
+    }
+
+    SECTION("RootNode: input clamping for sqrt(-1) -> sqrt(0)") {
+        auto* floatNode = graph.createNode<FloatConstantNode>(-1.0f);
+        auto* rootNode = graph.createNode<RootNode>();
+
+        graph.connect(floatNode->getOutput("Value"), rootNode->getInput("Value"));
+
+        floatNode->evaluate();
+        rootNode->evaluate();
+
+        auto* output = rootNode->getOutput("Result");
+        REQUIRE(std::holds_alternative<float>(output->getValue()));
+        // Should clamp to 0.0 and return 0
+        REQUIRE_THAT(std::get<float>(output->getValue()), WithinAbs(0.0f, 0.001f));
+    }
+
+    SECTION("RootNode in connected graph") {
+        auto* floatNode = graph.createNode<FloatConstantNode>(9.0f);
+        auto* rootNode = graph.createNode<RootNode>();
+
+        graph.connect(floatNode->getOutput("Value"), rootNode->getInput("Value"));
+
+        floatNode->evaluate();
+        rootNode->evaluate();
+
+        auto* output = rootNode->getOutput("Result");
+        REQUIRE_THAT(std::get<float>(output->getValue()), WithinAbs(3.0f, 0.001f));
+    }
+}
+
+// ====================================================================================
+// TEST 13: PINode Constant Value
+// ====================================================================================
+TEST_CASE("PINode provides correct constant value", "[NodeGraph][MathNodes]") {
+    NodeGraph graph;
+    const float PI = 3.14159265f;
+
+    SECTION("Node outputs π ≈ 3.14159265") {
+        auto* piNode = graph.createNode<PINode>();
+        piNode->evaluate();
+
+        auto* output = piNode->getOutput("Value");
+        REQUIRE(output != nullptr);
+        REQUIRE(std::holds_alternative<float>(output->getValue()));
+        REQUIRE_THAT(std::get<float>(output->getValue()), WithinAbs(PI, 0.001f));
+    }
+
+    SECTION("Value remains constant across multiple evaluations") {
+        auto* piNode = graph.createNode<PINode>();
+
+        piNode->evaluate();
+        auto* output = piNode->getOutput("Value");
+        float firstValue = std::get<float>(output->getValue());
+
+        piNode->markDirty();
+        piNode->evaluate();
+        float secondValue = std::get<float>(output->getValue());
+
+        REQUIRE_THAT(firstValue, WithinAbs(PI, 0.001f));
+        REQUIRE_THAT(secondValue, WithinAbs(PI, 0.001f));
+        REQUIRE_THAT(firstValue, WithinAbs(secondValue, 0.001f));
+    }
+
+    SECTION("PINode has no inputs, only output") {
+        auto* piNode = graph.createNode<PINode>();
+
+        // PINode should not have any inputs
+        auto* input = piNode->getInput("Value");
+        REQUIRE(input == nullptr);
+
+        // But should have output
+        auto* output = piNode->getOutput("Value");
+        REQUIRE(output != nullptr);
+    }
+
+    SECTION("PINode → SinNode: sin(π) ≈ 0") {
+        auto* piNode = graph.createNode<PINode>();
+        auto* sinNode = graph.createNode<SinNode>();
+
+        graph.connect(piNode->getOutput("Value"), sinNode->getInput("Value"));
+
+        piNode->evaluate();
+        sinNode->evaluate();
+
+        auto* output = sinNode->getOutput("Result");
+        REQUIRE(std::holds_alternative<float>(output->getValue()));
+        // sin(π) should be very close to 0
+        REQUIRE_THAT(std::get<float>(output->getValue()), WithinAbs(0.0f, 0.001f));
+    }
+
+    SECTION("PINode → CosNode: cos(π) ≈ -1") {
+        auto* piNode = graph.createNode<PINode>();
+        auto* cosNode = graph.createNode<CosNode>();
+
+        graph.connect(piNode->getOutput("Value"), cosNode->getInput("Value"));
+
+        piNode->evaluate();
+        cosNode->evaluate();
+
+        auto* output = cosNode->getOutput("Result");
+        REQUIRE(std::holds_alternative<float>(output->getValue()));
+        // cos(π) should be -1
+        REQUIRE_THAT(std::get<float>(output->getValue()), WithinAbs(-1.0f, 0.001f));
+    }
+}
+
+// ====================================================================================
+// TEST 14: Complex Integration with New Math Nodes
+// ====================================================================================
+TEST_CASE("New math nodes work together in complex graph", "[NodeGraph][MathNodes][Integration]") {
+    NodeGraph graph;
+
+    SECTION("Power and root chain: pow(2,3) = 8, sqrt(8) ≈ 2.828") {
+        auto* base = graph.createNode<FloatConstantNode>(2.0f);
+        auto* exp = graph.createNode<FloatConstantNode>(3.0f);
+        auto* powNode = graph.createNode<PowNode>();
+        auto* rootNode = graph.createNode<RootNode>();
+
+        graph.connect(base->getOutput("Value"), powNode->getInput("Base"));
+        graph.connect(exp->getOutput("Value"), powNode->getInput("Exponent"));
+        graph.connect(powNode->getOutput("Result"), rootNode->getInput("Value"));
+
+        base->evaluate();
+        exp->evaluate();
+        powNode->evaluate();
+        rootNode->evaluate();
+
+        // pow(2,3) = 8, sqrt(8) ≈ 2.828
+        auto* output = rootNode->getOutput("Result");
+        REQUIRE(std::holds_alternative<float>(output->getValue()));
+        REQUIRE_THAT(std::get<float>(output->getValue()), WithinAbs(2.82843f, 0.001f));
+    }
+
+    SECTION("PINode feeding into sin and cos") {
+        auto* piNode = graph.createNode<PINode>();
+        auto* sinNode = graph.createNode<SinNode>();
+        auto* cosNode = graph.createNode<CosNode>();
+
+        graph.connect(piNode->getOutput("Value"), sinNode->getInput("Value"));
+        graph.connect(piNode->getOutput("Value"), cosNode->getInput("Value"));
+
+        piNode->evaluate();
+        sinNode->evaluate();
+        cosNode->evaluate();
+
+        // sin(π) ≈ 0, cos(π) ≈ -1
+        auto* sinOutput = sinNode->getOutput("Result");
+        auto* cosOutput = cosNode->getOutput("Result");
+
+        REQUIRE(std::holds_alternative<float>(sinOutput->getValue()));
+        REQUIRE(std::holds_alternative<float>(cosOutput->getValue()));
+        REQUIRE_THAT(std::get<float>(sinOutput->getValue()), WithinAbs(0.0f, 0.001f));
+        REQUIRE_THAT(std::get<float>(cosOutput->getValue()), WithinAbs(-1.0f, 0.001f));
+    }
+
+    SECTION("Inverse trig roundtrip: arcsin(sin(0.5)) = 0.5") {
+        auto* floatNode = graph.createNode<FloatConstantNode>(0.5f);
+        auto* sinNode = graph.createNode<SinNode>();
+        auto* arcsinNode = graph.createNode<ArcsinNode>();
+
+        graph.connect(floatNode->getOutput("Value"), sinNode->getInput("Value"));
+        graph.connect(sinNode->getOutput("Result"), arcsinNode->getInput("Value"));
+
+        floatNode->evaluate();
+        sinNode->evaluate();
+        arcsinNode->evaluate();
+
+        auto* output = arcsinNode->getOutput("Result");
+        REQUIRE(std::holds_alternative<float>(output->getValue()));
+        REQUIRE_THAT(std::get<float>(output->getValue()), WithinAbs(0.5f, 0.001f));
+    }
+
+    SECTION("Power and root relationship: sqrt(x) = x^0.5") {
+        auto* valueNode = graph.createNode<FloatConstantNode>(16.0f);
+
+        // Calculate using RootNode
+        auto* rootNode = graph.createNode<RootNode>();
+        graph.connect(valueNode->getOutput("Value"), rootNode->getInput("Value"));
+
+        // Calculate using PowNode with exponent 0.5
+        auto* powNode = graph.createNode<PowNode>();
+        auto* expNode = graph.createNode<FloatConstantNode>(0.5f);
+        graph.connect(valueNode->getOutput("Value"), powNode->getInput("Base"));
+        graph.connect(expNode->getOutput("Value"), powNode->getInput("Exponent"));
+
+        // Evaluate both paths
+        valueNode->evaluate();
+        rootNode->evaluate();
+        expNode->evaluate();
+        powNode->evaluate();
+
+        // Both should give the same result (4.0)
+        auto* rootOutput = rootNode->getOutput("Result");
+        auto* powOutput = powNode->getOutput("Result");
+
+        float rootResult = std::get<float>(rootOutput->getValue());
+        float powResult = std::get<float>(powOutput->getValue());
+
+        REQUIRE_THAT(rootResult, WithinAbs(4.0f, 0.001f));
+        REQUIRE_THAT(powResult, WithinAbs(4.0f, 0.001f));
+        REQUIRE_THAT(rootResult, WithinAbs(powResult, 0.001f));
+    }
+
+    SECTION("Complex trig expression: tan(x) = sin(x) / cos(x)") {
+        const float testValue = 0.7f;
+
+        auto* inputNode = graph.createNode<FloatConstantNode>(testValue);
+
+        // Calculate using TanNode directly
+        auto* tanNode = graph.createNode<TanNode>();
+        graph.connect(inputNode->getOutput("Value"), tanNode->getInput("Value"));
+
+        // Calculate using sin/cos division
+        auto* sinNode = graph.createNode<SinNode>();
+        auto* cosNode = graph.createNode<CosNode>();
+        auto* divideNode = graph.createNode<DivideNode>();
+
+        graph.connect(inputNode->getOutput("Value"), sinNode->getInput("Value"));
+        graph.connect(inputNode->getOutput("Value"), cosNode->getInput("Value"));
+        graph.connect(sinNode->getOutput("Result"), divideNode->getInput("A"));
+        graph.connect(cosNode->getOutput("Result"), divideNode->getInput("B"));
+
+        // Evaluate all nodes
+        inputNode->evaluate();
+        tanNode->evaluate();
+        sinNode->evaluate();
+        cosNode->evaluate();
+        divideNode->evaluate();
+
+        // Both methods should give the same result
+        auto* tanOutput = tanNode->getOutput("Result");
+        auto* divideOutput = divideNode->getOutput("Result");
+
+        float tanResult = std::get<float>(tanOutput->getValue());
+        float divideResult = std::get<float>(divideOutput->getValue());
+
+        REQUIRE_THAT(tanResult, WithinAbs(divideResult, 0.001f));
+    }
+}
+
+// ====================================================================================
+// TEST 15: Lazy Evaluation with Dirty Flags
 // ====================================================================================
 TEST_CASE("Lazy evaluation prevents redundant calculations", "[NodeGraph][LazyEvaluation]") {
     NodeGraph graph;
