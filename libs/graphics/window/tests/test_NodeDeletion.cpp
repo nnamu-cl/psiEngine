@@ -240,7 +240,6 @@ TEST_CASE("Delete middle node in graph chain", "[NodeGraph][NodeDeletion]") {
         REQUIRE_FALSE(nodeC->getInput("A")->isConnected());
 
         // NodeC should use default value for input A (0.0) + 3 = 3
-        nodeC->markDirty();
         nodeC->evaluate();
         REQUIRE_THAT(std::get<float>(nodeC->getOutput("Result")->getValue()), WithinAbs(3.0f, 0.001f));
     }
@@ -286,7 +285,6 @@ TEST_CASE("Delete middle node in graph chain", "[NodeGraph][NodeDeletion]") {
         REQUIRE(graph.getNodes().size() == 5);
 
         // NodeB should still work
-        nodeB->markDirty();
         nodeB->evaluate();
         REQUIRE_THAT(std::get<float>(nodeB->getOutput("Result")->getValue()), WithinAbs(15.0f, 0.001f));
 
@@ -294,7 +292,6 @@ TEST_CASE("Delete middle node in graph chain", "[NodeGraph][NodeDeletion]") {
         REQUIRE_FALSE(nodeE->getInput("Value")->isConnected());
 
         // NodeE should use default (0), sin(0) = 0
-        nodeE->markDirty();
         nodeE->evaluate();
         REQUIRE_THAT(std::get<float>(nodeE->getOutput("Result")->getValue()), WithinAbs(0.0f, 0.001f));
     }
@@ -335,7 +332,6 @@ TEST_CASE("Graph continues to work correctly after node deletion", "[NodeGraph][
 
         // Evaluate new graph: 5 + 7 = 12
         node3->evaluate();
-        addNode->markDirty();
         addNode->evaluate();
         REQUIRE_THAT(std::get<float>(addNode->getOutput("Result")->getValue()), WithinAbs(12.0f, 0.001f));
     }
@@ -414,9 +410,6 @@ TEST_CASE("Graph continues to work correctly after node deletion", "[NodeGraph][
         REQUIRE(graph.getNodes().size() == 3);
 
         // Branch 2 should still work correctly
-        c->markDirty();
-        d->markDirty();
-        mulNode->markDirty();
 
         c->evaluate();
         d->evaluate();
@@ -465,7 +458,6 @@ TEST_CASE("Delete multiple connected nodes in sequence", "[NodeGraph][NodeDeleti
         REQUIRE(graph.getNodes().size() == 4);
 
         // nodeB should still work
-        nodeB->markDirty();
         nodeB->evaluate();
         REQUIRE_THAT(std::get<float>(nodeB->getOutput("Result")->getValue()), WithinAbs(3.0f, 0.001f)); // 1+2
 
@@ -473,7 +465,6 @@ TEST_CASE("Delete multiple connected nodes in sequence", "[NodeGraph][NodeDeleti
         REQUIRE(graph.getNodes().size() == 3);
 
         // nodeA and constants should still work
-        nodeA->markDirty();
         nodeA->evaluate();
         REQUIRE_THAT(std::get<float>(nodeA->getOutput("Value")->getValue()), WithinAbs(1.0f, 0.001f));
     }
@@ -501,7 +492,6 @@ TEST_CASE("Delete multiple connected nodes in sequence", "[NodeGraph][NodeDeleti
         REQUIRE_THAT(std::get<float>(nodeB->getOutput("Result")->getValue()), WithinAbs(2.0f, 0.001f)); // 1*2 // Default value of a multiple node is 1
 
         // nodeC should reflect the change
-        nodeC->markDirty();
         nodeC->evaluate();
         REQUIRE_THAT(std::get<float>(nodeC->getOutput("Result")->getValue()), WithinAbs(12.0f, 0.001f)); // 1 + 10 // the default of an add node is 1
     }

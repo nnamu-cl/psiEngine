@@ -2,6 +2,34 @@
 
 #include "NodeSystem.h"
 
+
+
+
+// Float constant node
+class PhysicsConstantNode : public Node {
+public:
+
+    enum PhysicsConstantMode:uint8_t {
+        Gravity = 0
+    };
+
+    std::array<const char*, 1> modeNames = {
+        "Gravity"
+    };
+
+
+    PhysicsConstantNode();
+
+    void evaluate() override;
+    void OnDrawNodeUI() override;
+    const char* getTypeName() const override { return "Physics Constant"; }
+    PhysicsConstantMode mode = PhysicsConstantMode::Gravity;
+
+    float Value;
+
+};
+
+
 // Float constant node
 class FloatConstantNode : public Node {
 public:
@@ -59,8 +87,10 @@ public:
     void OnDrawNodeUI() override;
     const char* getTypeName() const override { return "Time"; }
 
-    void setTime(float time);
-    float getTime() const;
+    float rangedTime;
+    std::vector <float> min_max = {0,1};
+    bool useMinMax;
+
 
 private:
     float m_Time;
