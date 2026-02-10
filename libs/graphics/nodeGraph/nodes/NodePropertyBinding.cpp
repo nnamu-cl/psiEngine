@@ -38,9 +38,7 @@ void NodePropertyBinding::updateAll() {
         if (!transform) continue;
 
         // Evaluate the node output
-        NodeValue value = binding.output->owner->isDirty()
-            ? (binding.output->owner->evaluate(), binding.output->getValue())
-            : binding.output->getValue();
+        NodeValue value = (binding.output->owner->evaluate(), binding.output->getValue());
 
         // Apply value based on property type
         switch (binding.property) {

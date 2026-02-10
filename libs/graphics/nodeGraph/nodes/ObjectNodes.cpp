@@ -13,7 +13,6 @@ TransformNode::TransformNode() {
 }
 
 void TransformNode::evaluate() {
-    if (!isDirty()) return;
 
     glm::vec3 pos = std::get<glm::vec3>(getInput("Pos")->getValue());
     glm::vec3 rot = std::get<glm::vec3>(getInput("Rot")->getValue());
@@ -22,7 +21,6 @@ void TransformNode::evaluate() {
     getOutput("Pos")->setValue(pos);
     getOutput("Rot")->setValue(rot);
     getOutput("Scale")->setValue(scale);
-    markClean();
 }
 
 void TransformNode::OnDrawNodeUI() {

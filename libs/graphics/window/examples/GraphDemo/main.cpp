@@ -64,8 +64,6 @@ int main()
 
     // Attach layers
     app.PushLayer(&guiLayer);
-
-
     window.Start(app);
     return 0;
 }

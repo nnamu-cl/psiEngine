@@ -14,6 +14,8 @@
 #include "PsiColors.h"
 #include <iostream>
 
+#include "nodes/ValueNodes.h"
+
 int main(int argc, char* argv[])
 {
     // Window specifications for PSI application
@@ -54,6 +56,10 @@ int main(int argc, char* argv[])
     // Order matters: worldLayer renders first, then node editor, then UI overlays on top
     app.PushLayer(&worldLayer);
     app.PushLayer(&nodeEditorLayer);
+
+    //Add demo time node
+    nodeEditorLayer.getNodeGraph().createNode<TimeNode>();
+
     app.PushLayer(&uiLayer);
 
     // Start the main application loop
