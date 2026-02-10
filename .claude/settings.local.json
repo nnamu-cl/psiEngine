@@ -3,7 +3,10 @@
     "allow": [
       "Bash(git clone:*)",
       "Bash(dir:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:shader-slang.org)"
     ]
   }
 }

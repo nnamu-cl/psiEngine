@@ -1,9 +1,12 @@
 #define GLM_ENABLE_EXPERIMENTAL
 
+#include <iostream>
+
 #include "Application.h"
 #include "ApplicationWindow.h"
 #include "Components/Transform.h"
 #include "Components/MeshRenderer.h"
+#include "Components/LineRenderer.h"
 #include "Layers/DefaultGameWorld/DefaultGameWorld.h"
 #include "imgui.h"
 #include <glm/gtc/type_ptr.hpp>
@@ -27,8 +30,9 @@ public:
 
         if (mainGameObject != nullptr) {
 
-             Transform* transform =  mainGameObject->components.get<Transform>();
-             MeshRenderer* renderer = mainGameObject->components.get<MeshRenderer>();
+             Transform* transform = mainGameObject->components.get<Transform>();
+             LineRenderer* lineRenderer = mainGameObject->components.get<LineRenderer>();
+             // MeshRenderer* renderer = mainGameObject->components.get<MeshRenderer>();
 
              // Draw ImGui control window
              ImGui::Begin("Object Controls");
@@ -47,6 +51,14 @@ public:
                  ImGui::Spacing();
              }
 
+             if (lineRenderer != nullptr) {
+                 ImGui::Text("Line Renderer");
+                 ImGui::Separator();
+                 lineRenderer->OnInspectorGUI();
+             }
+
+             /*
+             // Commented out mesh renderer UI
              if (renderer != nullptr) {
                  ImGui::Text("Mesh Renderer");
                  ImGui::Separator();
@@ -92,6 +104,7 @@ public:
                  ImGui::SliderFloat("Alpha Cutoff", &renderer->material.alphaCutoff, 0.0f, 1.0f);
                  ImGui::Checkbox("Double-Sided", &renderer->material.doubleSided);
              }
+             */
 
              ImGui::End();
         }
@@ -104,7 +117,7 @@ int main() {
     // Create a new Application Window
 
     ApplicationWindowSpecifications specifications{
-    1920, 1080, "Graphics Demo"
+    1920, 1080, "Graphics Demo - Line Renderer"
     };
     ApplicationWindow window(specifications);
     window.Init();
@@ -112,10 +125,36 @@ int main() {
 
 
     BasicGraphicsLayer basicGraphicsLayer(&window.data);
+
+    // Commented out cube creation
+    /*
     auto mesh = MeshTable::unitCube();
     basicGraphicsLayer.addMeshPrimitive("Cube", std::move(mesh),
         glm::vec3(0.0f, 0.0f, 0.0f),
         glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
+    */
+
+    // Create a simple spiral line
+    std::cout << "Creating spiral line...\n";
+    std::vector<glm::vec3> linePoints;
+    const int numPoints = 50;
+    const float radius = 2.0f;
+    const float height = 4.0f;
+
+    for (int i = 0; i < numPoints; ++i)
+    {
+        float t = static_cast<float>(i) / static_cast<float>(numPoints - 1);
+        float angle = t * 4.0f * glm::pi<float>();  // 2 full rotations
+        float x = radius * std::cos(angle);
+        float z = radius * std::sin(angle);
+        float y = -height * 0.5f + height * t;
+        linePoints.push_back(glm::vec3(x, y, z));
+    }
+
+    std::cout << "Created " << linePoints.size() << " line points. Calling addLinePrimitive...\n";
+    basicGraphicsLayer.addLinePrimitive("Spiral Line", linePoints,
+        glm::vec4(0.0f, 1.0f, 1.0f, 1.0f));  // Cyan color
+    std::cout << "addLinePrimitive returned\n";
 
 
     basicGraphicsLayer.mainGameObject = &basicGraphicsLayer.data.scene.objects[0];
