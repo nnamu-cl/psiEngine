@@ -7,12 +7,16 @@
 namespace slang { struct IGlobalSession; }
 namespace Slang { template<typename T> class ComPtr; }
 
-// Describes which shaders back a pipeline. Vertex layout, blend,
-// and depth state will be added here as they are needed.
+// Forward declare for blend mode
+enum class BlendMode;
+
+// Describes which shaders back a pipeline.
 struct PipelineDesc
 {
     std::string vertexShaderPath;
     std::string fragmentShaderPath;
+    BlendMode blendMode;
+    bool doubleSided = false;  // If true, disable backface culling
 };
 
 class Pipeline

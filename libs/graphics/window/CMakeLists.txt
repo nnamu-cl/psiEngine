@@ -49,6 +49,14 @@ file(GLOB OPENWINDOWFILES "examples/OpenWindow/*.cpp" "examples/OpenWindow/*.h")
 add_executable(OpenWindow ${OPENWINDOWFILES})
 target_link_libraries(OpenWindow PRIVATE WindowLib)
 
+
+
+# GraphicsDemo example
+file(GLOB GRAPHICSDEMOFILES "examples/GraphicsDemo/*.cpp" "examples/GraphicsDemo/*.h")
+add_executable(GraphicsDemo ${GRAPHICSDEMOFILES})
+target_link_libraries(GraphicsDemo PRIVATE WindowLib)
+
+
 # Copy LYGIA shader includes into build output so the runtime shader
 # compiler can resolve #include "lygia/..." with assets/ as the root.
 set(LYGIA_SRC ${CMAKE_CURRENT_SOURCE_DIR}/../../../external/lygia)
@@ -111,6 +119,14 @@ add_custom_command(
 add_custom_command(
         TARGET OpenWindow POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory ${ASSETS_SRC} $<TARGET_FILE_DIR:OpenWindow>/libs/graphics/window/assets
+        COMMENT "Copying assets to OpenWindow executable directory"
+)
+
+
+# Also copy assets for OpenWindow example
+add_custom_command(
+        TARGET GraphicsDemo POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory ${ASSETS_SRC} $<TARGET_FILE_DIR:GraphicsDemo>/libs/graphics/window/assets
         COMMENT "Copying assets to OpenWindow executable directory"
 )
 

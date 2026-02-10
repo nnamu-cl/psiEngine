@@ -17,6 +17,9 @@
 // Define the static member
 ApplicationWindow* ApplicationWindow::instance = nullptr;
 
+
+
+
 ApplicationWindow::ApplicationWindow(ApplicationWindowSpecifications& spec)
 {
     specification = &spec;
