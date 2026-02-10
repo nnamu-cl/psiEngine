@@ -22,20 +22,14 @@ void DefaultGameWorld::OnAttach()
         return;
     }
 
-    // Create pipeline with default shaders
-    PipelineDesc desc{
-        .vertexShaderPath   = "libs/graphics/window/assets/shaders/DefaultGameWorld/default.vert.slang",
-        .fragmentShaderPath = "libs/graphics/window/assets/shaders/DefaultGameWorld/default.frag.slang"
-    };
-
+    // Create all pipeline variants
     std::vector<VkDescriptorSetLayout> setLayouts = { data.resources.globalSetLayout };
-    if (!data.pipeline.create(m_WindowData->device,
-                              desc,
-                              setLayouts,
-                              m_WindowData->swapchainImageFormat,
-                              m_WindowData->depthFormat))
+    if (!data.pipelineManager.create(m_WindowData->device,
+                                     setLayouts,
+                                     m_WindowData->swapchainImageFormat,
+                                     m_WindowData->depthFormat))
     {
-        std::cerr << "Failed to create DefaultGameWorld pipeline\n";
+        std::cerr << "Failed to create DefaultGameWorld pipelines\n";
         return;
     }
 
@@ -177,7 +171,7 @@ void DefaultGameWorld::OnDetach()
         vmaDestroyBuffer(m_WindowData->allocator, data.meshBuffer, data.meshBufferAllocation);
 
     data.resources.destroy(m_WindowData->device, m_WindowData->allocator);
-    data.pipeline.destroy(m_WindowData->device);
+    data.pipelineManager.destroy(m_WindowData->device);
 }
 
 void DefaultGameWorld::OnUpdate(float ts)
@@ -210,16 +204,12 @@ void DefaultGameWorld::OnRender(VkCommandBuffer cb, const glm::ivec2& windowSize
     };
     vkCmdSetScissor(cb, 0, 1, &scissor);
 
-    // Bind pipeline
-    vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, data.pipeline.pipeline);
-
-    // Bind global descriptor set (camera UBO)
-    vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, data.pipeline.layout,
-                            0, 1, &data.resources.globalSets[frameIndex], 0, nullptr);
-
     // Draw each object in the scene
     if (data.meshBuffer == VK_NULL_HANDLE)
         return;  // No meshes uploaded yet
+
+    // Track current pipeline to minimize state changes
+    Pipeline* currentPipeline = nullptr;
 
     for (const auto& obj : data.scene.objects)
     {
@@ -241,20 +231,47 @@ void DefaultGameWorld::OnRender(VkCommandBuffer cb, const glm::ivec2& windowSize
         if (meshInfo.indexCount == 0)
             continue;
 
-        // Prepare push constants with model matrix, color mode, and object color
+        // Get appropriate pipeline for this material
+        Pipeline* pipeline = data.pipelineManager.getPipeline(renderer->material);
+        if (!pipeline)
+            continue;
+
+        // Bind pipeline if it changed
+        if (pipeline != currentPipeline)
+        {
+            vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
+            vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->layout,
+                                   0, 1, &data.resources.globalSets[frameIndex], 0, nullptr);
+            currentPipeline = pipeline;
+        }
+
+        // Prepare extended push constants
         struct {
-            glm::mat4 model;
-            glm::vec4 objectColor;
-            uint32_t colorMode;
-            uint32_t padding[3];
+            glm::mat4 model;             // 64 bytes (offset 0)
+            glm::vec4 objectColor;       // 16 bytes (offset 64)
+            float emissionIntensity;     // 4 bytes (offset 80)
+            float _pad1[3];              // 12 bytes padding for vec3 alignment (offset 84)
+            glm::vec3 tintColor;         // 12 bytes (offset 96, aligned to 16)
+            float alphaCutoff;           // 4 bytes (offset 108)
+            uint32_t colorMode;          // 4 bytes (offset 112)
+            uint32_t shadingMode;        // 4 bytes (offset 116)
+            uint32_t padding[2];         // 8 bytes (offset 120)
         } pushData;
 
-        // toMatrix() internally uses getPos(), getRot(), getScale()
         pushData.model = transform->toMatrix();
-        pushData.objectColor = renderer->objectColor;
-        pushData.colorMode = (renderer->colorMode == ColorMode::ObjectColor) ? 1u : 0u;
+        pushData.objectColor = renderer->material.objectColor;
+        pushData.emissionIntensity = renderer->material.emissionIntensity;
+        pushData._pad1[0] = 0.0f;
+        pushData._pad1[1] = 0.0f;
+        pushData._pad1[2] = 0.0f;
+        pushData.tintColor = renderer->material.tintColor;
+        pushData.alphaCutoff = renderer->material.alphaCutoff;
+        pushData.colorMode = (renderer->material.colorMode == ColorMode::ObjectColor) ? 1u : 0u;
+        pushData.shadingMode = (renderer->material.shadingMode == ShadingMode::Unlit) ? 1u : 0u;
+        pushData.padding[0] = 0;
+        pushData.padding[1] = 0;
 
-        vkCmdPushConstants(cb, data.pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+        vkCmdPushConstants(cb, pipeline->layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                           0, sizeof(pushData), &pushData);
 
         // Bind vertex buffer

@@ -1,4 +1,5 @@
 #include "Pipeline.h"
+#include "../../Data/Material.h"
 
 #include <fstream>
 #include <stdexcept>
@@ -139,11 +140,14 @@ bool Pipeline::create(VkDevice device,
         return false;
     }
 
-    // Push constant range for model matrix + color data (64 + 16 + 16 = 96 bytes)
+    // Push constant range for extended material data
+    // Layout: mat4 model (64) + vec4 objectColor (16) + float emissionIntensity (4) +
+    //         vec3 tintColor (12) + float alphaCutoff (4) + uint colorMode (4) +
+    //         uint shadingMode (4) + padding (8) = 116 bytes (rounded to 128 for alignment)
     VkPushConstantRange pushConstantRange{
         .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
         .offset     = 0,
-        .size       = 96  // sizeof(glm::mat4) + sizeof(glm::vec4) + sizeof(uint32_t) + 12 bytes padding
+        .size       = 128
     };
 
     // Create pipeline layout
@@ -220,11 +224,11 @@ bool Pipeline::create(VkDevice device,
         .scissorCount  = 1
     };
 
-    // Rasterization
+    // Rasterization (with configurable culling)
     VkPipelineRasterizationStateCreateInfo rasterization{
         .sType       = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
         .polygonMode = VK_POLYGON_MODE_FILL,
-        .cullMode    = VK_CULL_MODE_BACK_BIT,
+        .cullMode    = desc.doubleSided ? VK_CULL_MODE_NONE : VK_CULL_MODE_BACK_BIT,
         .frontFace   = VK_FRONT_FACE_COUNTER_CLOCKWISE,
         .lineWidth   = 1.0f
     };
@@ -243,12 +247,47 @@ bool Pipeline::create(VkDevice device,
         .depthCompareOp   = VK_COMPARE_OP_LESS_OR_EQUAL
     };
 
-    // Color blending (opaque, no blending)
-    VkPipelineColorBlendAttachmentState colorBlendAttachment{
-        .blendEnable    = VK_FALSE,
-        .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
-                          VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT
-    };
+    // Color blending (configured based on blend mode)
+    VkPipelineColorBlendAttachmentState colorBlendAttachment{};
+    colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+                                          VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+
+    switch (desc.blendMode)
+    {
+        case BlendMode::Opaque:
+            colorBlendAttachment.blendEnable = VK_FALSE;
+            break;
+
+        case BlendMode::Transparent:
+            colorBlendAttachment.blendEnable = VK_TRUE;
+            colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+            colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+            colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+            colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+            colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+            colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+            break;
+
+        case BlendMode::Additive:
+            colorBlendAttachment.blendEnable = VK_TRUE;
+            colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+            colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
+            colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+            colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+            colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+            colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+            break;
+
+        case BlendMode::Multiply:
+            colorBlendAttachment.blendEnable = VK_TRUE;
+            colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_DST_COLOR;
+            colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
+            colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+            colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+            colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+            colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+            break;
+    }
 
     VkPipelineColorBlendStateCreateInfo colorBlending{
         .sType           = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,

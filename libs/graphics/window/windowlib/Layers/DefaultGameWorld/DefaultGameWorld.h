@@ -3,7 +3,7 @@
 #include "Layers/Layer.h"
 #include "Camera.h"
 #include "Scene.h"
-#include "Pipeline.h"
+#include "PipelineManager.h"
 #include "Resources.h"
 #include "Mesh.h"
 #include <volk/volk.h>
@@ -26,8 +26,8 @@ struct MeshGPUInfo
 struct DefaultGameWorldData
 {
     // Rendering resources (frequently accessed together)
-    Pipeline  pipeline;
-    Resources resources;
+    PipelineManager pipelineManager;
+    Resources       resources;
 
     // Mesh data (frequently accessed together during rendering)
     MeshTable              meshTable;
@@ -50,6 +50,7 @@ public:
     void OnDetach()  override;
     void OnUpdate(float ts)  override;
     void OnRender(VkCommandBuffer cb, const glm::ivec2& windowSize, uint32_t frameIndex) override;
+
 
     // Add a mesh primitive to the scene
     void addMeshPrimitive(const std::string& name, Mesh mesh,
