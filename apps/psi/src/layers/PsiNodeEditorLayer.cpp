@@ -50,15 +50,6 @@ void PsiNodeEditorLayer::OnUpdate(float ts)
     // Update elapsed time
     m_ElapsedTime += ts;
 
-    // Update all TimeNodes with current elapsed time
-    for (const auto& node : m_NodeGraph.getNodes())
-    {
-        if (TimeNode* timeNode = dynamic_cast<TimeNode*>(node.get()))
-        {
-            timeNode->setTime(m_ElapsedTime);
-        }
-    }
-
     // Mark all nodes dirty each frame (lazy evaluation system)
     //m_NodeGraph.markAllDirty();
     m_NodeGraph.evaluateAll();

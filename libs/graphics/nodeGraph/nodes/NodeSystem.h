@@ -95,10 +95,6 @@ public:
     virtual void OnInputConnected(InputSocket* input, OutputSocket* output) {}
     virtual void OnInputDisconnected(InputSocket* input) {}
 
-    // Dirty flag management
-    bool isDirty() const { return m_Dirty; }
-    void markDirty();
-    void markClean() { m_Dirty = false; }
 
     // Socket access
     InputSocket* getInput(const std::string& name);

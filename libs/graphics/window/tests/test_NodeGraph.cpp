@@ -152,51 +152,11 @@ TEST_CASE("Node dirty flags work correctly", "[NodeGraph][DirtyFlags]") {
     auto* floatNode = graph.createNode<FloatConstantNode>(5.0f);
     auto* addNode = graph.createNode<AddNode>();
 
-    SECTION("Nodes start dirty") {
-        REQUIRE(floatNode->isDirty());
-        REQUIRE(addNode->isDirty());
-    }
 
-    SECTION("Evaluation marks node clean") {
-        floatNode->evaluate();
-        REQUIRE_FALSE(floatNode->isDirty());
-    }
 
-    SECTION("Setting value marks node dirty") {
-        floatNode->evaluate();
-        REQUIRE_FALSE(floatNode->isDirty());
 
-        floatNode->setValue(10.0f);
-        REQUIRE(floatNode->isDirty());
-    }
 
-    SECTION("markDirty propagates to downstream nodes") {
-        auto* output = floatNode->getOutput("Value");
-        auto* input = addNode->getInput("A");
-        graph.connect(output, input);
 
-        // Mark both clean first
-        floatNode->evaluate();
-        addNode->evaluate();
-        REQUIRE_FALSE(floatNode->isDirty());
-        REQUIRE_FALSE(addNode->isDirty());
-
-        // Marking upstream node dirty should propagate downstream
-        floatNode->markDirty();
-        REQUIRE(floatNode->isDirty());
-        REQUIRE(addNode->isDirty());
-    }
-
-    SECTION("markAllDirty marks all nodes in graph") {
-        floatNode->evaluate();
-        addNode->evaluate();
-        REQUIRE_FALSE(floatNode->isDirty());
-        REQUIRE_FALSE(addNode->isDirty());
-
-        graph.markAllDirty();
-        REQUIRE(floatNode->isDirty());
-        REQUIRE(addNode->isDirty());
-    }
 }
 
 // ====================================================================================
@@ -416,7 +376,6 @@ TEST_CASE("Trigonometric nodes compute correctly", "[NodeGraph][MathNodes]") {
         // Test pi/2 (should be 1.0)
         floatNode->setValue(3.14159265f / 2.0f);
         floatNode->evaluate();
-        sinNode->markDirty();
         sinNode->evaluate();
         REQUIRE_THAT(std::get<float>(output->getValue()), WithinAbs(1.0f, 0.001f));
     }
@@ -437,7 +396,6 @@ TEST_CASE("Trigonometric nodes compute correctly", "[NodeGraph][MathNodes]") {
         // Test pi (should be -1.0)
         floatNode->setValue(3.14159265f);
         floatNode->evaluate();
-        cosNode->markDirty();
         cosNode->evaluate();
         REQUIRE_THAT(std::get<float>(output->getValue()), WithinAbs(-1.0f, 0.001f));
     }
@@ -923,7 +881,6 @@ TEST_CASE("PINode provides correct constant value", "[NodeGraph][MathNodes]") {
         auto* output = piNode->getOutput("Value");
         float firstValue = std::get<float>(output->getValue());
 
-        piNode->markDirty();
         piNode->evaluate();
         float secondValue = std::get<float>(output->getValue());
 
@@ -1121,32 +1078,20 @@ TEST_CASE("Lazy evaluation prevents redundant calculations", "[NodeGraph][LazyEv
     graph.connect(floatNode->getOutput("Value"), addNode->getInput("B"));
 
     SECTION("Node evaluates when dirty") {
-        REQUIRE(floatNode->isDirty());
         floatNode->evaluate();
-        REQUIRE_FALSE(floatNode->isDirty());
 
         auto* output = floatNode->getOutput("Value");
         REQUIRE_THAT(std::get<float>(output->getValue()), WithinAbs(5.0f, 0.001f));
     }
 
-    SECTION("Node skips evaluation when clean") {
-        floatNode->evaluate();
-        REQUIRE_FALSE(floatNode->isDirty());
-
-        // Calling evaluate again should be a no-op (node stays clean)
-        floatNode->evaluate();
-        REQUIRE_FALSE(floatNode->isDirty());
-    }
 
     SECTION("Input getValue() triggers upstream evaluation") {
         // FloatNode is dirty, AddNode's input should trigger its evaluation
-        REQUIRE(floatNode->isDirty());
 
         auto* input = addNode->getInput("A");
         NodeValue value = input->getValue();
 
         // Getting the value should have triggered floatNode evaluation
-        REQUIRE_FALSE(floatNode->isDirty());
         REQUIRE(std::holds_alternative<float>(value));
         REQUIRE_THAT(std::get<float>(value), WithinAbs(5.0f, 0.001f));
     }
@@ -1156,21 +1101,13 @@ TEST_CASE("Lazy evaluation prevents redundant calculations", "[NodeGraph][LazyEv
         floatNode->evaluate();
         addNode->evaluate();
 
-        REQUIRE_FALSE(floatNode->isDirty());
-        REQUIRE_FALSE(addNode->isDirty());
 
         auto* output = addNode->getOutput("Result");
         REQUIRE_THAT(std::get<float>(output->getValue()), WithinAbs(10.0f, 0.001f));
 
-        // Mark all dirty (simulates new frame)
-        graph.markAllDirty();
-        REQUIRE(floatNode->isDirty());
-        REQUIRE(addNode->isDirty());
 
         // Re-evaluate
         addNode->evaluate();
-        REQUIRE_FALSE(floatNode->isDirty()); // Should be evaluated by addNode's input
-        REQUIRE_FALSE(addNode->isDirty());
     }
 }
 

@@ -50,11 +50,7 @@ TEST_CASE("LineGraphNode evaluate() handles null trackTransform safely", "[Graph
         REQUIRE_NOTHROW(lineGraph->evaluate());
     }
 
-    SECTION("Evaluate marks node as clean") {
-        REQUIRE(lineGraph->isDirty());
-        lineGraph->evaluate();
-        REQUIRE_FALSE(lineGraph->isDirty());
-    }
+
 
     SECTION("Points buffer remains empty without trackTransform") {
         lineGraph->evaluate();
@@ -95,9 +91,7 @@ TEST_CASE("LineGraphNode tracks TransformNode X axis correctly", "[GraphNodes][L
         graph.connect(vec3Node->getOutput("Value"), transformNode->getInput("Pos"));
 
         vec3Node->evaluate();
-        transformNode->markDirty();
         transformNode->evaluate();
-        lineGraph->markDirty();
         lineGraph->evaluate();
 
         REQUIRE(lineGraph->points.buffer.size() == 2);
@@ -111,9 +105,9 @@ TEST_CASE("LineGraphNode tracks TransformNode X axis correctly", "[GraphNodes][L
             graph.connect(vec3Node->getOutput("Value"), transformNode->getInput("Pos"));
 
             vec3Node->evaluate();
-            transformNode->markDirty();
+            
             transformNode->evaluate();
-            lineGraph->markDirty();
+            
             lineGraph->evaluate();
         }
 
@@ -155,9 +149,9 @@ TEST_CASE("LineGraphNode tracks TransformNode Y axis correctly", "[GraphNodes][L
             graph.connect(vec3Node->getOutput("Value"), transformNode->getInput("Pos"));
 
             vec3Node->evaluate();
-            transformNode->markDirty();
+            
             transformNode->evaluate();
-            lineGraph->markDirty();
+            
             lineGraph->evaluate();
         }
 
@@ -199,9 +193,9 @@ TEST_CASE("LineGraphNode tracks TransformNode Z axis correctly", "[GraphNodes][L
             graph.connect(vec3Node->getOutput("Value"), transformNode->getInput("Pos"));
 
             vec3Node->evaluate();
-            transformNode->markDirty();
+            
             transformNode->evaluate();
-            lineGraph->markDirty();
+            
             lineGraph->evaluate();
         }
 
@@ -231,9 +225,9 @@ TEST_CASE("LineGraphNode respects maxCount capacity", "[GraphNodes][LineGraphNod
             graph.connect(vec3Node->getOutput("Value"), transformNode->getInput("Pos"));
 
             vec3Node->evaluate();
-            transformNode->markDirty();
+            
             transformNode->evaluate();
-            lineGraph->markDirty();
+            
             lineGraph->evaluate();
         }
 
@@ -248,9 +242,9 @@ TEST_CASE("LineGraphNode respects maxCount capacity", "[GraphNodes][LineGraphNod
             graph.connect(vec3Node->getOutput("Value"), transformNode->getInput("Pos"));
 
             vec3Node->evaluate();
-            transformNode->markDirty();
+            
             transformNode->evaluate();
-            lineGraph->markDirty();
+            
             lineGraph->evaluate();
         }
 
@@ -270,9 +264,9 @@ TEST_CASE("LineGraphNode respects maxCount capacity", "[GraphNodes][LineGraphNod
             graph.connect(vec3Node->getOutput("Value"), transformNode->getInput("Pos"));
 
             vec3Node->evaluate();
-            transformNode->markDirty();
+            
             transformNode->evaluate();
-            lineGraph->markDirty();
+            
             lineGraph->evaluate();
         }
 
@@ -285,9 +279,9 @@ TEST_CASE("LineGraphNode respects maxCount capacity", "[GraphNodes][LineGraphNod
         auto* vec3Node = graph.createNode<Vec3ConstantNode>(glm::vec3(100.0f, 0.0f, 0.0f));
         graph.connect(vec3Node->getOutput("Value"), transformNode->getInput("Pos"));
         vec3Node->evaluate();
-        transformNode->markDirty();
+        
         transformNode->evaluate();
-        lineGraph->markDirty();
+        
         lineGraph->evaluate();
 
         // Should now have only 3 items
@@ -318,9 +312,9 @@ TEST_CASE("LineGraphNode switches between tracking axes", "[GraphNodes][LineGrap
 
         // Switch to Y axis
         lineGraph->selectedAxis = LineGraphNode::Axis::Y;
-        transformNode->markDirty();
+        
         transformNode->evaluate();
-        lineGraph->markDirty();
+        
         lineGraph->evaluate();
 
         REQUIRE_THAT(lineGraph->points[1], WithinAbs(20.0f, 0.001f));
@@ -337,9 +331,9 @@ TEST_CASE("LineGraphNode switches between tracking axes", "[GraphNodes][LineGrap
 
         // Switch to Z axis
         lineGraph->selectedAxis = LineGraphNode::Axis::Z;
-        transformNode->markDirty();
+        
         transformNode->evaluate();
-        lineGraph->markDirty();
+        
         lineGraph->evaluate();
 
         REQUIRE_THAT(lineGraph->points[1], WithinAbs(30.0f, 0.001f));
@@ -356,17 +350,17 @@ TEST_CASE("LineGraphNode switches between tracking axes", "[GraphNodes][LineGrap
 
         // Track Y
         lineGraph->selectedAxis = LineGraphNode::Axis::Y;
-        transformNode->markDirty();
+        
         transformNode->evaluate();
-        lineGraph->markDirty();
+        
         lineGraph->evaluate();
         REQUIRE_THAT(lineGraph->points[1], WithinAbs(20.0f, 0.001f));
 
         // Track Z
         lineGraph->selectedAxis = LineGraphNode::Axis::Z;
-        transformNode->markDirty();
+        
         transformNode->evaluate();
-        lineGraph->markDirty();
+        
         lineGraph->evaluate();
         REQUIRE_THAT(lineGraph->points[2], WithinAbs(30.0f, 0.001f));
 
@@ -413,7 +407,7 @@ TEST_CASE("LineGraphNode switches between different TransformNodes", "[GraphNode
         lineGraph->trackTransform = transform2;
         vec3Node2->evaluate();
         transform2->evaluate();
-        lineGraph->markDirty();
+        
         lineGraph->evaluate();
 
         REQUIRE(lineGraph->points.buffer.size() == 2);
@@ -434,13 +428,13 @@ TEST_CASE("LineGraphNode switches between different TransformNodes", "[GraphNode
 
         // Switch to transform2
         lineGraph->trackTransform = transform2;
-        lineGraph->markDirty();
+        
         lineGraph->evaluate();
         REQUIRE_THAT(lineGraph->points[1], WithinAbs(15.0f, 0.001f));
 
         // Switch back to transform1
         lineGraph->trackTransform = transform1;
-        lineGraph->markDirty();
+        
         lineGraph->evaluate();
         REQUIRE_THAT(lineGraph->points[2], WithinAbs(5.0f, 0.001f));
 
@@ -472,7 +466,7 @@ TEST_CASE("LineGraphNode handles disconnecting trackTransform", "[GraphNodes][Li
 
         // Disconnect
         lineGraph->trackTransform = nullptr;
-        lineGraph->markDirty();
+        
         lineGraph->evaluate();
 
         // Buffer size should remain the same (no new points added)
@@ -492,7 +486,7 @@ TEST_CASE("LineGraphNode handles disconnecting trackTransform", "[GraphNodes][Li
 
         // Multiple evaluations
         for (int i = 0; i < 5; i++) {
-            lineGraph->markDirty();
+            
             lineGraph->evaluate();
         }
 
@@ -507,14 +501,14 @@ TEST_CASE("LineGraphNode handles disconnecting trackTransform", "[GraphNodes][Li
         lineGraph->evaluate();
 
         lineGraph->trackTransform = nullptr;
-        lineGraph->markDirty();
+        
         lineGraph->evaluate();
 
         // Reconnect
         lineGraph->trackTransform = transformNode;
-        transformNode->markDirty();
+        
         transformNode->evaluate();
-        lineGraph->markDirty();
+        
         lineGraph->evaluate();
 
         REQUIRE(lineGraph->points.buffer.size() == 2);
@@ -543,9 +537,9 @@ TEST_CASE("LineGraphNode accumulates points over multiple evaluations", "[GraphN
             graph.connect(vec3Node->getOutput("Value"), transformNode->getInput("Pos"));
 
             vec3Node->evaluate();
-            transformNode->markDirty();
+            
             transformNode->evaluate();
-            lineGraph->markDirty();
+            
             lineGraph->evaluate();
         }
 
@@ -565,9 +559,7 @@ TEST_CASE("LineGraphNode accumulates points over multiple evaluations", "[GraphN
             graph.connect(vec3Node->getOutput("Value"), transformNode->getInput("Pos"));
 
             vec3Node->evaluate();
-            transformNode->markDirty();
             transformNode->evaluate();
-            lineGraph->markDirty();
             lineGraph->evaluate();
         }
 
@@ -575,18 +567,6 @@ TEST_CASE("LineGraphNode accumulates points over multiple evaluations", "[GraphN
         REQUIRE(lineGraph->points.buffer.size() == 10);
         REQUIRE_THAT(lineGraph->points[0], WithinAbs(5.0f, 0.001f));
         REQUIRE_THAT(lineGraph->points[9], WithinAbs(14.0f, 0.001f));
-    }
-
-    SECTION("Clean flag is reset after each evaluation") {
-        transformNode->evaluate();
-
-        for (int i = 0; i < 3; i++) {
-            REQUIRE(lineGraph->isDirty());
-            lineGraph->evaluate();
-            REQUIRE_FALSE(lineGraph->isDirty());
-
-            lineGraph->markDirty();
-        }
     }
 
     SECTION("Accumulate with varying axis selection") {
@@ -607,9 +587,9 @@ TEST_CASE("LineGraphNode accumulates points over multiple evaluations", "[GraphN
 
             lineGraph->selectedAxis = axes[i];
             vec3Node->evaluate();
-            transformNode->markDirty();
+            
             transformNode->evaluate();
-            lineGraph->markDirty();
+            
             lineGraph->evaluate();
 
             REQUIRE_THAT(lineGraph->points[i], WithinAbs(expectedValues[i], 0.001f));
@@ -618,3 +598,5 @@ TEST_CASE("LineGraphNode accumulates points over multiple evaluations", "[GraphN
         REQUIRE(lineGraph->points.buffer.size() == 5);
     }
 }
+
+
