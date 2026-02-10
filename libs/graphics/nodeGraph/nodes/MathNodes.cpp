@@ -66,7 +66,6 @@ AddNode::AddNode() {
 }
 
 void AddNode::evaluate() {
-    if (!isDirty()) return;
 
     NodeValue a = getInput("A")->getValue();
     NodeValue b = getInput("B")->getValue();
@@ -74,7 +73,6 @@ void AddNode::evaluate() {
     NodeValue result = binaryOp(a, b, [](auto x, auto y) { return x + y; });
 
     getOutput("Result")->setValue(result);
-    markClean();
 }
 
 // SubtractNode implementation
@@ -85,7 +83,6 @@ SubtractNode::SubtractNode() {
 }
 
 void SubtractNode::evaluate() {
-    if (!isDirty()) return;
 
     NodeValue a = getInput("A")->getValue();
     NodeValue b = getInput("B")->getValue();
@@ -93,7 +90,6 @@ void SubtractNode::evaluate() {
     NodeValue result = binaryOp(a, b, [](auto x, auto y) { return x - y; });
 
     getOutput("Result")->setValue(result);
-    markClean();
 }
 
 // MultiplyNode implementation
@@ -104,7 +100,6 @@ MultiplyNode::MultiplyNode() {
 }
 
 void MultiplyNode::evaluate() {
-    if (!isDirty()) return;
 
     NodeValue a = getInput("A")->getValue();
     NodeValue b = getInput("B")->getValue();
@@ -112,7 +107,6 @@ void MultiplyNode::evaluate() {
     NodeValue result = binaryOp(a, b, [](auto x, auto y) { return x * y; });
 
     getOutput("Result")->setValue(result);
-    markClean();
 }
 
 // DivideNode implementation
@@ -123,7 +117,6 @@ DivideNode::DivideNode() {
 }
 
 void DivideNode::evaluate() {
-    if (!isDirty()) return;
 
     NodeValue a = getInput("A")->getValue();
     NodeValue b = getInput("B")->getValue();
@@ -138,7 +131,6 @@ void DivideNode::evaluate() {
     });
 
     getOutput("Result")->setValue(result);
-    markClean();
 }
 
 // SinNode implementation
@@ -148,13 +140,11 @@ SinNode::SinNode() {
 }
 
 void SinNode::evaluate() {
-    if (!isDirty()) return;
 
     float value = std::get<float>(getInput("Value")->getValue());
     float result = std::sin(value);
 
     getOutput("Result")->setValue(result);
-    markClean();
 }
 
 // CosNode implementation
@@ -164,13 +154,11 @@ CosNode::CosNode() {
 }
 
 void CosNode::evaluate() {
-    if (!isDirty()) return;
 
     float value = std::get<float>(getInput("Value")->getValue());
     float result = std::cos(value);
 
     getOutput("Result")->setValue(result);
-    markClean();
 }
 
 // TanNode implementation
@@ -180,13 +168,11 @@ TanNode::TanNode() {
 }
 
 void TanNode::evaluate() {
-    if (!isDirty()) return;
 
     float value = std::get<float>(getInput("Value")->getValue());
     float result = std::tan(value);
 
     getOutput("Result")->setValue(result);
-    markClean();
 }
 
 // ArctanNode implementation
@@ -196,13 +182,11 @@ ArctanNode::ArctanNode() {
 }
 
 void ArctanNode::evaluate() {
-    if (!isDirty()) return;
 
     float value = std::get<float>(getInput("Value")->getValue());
     float result = std::atan(value);
 
     getOutput("Result")->setValue(result);
-    markClean();
 }
 
 // ArcsinNode implementation
@@ -212,7 +196,6 @@ ArcsinNode::ArcsinNode() {
 }
 
 void ArcsinNode::evaluate() {
-    if (!isDirty()) return;
 
     float value = std::get<float>(getInput("Value")->getValue());
     // Clamp value to [-1, 1] to avoid NaN
@@ -220,7 +203,6 @@ void ArcsinNode::evaluate() {
     float result = std::asin(value);
 
     getOutput("Result")->setValue(result);
-    markClean();
 }
 
 // ArccosNode implementation
@@ -230,7 +212,6 @@ ArccosNode::ArccosNode() {
 }
 
 void ArccosNode::evaluate() {
-    if (!isDirty()) return;
 
     float value = std::get<float>(getInput("Value")->getValue());
     // Clamp value to [-1, 1] to avoid NaN
@@ -238,7 +219,6 @@ void ArccosNode::evaluate() {
     float result = std::acos(value);
 
     getOutput("Result")->setValue(result);
-    markClean();
 }
 
 // PowNode implementation
@@ -249,14 +229,12 @@ PowNode::PowNode() {
 }
 
 void PowNode::evaluate() {
-    if (!isDirty()) return;
 
     float base = std::get<float>(getInput("Base")->getValue());
     float exponent = std::get<float>(getInput("Exponent")->getValue());
     float result = std::pow(base, exponent);
 
     getOutput("Result")->setValue(result);
-    markClean();
 }
 
 // RootNode implementation
@@ -266,7 +244,6 @@ RootNode::RootNode() {
 }
 
 void RootNode::evaluate() {
-    if (!isDirty()) return;
 
     float value = std::get<float>(getInput("Value")->getValue());
     // Clamp to non-negative to avoid NaN
@@ -274,7 +251,6 @@ void RootNode::evaluate() {
     float result = std::sqrt(value);
 
     getOutput("Result")->setValue(result);
-    markClean();
 }
 
 // PINode implementation
@@ -283,10 +259,8 @@ PINode::PINode() {
 }
 
 void PINode::evaluate() {
-    if (!isDirty()) return;
 
     getOutput("Value")->setValue(static_cast<float>(M_PI));
-    markClean();
 }
 
 void PINode::OnDrawNodeUI() {

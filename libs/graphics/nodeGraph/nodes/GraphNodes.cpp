@@ -39,7 +39,6 @@ void LineGraphNode::evaluate() {
         }
     }
 
-    markClean();
 }
 
 void LineGraphNode::OnDrawNodeUI() {

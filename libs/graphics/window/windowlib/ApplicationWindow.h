@@ -66,6 +66,14 @@ public:
 
     ApplicationWindow(ApplicationWindowSpecifications &spec);
 
+
+    //Time
+    Uint64 now;
+    float timestep;
+    float currentTime = 0;
+
+    static ApplicationWindow *instance;
+
     bool Init();
     void Start(Application::Application& app);
     void Close();

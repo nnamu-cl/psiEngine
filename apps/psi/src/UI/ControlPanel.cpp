@@ -246,6 +246,12 @@ void ControlPanel::Render()
                     graph.createNode<TimeNode>();
                 }
 
+
+                if (ImGui::Button("Physics Constant", ImVec2(-1, 0)))
+                {
+                    graph.createNode<PhysicsConstantNode>();
+                }
+
                 ImGui::PopStyleColor(3);
 
                 ImGui::Spacing();

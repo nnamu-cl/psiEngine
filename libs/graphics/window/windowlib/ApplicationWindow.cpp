@@ -14,10 +14,13 @@
 #include "imgui_impl_sdl3.h"
 #include "imgui_impl_vulkan.h"
 
+// Define the static member
+ApplicationWindow* ApplicationWindow::instance = nullptr;
 
 ApplicationWindow::ApplicationWindow(ApplicationWindowSpecifications& spec)
 {
     specification = &spec;
+    instance = this;
 }
 
 bool ApplicationWindow::Init() {
@@ -336,9 +339,10 @@ void ApplicationWindow::Start(Application::Application& app)
         }
 
         // --- Timestep (capped at ~30 ms to avoid physics jumps on alt-tab) ---
-        uint64_t now = SDL_GetTicks();
-        float timestep = std::min(static_cast<float>(now - lastTime) / 1000.0f, 1.0f / 30.0f);
+        now = SDL_GetTicks();
+        timestep = std::min(static_cast<float>(now - lastTime) / 1000.0f, 1.0f / 30.0f);
         lastTime = now;
+        currentTime += timestep;
 
         // --- Layer updates ---
         for (auto* layer : app.GetLayerStack())

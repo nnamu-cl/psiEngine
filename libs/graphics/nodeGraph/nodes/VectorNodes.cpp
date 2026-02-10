@@ -9,7 +9,6 @@ CombineVec3Node::CombineVec3Node() {
 }
 
 void CombineVec3Node::evaluate() {
-    if (!isDirty()) return;
 
     float x = std::get<float>(getInput("X")->getValue());
     float y = std::get<float>(getInput("Y")->getValue());
@@ -17,7 +16,6 @@ void CombineVec3Node::evaluate() {
 
     glm::vec3 result(x, y, z);
     getOutput("Vector")->setValue(result);
-    markClean();
 }
 
 // SeparateVec3Node implementation
@@ -29,14 +27,12 @@ SeparateVec3Node::SeparateVec3Node() {
 }
 
 void SeparateVec3Node::evaluate() {
-    if (!isDirty()) return;
 
     glm::vec3 vec = std::get<glm::vec3>(getInput("Vector")->getValue());
 
     getOutput("X")->setValue(vec.x);
     getOutput("Y")->setValue(vec.y);
     getOutput("Z")->setValue(vec.z);
-    markClean();
 }
 
 // DotProductNode implementation
@@ -47,14 +43,12 @@ DotProductNode::DotProductNode() {
 }
 
 void DotProductNode::evaluate() {
-    if (!isDirty()) return;
 
     glm::vec3 a = std::get<glm::vec3>(getInput("A")->getValue());
     glm::vec3 b = std::get<glm::vec3>(getInput("B")->getValue());
 
     float result = glm::dot(a, b);
     getOutput("Result")->setValue(result);
-    markClean();
 }
 
 // CrossProductNode implementation
@@ -65,14 +59,12 @@ CrossProductNode::CrossProductNode() {
 }
 
 void CrossProductNode::evaluate() {
-    if (!isDirty()) return;
 
     glm::vec3 a = std::get<glm::vec3>(getInput("A")->getValue());
     glm::vec3 b = std::get<glm::vec3>(getInput("B")->getValue());
 
     glm::vec3 result = glm::cross(a, b);
     getOutput("Result")->setValue(result);
-    markClean();
 }
 
 // LengthNode implementation
@@ -82,11 +74,9 @@ LengthNode::LengthNode() {
 }
 
 void LengthNode::evaluate() {
-    if (!isDirty()) return;
 
     glm::vec3 vec = std::get<glm::vec3>(getInput("Vector")->getValue());
 
     float result = glm::length(vec);
     getOutput("Length")->setValue(result);
-    markClean();
 }

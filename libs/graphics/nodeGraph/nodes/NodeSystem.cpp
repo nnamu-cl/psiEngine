@@ -93,9 +93,7 @@ NodeValue InputSocket::getValue() {
     }
 
     // Evaluate the connected node if it's dirty
-    if (connectedOutput->owner->isDirty()) {
-        connectedOutput->owner->evaluate();
-    }
+    connectedOutput->owner->evaluate();
 
     // Get the value from the connected output
     NodeValue outputValue = connectedOutput->getValue();
@@ -136,21 +134,6 @@ void InputSocket::disconnect() {
     }
 }
 
-// Node implementation
-void Node::markDirty() {
-    if (m_Dirty) return; // Already dirty
-
-    m_Dirty = true;
-
-    // Propagate dirty flag to downstream nodes
-    for (auto& output : m_Outputs) {
-        for (auto* inputSocket : output.connections) {
-            if (inputSocket->owner) {
-                inputSocket->owner->markDirty();
-            }
-        }
-    }
-}
 
 InputSocket* Node::getInput(const std::string& name) {
     for (auto& input : m_Inputs) {
@@ -193,7 +176,6 @@ bool NodeGraph::connect(OutputSocket* output, InputSocket* input) {
 
     // Mark downstream nodes dirty
     if (input->owner) {
-        input->owner->markDirty();
         // Notify the node about the new connection
         input->owner->OnInputConnected(input, output);
     }
@@ -210,9 +192,6 @@ void NodeGraph::disconnect(InputSocket* input) {
 
         input->disconnect();
 
-        if (input->owner) {
-            input->owner->markDirty();
-        }
 
     }
 }
@@ -255,11 +234,6 @@ bool NodeGraph::deleteNode(uint64_t nodeId) {
     return true;
 }
 
-void NodeGraph::markAllDirty() {
-    for (auto& node : m_Nodes) {
-        node->markDirty();
-    }
-}
 
 void NodeGraph::evaluateAll() {
     for (auto& node : m_Nodes) {
@@ -272,10 +246,7 @@ NodeValue NodeGraph::evaluate(OutputSocket* output) {
         return 0.0f;
     }
 
-    // Evaluate the node if it's dirty
-    if (output->owner->isDirty()) {
-        output->owner->evaluate();
-    }
+    output->owner->evaluate();
 
     return output->getValue();
 }

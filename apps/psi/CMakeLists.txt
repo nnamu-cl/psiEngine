@@ -27,7 +27,7 @@ file(GLOB_RECURSE PSI_HEADERS CONFIGURE_DEPENDS
 add_executable(${NAME} ${PSI_SOURCES} ${PSI_HEADERS})
 
 # Include directories
-target_include_directories(${NAME} PRIVATE
+target_include_directories(${NAME} PUBLIC
     $ENV{VULKAN_SDK}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/colors
@@ -40,7 +40,7 @@ target_include_directories(${NAME} PRIVATE
 )
 
 # Link against WindowLib and other dependencies
-target_link_libraries(${NAME} PRIVATE
+target_link_libraries(${NAME} PUBLIC
     WindowLib
     imgui_node_editor
     implot
