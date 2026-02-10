@@ -4,6 +4,7 @@
 #include "Camera.h"
 #include "Scene.h"
 #include "PipelineManager.h"
+#include "LinePipeline.h"
 #include "Resources.h"
 #include "Mesh.h"
 #include <volk/volk.h>
@@ -12,6 +13,7 @@
 // Forward-declare so we can hold a pointer without pulling in the
 // full ApplicationWindow.h (and its SDL / VMA implementation macros).
 struct ApplicationWindowData;
+struct LineVertex;
 
 // Tracks GPU buffer info for a single mesh
 struct MeshGPUInfo
@@ -22,11 +24,19 @@ struct MeshGPUInfo
     uint32_t     indexCount;    // Number of indices
 };
 
+// Tracks GPU buffer info for a single line
+struct LineGPUInfo
+{
+    VkDeviceSize vertexOffset;  // Byte offset in line buffer
+    uint32_t     vertexCount;   // Number of vertices
+};
+
 // DefaultGameWorld layer state - grouped for cache locality and clarity
 struct DefaultGameWorldData
 {
     // Rendering resources (frequently accessed together)
     PipelineManager pipelineManager;
+    LinePipeline    linePipeline;
     Resources       resources;
 
     // Mesh data (frequently accessed together during rendering)
@@ -34,6 +44,11 @@ struct DefaultGameWorldData
     VkBuffer               meshBuffer{ VK_NULL_HANDLE };
     VmaAllocation          meshBufferAllocation{ VK_NULL_HANDLE };
     std::vector<MeshGPUInfo> meshGPUInfo;  // Parallel to meshTable indices
+
+    // Line data
+    VkBuffer               lineBuffer{ VK_NULL_HANDLE };
+    VmaAllocation          lineBufferAllocation{ VK_NULL_HANDLE };
+    std::vector<LineGPUInfo> lineGPUInfo;  // Per-object line data
 
     // Scene data (frequently accessed together)
     Camera camera;
@@ -57,6 +72,11 @@ public:
                          const glm::vec3& position = glm::vec3(0.0f),
                          const glm::vec4& color = glm::vec4(1.0f));
 
+    // Add a line primitive to the scene
+    void addLinePrimitive(const std::string& name,
+                         const std::vector<glm::vec3>& points,
+                         const glm::vec4& color = glm::vec4(1.0f));
+
     // Public data for easy access and testing
     DefaultGameWorldData data;
 
@@ -65,4 +85,7 @@ private:
 
     // Helper: Upload all meshes in MeshTable to GPU
     bool uploadMeshesToGPU();
+
+    // Helper: Upload all lines to GPU
+    bool uploadLinesToGPU();
 };
