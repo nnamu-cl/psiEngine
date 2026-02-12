@@ -23,7 +23,15 @@ public:
     // Set this before creating nodes (typically in DefaultGameWorld::OnAttach)
     static std::function<LineRendererData*()> s_CreateLineCallback;
 
+    //the type of line rendere we are using
+    enum  LineRendererMode {
+        Tracker,
+        PointConnector
+    };
+
     LineRendererNode();
+
+    void SwitchMode(LineRendererMode mode);
 
     void evaluate() override;
     void OnDrawNodeUI() override;
