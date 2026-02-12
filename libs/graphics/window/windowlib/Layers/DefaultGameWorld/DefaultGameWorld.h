@@ -15,6 +15,9 @@
 struct ApplicationWindowData;
 struct LineVertex;
 
+// Include LineRendererData (needed for unique_ptr)
+#include "Data/LineRendererData.h"
+
 // Tracks GPU buffer info for a single mesh
 struct MeshGPUInfo
 {
@@ -49,6 +52,7 @@ struct DefaultGameWorldData
     VkBuffer               lineBuffer{ VK_NULL_HANDLE };
     VmaAllocation          lineBufferAllocation{ VK_NULL_HANDLE };
     std::vector<LineGPUInfo> lineGPUInfo;  // Per-object line data
+    std::vector<std::unique_ptr<LineRendererData>> lineDataStorage;  // Owned line data
 
     // Scene data (frequently accessed together)
     Camera camera;

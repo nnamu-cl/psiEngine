@@ -62,14 +62,14 @@ std::vector<LineVertex> LineRenderer::buildVertexData() const
 {
     std::vector<LineVertex> vertices;
 
-    if (points.empty())
+    if (!data || data->points.empty())
         return vertices;
 
     // Apply curve smoothing if enabled
-    std::vector<glm::vec3> processedPoints = points;
-    if (properties.curveSmoothing && points.size() >= 3)
+    std::vector<glm::vec3> processedPoints = data->points;
+    if (data->properties.curveSmoothing && data->points.size() >= 3)
     {
-        processedPoints = smoothCurve(points, properties.smoothingSubdivisions);
+        processedPoints = smoothCurve(data->points, data->properties.smoothingSubdivisions);
     }
 
     // Calculate total distance along line for dashing
@@ -89,8 +89,8 @@ std::vector<LineVertex> LineRenderer::buildVertexData() const
     {
         LineVertex vertex;
         vertex.position = processedPoints[i];
-        vertex.color = properties.color;
-        vertex.thickness = properties.thickness;
+        vertex.color = data->properties.color;
+        vertex.thickness = data->properties.thickness;
         vertex.distanceAlongLine = distances[i];
         vertices.push_back(vertex);
     }
@@ -100,15 +100,21 @@ std::vector<LineVertex> LineRenderer::buildVertexData() const
 
 void LineRenderer::OnInspectorGUI()
 {
+    if (!data)
+    {
+        ImGui::Text("No line data attached");
+        return;
+    }
+
     ImGui::Indent();
 
     // Color
     ImGui::Text("Color");
     ImGui::SameLine();
     ImGui::SetCursorPosX(120);
-    if (ImGui::ColorEdit4("##LineColor", glm::value_ptr(properties.color)))
+    if (ImGui::ColorEdit4("##LineColor", glm::value_ptr(data->properties.color)))
     {
-        needsGPUUpdate = true;
+        data->needsGPUUpdate = true;
     }
 
     // Thickness
@@ -116,9 +122,9 @@ void LineRenderer::OnInspectorGUI()
     ImGui::SameLine();
     ImGui::SetCursorPosX(120);
     ImGui::SetNextItemWidth(150);
-    if (ImGui::SliderFloat("##Thickness", &properties.thickness, 0.1f, 100.0f, "%.1f"))
+    if (ImGui::SliderFloat("##Thickness", &data->properties.thickness, 0.1f, 100.0f, "%.1f"))
     {
-        needsGPUUpdate = true;
+        data->needsGPUUpdate = true;
     }
 
     ImGui::Spacing();
@@ -130,41 +136,26 @@ void LineRenderer::OnInspectorGUI()
     ImGui::SameLine();
     ImGui::SetCursorPosX(120);
     const char* lineStyles[] = { "Solid", "Dashed", "Dotted" };
-    int lineStyle = static_cast<int>(properties.style);
+    int lineStyle = static_cast<int>(data->properties.style);
     if (ImGui::Combo("##LineStyle", &lineStyle, lineStyles, IM_ARRAYSIZE(lineStyles)))
     {
-        properties.style = static_cast<LineStyle>(lineStyle);
+        data->properties.style = static_cast<LineStyle>(lineStyle);
     }
 
     // Dash/Dot settings (only for Dashed/Dotted)
-    if (properties.style != LineStyle::Solid)
+    if (data->properties.style != LineStyle::Solid)
     {
         ImGui::Text("Dash Length");
         ImGui::SameLine();
         ImGui::SetCursorPosX(120);
         ImGui::SetNextItemWidth(150);
-        ImGui::SliderFloat("##DashLength", &properties.dashLength, 1.0f, 50.0f, "%.1f");
+        ImGui::SliderFloat("##DashLength", &data->properties.dashLength, 1.0f, 50.0f, "%.1f");
 
         ImGui::Text("Gap Length");
         ImGui::SameLine();
         ImGui::SetCursorPosX(120);
         ImGui::SetNextItemWidth(150);
-        ImGui::SliderFloat("##GapLength", &properties.gapLength, 1.0f, 50.0f, "%.1f");
-    }
-
-    ImGui::Spacing();
-    ImGui::Separator();
-    ImGui::Spacing();
-
-    // Topology
-    ImGui::Text("Topology");
-    ImGui::SameLine();
-    ImGui::SetCursorPosX(120);
-    const char* topologies[] = { "Line List", "Line Strip", "Line Loop" };
-    int topology = static_cast<int>(properties.topology);
-    if (ImGui::Combo("##Topology", &topology, topologies, IM_ARRAYSIZE(topologies)))
-    {
-        properties.topology = static_cast<LineTopology>(topology);
+        ImGui::SliderFloat("##GapLength", &data->properties.gapLength, 1.0f, 50.0f, "%.1f");
     }
 
     ImGui::Spacing();
@@ -175,15 +166,15 @@ void LineRenderer::OnInspectorGUI()
     ImGui::Text("Anti-alias");
     ImGui::SameLine();
     ImGui::SetCursorPosX(120);
-    ImGui::Checkbox("##AntiAlias", &properties.antiAlias);
+    ImGui::Checkbox("##AntiAlias", &data->properties.antiAlias);
 
-    if (properties.antiAlias)
+    if (data->properties.antiAlias)
     {
         ImGui::Text("Smoothness");
         ImGui::SameLine();
         ImGui::SetCursorPosX(120);
         ImGui::SetNextItemWidth(150);
-        ImGui::SliderFloat("##Smoothness", &properties.smoothness, 0.0f, 2.0f, "%.2f");
+        ImGui::SliderFloat("##Smoothness", &data->properties.smoothness, 0.0f, 2.0f, "%.2f");
     }
 
     ImGui::Spacing();
@@ -194,47 +185,21 @@ void LineRenderer::OnInspectorGUI()
     ImGui::Text("Curve Smooth");
     ImGui::SameLine();
     ImGui::SetCursorPosX(120);
-    if (ImGui::Checkbox("##CurveSmoothing", &properties.curveSmoothing))
+    if (ImGui::Checkbox("##CurveSmoothing", &data->properties.curveSmoothing))
     {
-        needsGPUUpdate = true;
+        data->needsGPUUpdate = true;
     }
 
-    if (properties.curveSmoothing)
+    if (data->properties.curveSmoothing)
     {
         ImGui::Text("Subdivisions");
         ImGui::SameLine();
         ImGui::SetCursorPosX(120);
         ImGui::SetNextItemWidth(150);
-        if (ImGui::SliderInt("##Subdivisions", &properties.smoothingSubdivisions, 1, 16))
+        if (ImGui::SliderInt("##Subdivisions", &data->properties.smoothingSubdivisions, 1, 16))
         {
-            needsGPUUpdate = true;
+            data->needsGPUUpdate = true;
         }
-    }
-
-    ImGui::Spacing();
-    ImGui::Separator();
-    ImGui::Spacing();
-
-    // Cap Style
-    ImGui::Text("Cap Style");
-    ImGui::SameLine();
-    ImGui::SetCursorPosX(120);
-    const char* capStyles[] = { "Butt", "Round", "Square" };
-    int capStyle = static_cast<int>(properties.capStyle);
-    if (ImGui::Combo("##CapStyle", &capStyle, capStyles, IM_ARRAYSIZE(capStyles)))
-    {
-        properties.capStyle = static_cast<LineCapStyle>(capStyle);
-    }
-
-    // Join Style
-    ImGui::Text("Join Style");
-    ImGui::SameLine();
-    ImGui::SetCursorPosX(120);
-    const char* joinStyles[] = { "Miter", "Round", "Bevel" };
-    int joinStyle = static_cast<int>(properties.joinStyle);
-    if (ImGui::Combo("##JoinStyle", &joinStyle, joinStyles, IM_ARRAYSIZE(joinStyles)))
-    {
-        properties.joinStyle = static_cast<LineJoinStyle>(joinStyle);
     }
 
     ImGui::Spacing();
@@ -246,41 +211,41 @@ void LineRenderer::OnInspectorGUI()
     ImGui::SameLine();
     ImGui::SetCursorPosX(120);
     const char* blendModes[] = { "Opaque", "Transparent", "Additive" };
-    int blendMode = static_cast<int>(properties.blendMode);
+    int blendMode = static_cast<int>(data->properties.blendMode);
     if (ImGui::Combo("##BlendMode", &blendMode, blendModes, IM_ARRAYSIZE(blendModes)))
     {
-        properties.blendMode = static_cast<LineProperties::LineBlendMode>(blendMode);
+        data->properties.blendMode = static_cast<LineProperties::LineBlendMode>(blendMode);
     }
 
     // Depth Test
     ImGui::Text("Depth Test");
     ImGui::SameLine();
     ImGui::SetCursorPosX(120);
-    ImGui::Checkbox("##DepthTest", &properties.depthTest);
+    ImGui::Checkbox("##DepthTest", &data->properties.depthTest);
 
     ImGui::Spacing();
     ImGui::Separator();
     ImGui::Spacing();
 
     // Points editor
-    ImGui::Text("Points: %zu", points.size());
+    ImGui::Text("Points: %zu", data->points.size());
     if (ImGui::Button("Add Point"))
     {
-        if (!points.empty())
-            points.push_back(points.back() + glm::vec3(1.0f, 0.0f, 0.0f));
+        if (!data->points.empty())
+            data->points.push_back(data->points.back() + glm::vec3(1.0f, 0.0f, 0.0f));
         else
-            points.push_back(glm::vec3(0.0f));
-        needsGPUUpdate = true;
+            data->points.push_back(glm::vec3(0.0f));
+        data->needsGPUUpdate = true;
     }
     ImGui::SameLine();
-    if (ImGui::Button("Remove Point") && !points.empty())
+    if (ImGui::Button("Remove Point") && !data->points.empty())
     {
-        points.pop_back();
-        needsGPUUpdate = true;
+        data->points.pop_back();
+        data->needsGPUUpdate = true;
     }
 
     // Edit individual points
-    for (size_t i = 0; i < points.size(); ++i)
+    for (size_t i = 0; i < data->points.size(); ++i)
     {
         ImGui::PushID(static_cast<int>(i));
         std::string label = "Point " + std::to_string(i);
@@ -288,9 +253,9 @@ void LineRenderer::OnInspectorGUI()
         ImGui::SameLine();
         ImGui::SetCursorPosX(120);
         ImGui::SetNextItemWidth(200);
-        if (ImGui::DragFloat3("##Point", glm::value_ptr(points[i]), 0.1f))
+        if (ImGui::DragFloat3("##Point", glm::value_ptr(data->points[i]), 0.1f))
         {
-            needsGPUUpdate = true;
+            data->needsGPUUpdate = true;
         }
         ImGui::PopID();
     }

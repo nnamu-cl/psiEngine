@@ -3,10 +3,14 @@
 #include "Components/Transform.h"
 #include "Components/MeshRenderer.h"
 #include "Components/LineRenderer.h"
+#include "Data/LineRendererData.h"
 #include <iostream>
 #include <cstring>
 
 #include "imgui.h"
+
+// Forward declaration of LineRendererNode to set callback
+#include "../../nodeGraph/nodes/ObjectNodes.h"
 
 DefaultGameWorld::DefaultGameWorld(ApplicationWindowData* windowData)
     : m_WindowData{ windowData }
@@ -14,6 +18,37 @@ DefaultGameWorld::DefaultGameWorld(ApplicationWindowData* windowData)
 
 void DefaultGameWorld::OnAttach()
 {
+    // Set up LineRendererNode callback to create line data
+    LineRendererNode::s_CreateLineCallback = [this]() -> LineRendererData* {
+        // Create a new GameObject with LineRenderer component
+        auto lineData = std::make_unique<LineRendererData>();
+        LineRendererData* dataPtr = lineData.get();
+
+        // Store the data (ownership)
+        data.lineDataStorage.push_back(std::move(lineData));
+
+        // Create game object with line renderer
+        GameObject obj{
+            .name = "Line_" + std::to_string(data.lineDataStorage.size()),
+            .meshIndex = 0xFFFFFFFF  // No mesh
+        };
+
+        obj.components.add(std::make_unique<Transform>(
+            glm::vec3(0.0f),
+            glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
+            glm::vec3(1.0f)
+        ));
+
+        auto lineRenderer = std::make_unique<LineRenderer>(dataPtr);
+        obj.components.add(std::move(lineRenderer));
+
+        data.scene.addObject(std::move(obj));
+
+        std::cout << "LineRendererNode callback: Created line object with data at " << dataPtr << "\n";
+
+        return dataPtr;
+    };
+
     // Create resources (descriptor layouts, pool, uniform buffers)
     if (!data.resources.create(m_WindowData->device,
                                 m_WindowData->allocator,
@@ -194,6 +229,15 @@ void DefaultGameWorld::addLinePrimitive(const std::string& name,
     if (data.lineBuffer != VK_NULL_HANDLE)
         vmaDestroyBuffer(m_WindowData->allocator, data.lineBuffer, data.lineBufferAllocation);
 
+    // Create line data
+    auto lineData = std::make_unique<LineRendererData>();
+    lineData->points = points;
+    lineData->properties.color = color;
+    LineRendererData* dataPtr = lineData.get();
+
+    // Store the data (ownership)
+    data.lineDataStorage.push_back(std::move(lineData));
+
     // Create game object with line renderer
     GameObject obj{
         .name = name,
@@ -206,7 +250,7 @@ void DefaultGameWorld::addLinePrimitive(const std::string& name,
         glm::vec3(1.0f)
     ));
 
-    auto lineRenderer = std::make_unique<LineRenderer>(points, color);
+    auto lineRenderer = std::make_unique<LineRenderer>(dataPtr);
     obj.components.add(std::move(lineRenderer));
 
     data.scene.addObject(std::move(obj));
@@ -236,7 +280,7 @@ bool DefaultGameWorld::uploadLinesToGPU()
     for (const auto& obj : data.scene.objects)
     {
         const LineRenderer* lineRenderer = obj.components.get<LineRenderer>();
-        if (!lineRenderer)
+        if (!lineRenderer || !lineRenderer->data)
         {
             continue;
         }
@@ -334,10 +378,10 @@ void DefaultGameWorld::OnUpdate(float ts)
     for (const auto& obj : data.scene.objects)
     {
         const LineRenderer* lineRenderer = obj.components.get<LineRenderer>();
-        if (lineRenderer && lineRenderer->needsGPUUpdate)
+        if (lineRenderer && lineRenderer->data && lineRenderer->data->needsGPUUpdate)
         {
             needsLineUpdate = true;
-            lineRenderer->needsGPUUpdate = false;  // Works because needsGPUUpdate is mutable
+            lineRenderer->data->needsGPUUpdate = false;  // Works because needsGPUUpdate is mutable
         }
     }
 
@@ -473,7 +517,7 @@ void DefaultGameWorld::OnRender(VkCommandBuffer cb, const glm::ivec2& windowSize
         for (const auto& obj : data.scene.objects)
         {
             const LineRenderer* lineRenderer = obj.components.get<LineRenderer>();
-            if (!lineRenderer)
+            if (!lineRenderer || !lineRenderer->data)
                 continue;
 
             const Transform* transform = obj.components.get<Transform>();
@@ -501,13 +545,13 @@ void DefaultGameWorld::OnRender(VkCommandBuffer cb, const glm::ivec2& windowSize
             } linePushData;
 
             linePushData.viewProj = data.camera.projectionMatrix(aspectRatio) * data.camera.viewMatrix();
-            linePushData.globalColor = lineRenderer->properties.color;
+            linePushData.globalColor = lineRenderer->data->properties.color;
             linePushData.globalThickness = 1.0f;  // Thickness is per-vertex
-            linePushData.dashLength = lineRenderer->properties.dashLength;
-            linePushData.gapLength = lineRenderer->properties.gapLength;
-            linePushData.lineStyle = static_cast<uint32_t>(lineRenderer->properties.style);
-            linePushData.antiAlias = lineRenderer->properties.antiAlias ? 1u : 0u;
-            linePushData.smoothness = lineRenderer->properties.smoothness;
+            linePushData.dashLength = lineRenderer->data->properties.dashLength;
+            linePushData.gapLength = lineRenderer->data->properties.gapLength;
+            linePushData.lineStyle = static_cast<uint32_t>(lineRenderer->data->properties.style);
+            linePushData.antiAlias = lineRenderer->data->properties.antiAlias ? 1u : 0u;
+            linePushData.smoothness = lineRenderer->data->properties.smoothness;
             std::memset(linePushData.padding, 0, sizeof(linePushData.padding));
 
             vkCmdPushConstants(cb, data.linePipeline.layout,
@@ -518,22 +562,7 @@ void DefaultGameWorld::OnRender(VkCommandBuffer cb, const glm::ivec2& windowSize
             VkDeviceSize offsets[] = { lineInfo.vertexOffset };
             vkCmdBindVertexBuffers(cb, 0, 1, &data.lineBuffer, offsets);
 
-            // Draw lines
-            VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
-            switch (lineRenderer->properties.topology)
-            {
-                case LineTopology::LineList:
-                    topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
-                    break;
-                case LineTopology::LineStrip:
-                    topology = VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
-                    break;
-                case LineTopology::LineLoop:
-                    // Line loop not directly supported, would need to add extra vertex
-                    topology = VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
-                    break;
-            }
-
+            // Draw lines (topology is always line strip for now)
             vkCmdDraw(cb, lineInfo.vertexCount, 1, 0, 0);
         }
     }
