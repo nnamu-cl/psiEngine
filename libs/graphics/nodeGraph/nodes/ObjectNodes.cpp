@@ -62,37 +62,41 @@ LineRendererNode::LineRendererNode() {
 }
 
 void LineRendererNode::evaluate() {
-    if (!m_LineData) {
-        return;  // No line data, nothing to do
-    }
 
-    // Read position input
-    glm::vec3 position = std::get<glm::vec3>(getInput("Position")->getValue());
+    bool isConnected = getInput("Position")->isConnected();
 
-    // Check if we should add this point
-    bool shouldAddPoint = false;
-    if (m_LineData->points.empty()) {
-        // Always add first point
-        shouldAddPoint = true;
-    } else {
-        // Check distance from last point
-        glm::vec3 lastPoint = m_LineData->points.back();
-        float distance = glm::length(position - lastPoint);
+    if (m_LineData &&  isConnected) {
 
-        if (distance >= m_MinDistance) {
+        // Read position input
+        glm::vec3 position = std::get<glm::vec3>(getInput("Position")->getValue());
+
+        // Check if we should add this point
+        bool shouldAddPoint = false;
+        //Only add points if we are connected to an input node
+        if (m_LineData->points.empty() &&
+            getInput("Position")->isConnected()) {
+            // Always add first point
             shouldAddPoint = true;
-        }
-    }
+            } else {
+                // Check distance from last point
+                glm::vec3 lastPoint = m_LineData->points.back();
+                float distance = glm::length(position - lastPoint);
 
-    // Add point if threshold met
-    if (shouldAddPoint) {
-        m_LineData->points.push_back(position);
-        m_LineData->needsGPUUpdate = true;
+                if (distance >= m_MinDistance) {
+                    shouldAddPoint = true;
+                }
+            }
 
-        // Remove oldest points if we exceed max points limit
-        if (m_MaxPoints > 0 && m_LineData->points.size() > static_cast<size_t>(m_MaxPoints)) {
-            m_LineData->points.erase(m_LineData->points.begin());
+        // Add point if threshold met
+        if (shouldAddPoint) {
+            m_LineData->points.push_back(position);
             m_LineData->needsGPUUpdate = true;
+
+            // Remove oldest points if we exceed max points limit
+            if (m_MaxPoints > 0 && m_LineData->points.size() > static_cast<size_t>(m_MaxPoints)) {
+                m_LineData->points.erase(m_LineData->points.begin());
+                m_LineData->needsGPUUpdate = true;
+            }
         }
     }
 
@@ -130,9 +134,6 @@ void LineRendererNode::OnDrawNodeUI() {
         ImGui::Text("Max Points");
         ImGui::SetNextItemWidth(150);
         ImGui::DragInt("##MaxPoints", &m_MaxPoints, 1.0f, 0, 10000);
-        if (ImGui::IsItemHovered()) {
-            ImGui::SetTooltip("0 = unlimited");
-        }
 
 
         // Color
