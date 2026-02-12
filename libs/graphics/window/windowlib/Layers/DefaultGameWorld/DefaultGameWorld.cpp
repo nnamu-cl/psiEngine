@@ -517,8 +517,12 @@ void DefaultGameWorld::OnRender(VkCommandBuffer cb, const glm::ivec2& windowSize
         for (const auto& obj : data.scene.objects)
         {
             const LineRenderer* lineRenderer = obj.components.get<LineRenderer>();
-            if (!lineRenderer || !lineRenderer->data)
+
+            //Only render existing renders, with data, with points
+            if (!lineRenderer || !lineRenderer->data  || lineRenderer->data->points.empty()) {
+                std::cout << "Skipping empty line renderer" << std::endl;
                 continue;
+            }
 
             const Transform* transform = obj.components.get<Transform>();
             if (!transform)

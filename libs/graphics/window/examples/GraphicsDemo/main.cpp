@@ -141,15 +141,15 @@ int main() {
     const float radius = 2.0f;
     const float height = 4.0f;
 
-    for (int i = 0; i < numPoints; ++i)
-    {
-        float t = static_cast<float>(i) / static_cast<float>(numPoints - 1);
-        float angle = t * 4.0f * glm::pi<float>();  // 2 full rotations
-        float x = radius * std::cos(angle);
-        float z = radius * std::sin(angle);
-        float y = -height * 0.5f + height * t;
-        linePoints.push_back(glm::vec3(x, y, z));
-    }
+    // for (int i = 0; i < numPoints; ++i)
+    // {
+    //     float t = static_cast<float>(i) / static_cast<float>(numPoints - 1);
+    //     float angle = t * 4.0f * glm::pi<float>();  // 2 full rotations
+    //     float x = radius * std::cos(angle);
+    //     float z = radius * std::sin(angle);
+    //     float y = -height * 0.5f + height * t;
+    //     linePoints.push_back(glm::vec3(x, y, z));
+    // }
 
     std::cout << "Created " << linePoints.size() << " line points. Calling addLinePrimitive...\n";
     basicGraphicsLayer.addLinePrimitive("Spiral Line", linePoints,
