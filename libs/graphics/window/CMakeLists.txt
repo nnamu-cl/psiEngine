@@ -106,6 +106,34 @@ target_link_libraries(tests_nodedeletion PRIVATE WindowLib Catch2::Catch2WithMai
 add_executable(tests_graphnodes tests/test_GraphNodes.cpp)
 target_link_libraries(tests_graphnodes PRIVATE WindowLib Catch2::Catch2WithMain)
 
+# LineRenderer component tests (no Vulkan required, tests LineRenderer component)
+add_executable(tests_linerenderer tests/test_LineRenderer.cpp)
+target_link_libraries(tests_linerenderer PRIVATE WindowLib Catch2::Catch2WithMain)
+
+# Material system tests (no Vulkan required, tests MaterialProperties and enums)
+add_executable(tests_materials tests/test_Materials.cpp)
+target_link_libraries(tests_materials PRIVATE WindowLib Catch2::Catch2WithMain)
+
+# LineRendererNode tests (no Vulkan required, tests LineRendererNode and node graph)
+add_executable(tests_linerenderernode tests/test_LineRendererNode.cpp)
+target_link_libraries(tests_linerenderernode PRIVATE WindowLib Catch2::Catch2WithMain)
+
+# LineProperties and LineRendererData tests (no Vulkan required, tests data structures)
+add_executable(tests_lineproperties tests/test_LineProperties.cpp)
+target_link_libraries(tests_lineproperties PRIVATE WindowLib Catch2::Catch2WithMain)
+
+# PipelineManager tests (no Vulkan required, tests PipelineVariantKey and hash function)
+add_executable(tests_pipelinemanager tests/test_PipelineManager.cpp)
+target_link_libraries(tests_pipelinemanager PRIVATE WindowLib Catch2::Catch2WithMain)
+
+# LineRenderer Integration tests (no Vulkan required, tests node + component + material integration)
+add_executable(tests_linerenderer_integration tests/test_LineRendererIntegration.cpp)
+target_link_libraries(tests_linerenderer_integration PRIVATE WindowLib Catch2::Catch2WithMain)
+
+# Pipeline Integration tests (no Vulkan required, tests material-pipeline selection logic)
+add_executable(tests_pipeline_integration tests/test_PipelineIntegration.cpp)
+target_link_libraries(tests_pipeline_integration PRIVATE WindowLib Catch2::Catch2WithMain)
+
 # Copy assets folder (shaders, fonts, etc.) to build directory
 # Preserve directory structure: libs/graphics/window/assets/
 set(ASSETS_SRC ${CMAKE_CURRENT_SOURCE_DIR}/assets)
