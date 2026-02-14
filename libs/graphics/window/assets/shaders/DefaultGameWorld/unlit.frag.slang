@@ -1,4 +1,4 @@
-// DefaultGameWorld fragment shader - Slang native format
+// Unlit fragment shader - Slang native format
 
 struct PushConstants {
     float4x4 model;
@@ -12,10 +12,9 @@ struct PushConstants {
 };
 
 [[vk::push_constant]]
-ConstantBuffer<PushConstants> pc;
+ ConstantBuffer<PushConstants> pc;
 
 struct FragmentInput {
-    float3 worldNormal : NORMAL;
     float4 vertexColor : COLOR0;
 };
 
@@ -37,14 +36,7 @@ float4 main(FragmentInput input) : SV_Target
     // Apply tint color
     finalColor.rgb *= pc.tintColor;
 
-    // Simple lighting with normal
-    float3 lightDir = normalize(float3(0.5, 1.0, 0.3));
-    float ndotl = max(dot(normalize(input.worldNormal), lightDir), 0.3);
-
-    // Apply lighting
-    finalColor.rgb *= ndotl;
-
-    // Apply emission intensity (adds brightness on top of lighting)
+    // Apply emission intensity (for unlit, this makes colors brighter)
     finalColor.rgb *= pc.emissionIntensity;
 
     // Alpha cutoff (for alpha testing)

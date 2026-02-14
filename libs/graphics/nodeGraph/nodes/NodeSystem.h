@@ -26,7 +26,7 @@ using NodeValue = std::variant<
 >;
 
 enum class SocketType {
-    Float,
+Float,
     Int,
     Vec2,
     Vec3,

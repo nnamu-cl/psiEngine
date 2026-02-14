@@ -1,5 +1,5 @@
-#include "Pipeline.h"
-#include "../../Data/Material.h"
+#include "LinePipeline.h"
+#include "../../Data/LineProperties.h"
 
 #include <fstream>
 #include <stdexcept>
@@ -8,25 +8,23 @@
 #include "slang/slang.h"
 #include "slang/slang-com-ptr.h"
 
-Slang::ComPtr<slang::IGlobalSession>& Pipeline::getSlangSession()
+// Reuse the Slang session from Pipeline
+extern Slang::ComPtr<slang::IGlobalSession>& getGlobalSlangSession();
+
+Slang::ComPtr<slang::IGlobalSession>& LinePipeline::getSlangSession()
 {
     static Slang::ComPtr<slang::IGlobalSession> globalSession;
     if (!globalSession)
     {
-        std::cout << "Creating Slang global session..." << std::endl;
         if (slang::createGlobalSession(globalSession.writeRef()) != SLANG_OK)
         {
-            std::cerr << "Failed to create Slang global session\n";
-        }
-        else
-        {
-            std::cout << "Slang global session created successfully" << std::endl;
+            std::cerr << "Failed to create Slang global session for LinePipeline\n";
         }
     }
     return globalSession;
 }
 
-VkShaderModule Pipeline::loadShaderModule(VkDevice device, const std::string& path)
+VkShaderModule LinePipeline::loadShaderModule(VkDevice device, const std::string& path)
 {
     std::cout << "Loading shader: " << path << std::endl;
 
@@ -37,15 +35,13 @@ VkShaderModule Pipeline::loadShaderModule(VkDevice device, const std::string& pa
         return VK_NULL_HANDLE;
     }
 
-    std::cout << "Creating Slang session with target configuration..." << std::endl;
-
     // Configure target (SPIR-V 1.4)
     slang::TargetDesc targetDesc{
         .format = SLANG_SPIRV,
         .profile = globalSession->findProfile("spirv_1_4")
     };
 
-    // Configure compiler options (emit SPIR-V directly)
+    // Configure compiler options
     slang::CompilerOptionEntry options[] = {
         { slang::CompilerOptionName::EmitSpirvDirectly, {slang::CompilerOptionValueKind::Int, 1} }
     };
@@ -66,16 +62,13 @@ VkShaderModule Pipeline::loadShaderModule(VkDevice device, const std::string& pa
         return VK_NULL_HANDLE;
     }
 
-    std::cout << "Session created successfully" << std::endl;
-
     // Load shader module from source file
-    std::cout << "Loading module from source: " << path << std::endl;
     Slang::ComPtr<slang::IBlob> diagnostics;
     Slang::ComPtr<slang::IModule> module{ session->loadModuleFromSource(
-        "shader_module",  // module name
-        path.c_str(),     // source path
-        nullptr,          // source blob (nullptr = use path instead)
-        diagnostics.writeRef()  // output diagnostics
+        "shader_module",
+        path.c_str(),
+        nullptr,
+        diagnostics.writeRef()
     ) };
 
     // Print diagnostics if any
@@ -91,18 +84,13 @@ VkShaderModule Pipeline::loadShaderModule(VkDevice device, const std::string& pa
         return VK_NULL_HANDLE;
     }
 
-    std::cout << "Module loaded successfully" << std::endl;
-
     // Get SPIR-V code from module
-    std::cout << "Getting SPIR-V code from module..." << std::endl;
     Slang::ComPtr<slang::IBlob> spirvCode;
     if (module->getTargetCode(0, spirvCode.writeRef()) != SLANG_OK || !spirvCode)
     {
         std::cerr << "Failed to get SPIR-V from module: " << path << "\n";
         return VK_NULL_HANDLE;
     }
-
-    std::cout << "Got SPIR-V code (" << spirvCode->getBufferSize() << " bytes)" << std::endl;
 
     // Create VkShaderModule from SPIR-V binary
     VkShaderModuleCreateInfo moduleCI{
@@ -118,34 +106,34 @@ VkShaderModule Pipeline::loadShaderModule(VkDevice device, const std::string& pa
         return VK_NULL_HANDLE;
     }
 
-    std::cout << "VkShaderModule created successfully" << std::endl;
-
     return shaderModule;
 }
 
-bool Pipeline::create(VkDevice device,
-                      const PipelineDesc& desc,
-                      const std::vector<VkDescriptorSetLayout>& setLayouts,
-                      VkFormat colorFormat,
-                      VkFormat depthFormat)
+bool LinePipeline::create(VkDevice device,
+                          const LinePipelineDesc& desc,
+                          const std::vector<VkDescriptorSetLayout>& setLayouts,
+                          VkFormat colorFormat,
+                          VkFormat depthFormat)
 {
     // Load shader modules
     VkShaderModule vertModule = loadShaderModule(device, desc.vertexShaderPath);
+    VkShaderModule geomModule = loadShaderModule(device, desc.geometryShaderPath);
     VkShaderModule fragModule = loadShaderModule(device, desc.fragmentShaderPath);
 
-    if (vertModule == VK_NULL_HANDLE || fragModule == VK_NULL_HANDLE)
+    if (vertModule == VK_NULL_HANDLE || geomModule == VK_NULL_HANDLE || fragModule == VK_NULL_HANDLE)
     {
         if (vertModule != VK_NULL_HANDLE) vkDestroyShaderModule(device, vertModule, nullptr);
+        if (geomModule != VK_NULL_HANDLE) vkDestroyShaderModule(device, geomModule, nullptr);
         if (fragModule != VK_NULL_HANDLE) vkDestroyShaderModule(device, fragModule, nullptr);
         return false;
     }
 
-    // Push constant range for extended material data
-    // Layout: mat4 model (64) + vec4 objectColor (16) + float emissionIntensity (4) +
-    //         vec3 tintColor (12) + float alphaCutoff (4) + uint colorMode (4) +
-    //         uint shadingMode (4) + padding (8) = 116 bytes (rounded to 128 for alignment)
+    // Push constant range for line data
+    // Layout: mat4 viewProj (64) + vec4 globalColor (16) + float globalThickness (4) +
+    //         float dashLength (4) + float gapLength (4) + uint lineStyle (4) +
+    //         uint antiAlias (4) + float smoothness (4) + padding (24) = 128 bytes
     VkPushConstantRange pushConstantRange{
-        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_GEOMETRY_BIT,
         .offset     = 0,
         .size       = 128
     };
@@ -162,16 +150,23 @@ bool Pipeline::create(VkDevice device,
     if (vkCreatePipelineLayout(device, &layoutCI, nullptr, &layout) != VK_SUCCESS)
     {
         vkDestroyShaderModule(device, vertModule, nullptr);
+        vkDestroyShaderModule(device, geomModule, nullptr);
         vkDestroyShaderModule(device, fragModule, nullptr);
         return false;
     }
 
-    // Shader stages
+    // Shader stages (vertex, geometry, fragment)
     VkPipelineShaderStageCreateInfo shaderStages[] = {
         {
             .sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
             .stage  = VK_SHADER_STAGE_VERTEX_BIT,
             .module = vertModule,
+            .pName  = "main"
+        },
+        {
+            .sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .stage  = VK_SHADER_STAGE_GEOMETRY_BIT,
+            .module = geomModule,
             .pName  = "main"
         },
         {
@@ -182,19 +177,29 @@ bool Pipeline::create(VkDevice device,
         }
     };
 
-    // Vertex input: matches Mesh::Vertex (vec3 pos, vec3 normal, vec2 uv, vec4 color)
+    // Vertex input: LineVertex (vec3 pos, vec4 color, float thickness, float distance)
     VkVertexInputBindingDescription vertexBinding{
         .binding   = 0,
-        .stride    = 48,  // 12 + 12 + 8 + 16 bytes
+        .stride    = 32,  // 12 + 16 + 4 + 4 bytes
         .inputRate = VK_VERTEX_INPUT_RATE_VERTEX
     };
 
     VkVertexInputAttributeDescription vertexAttributes[] = {
         { .location = 0, .binding = 0, .format = VK_FORMAT_R32G32B32_SFLOAT,    .offset = 0 },   // position
-        { .location = 1, .binding = 0, .format = VK_FORMAT_R32G32B32_SFLOAT,    .offset = 12 },  // normal
-        { .location = 2, .binding = 0, .format = VK_FORMAT_R32G32_SFLOAT,       .offset = 24 },  // texCoord
-        { .location = 3, .binding = 0, .format = VK_FORMAT_R32G32B32A32_SFLOAT, .offset = 32 }   // color
+        { .location = 1, .binding = 0, .format = VK_FORMAT_R32G32B32A32_SFLOAT, .offset = 12 },  // color
+        { .location = 2, .binding = 0, .format = VK_FORMAT_R32_SFLOAT,          .offset = 28 },  // thickness
+        { .location = 3, .binding = 0, .format = VK_FORMAT_R32_SFLOAT,          .offset = 32 }   // distance (actually offset 28+4=32, but size is 32 total, this is wrong)
     };
+
+    // Fix: recalculate offsets
+    // position: 3 floats = 12 bytes, offset 0
+    // color: 4 floats = 16 bytes, offset 12
+    // thickness: 1 float = 4 bytes, offset 28
+    // distance: 1 float = 4 bytes, offset 32
+    // Total: 36 bytes (not 32!)
+
+    vertexBinding.stride = 36;
+    vertexAttributes[3].offset = 32;
 
     VkPipelineVertexInputStateCreateInfo vertexInputState{
         .sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
@@ -204,13 +209,13 @@ bool Pipeline::create(VkDevice device,
         .pVertexAttributeDescriptions    = vertexAttributes
     };
 
-    // Input assembly
+    // Input assembly (line topology)
     VkPipelineInputAssemblyStateCreateInfo inputAssembly{
         .sType    = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-        .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST
+        .topology = desc.topology
     };
 
-    // Dynamic state (viewport + scissor set at draw time)
+    // Dynamic state
     VkDynamicState dynamicStates[] = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
     VkPipelineDynamicStateCreateInfo dynamicState{
         .sType             = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
@@ -224,11 +229,11 @@ bool Pipeline::create(VkDevice device,
         .scissorCount  = 1
     };
 
-    // Rasterization (with configurable culling)
+    // Rasterization (no culling for lines)
     VkPipelineRasterizationStateCreateInfo rasterization{
         .sType       = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
         .polygonMode = VK_POLYGON_MODE_FILL,
-        .cullMode    = desc.doubleSided ? VK_CULL_MODE_NONE : VK_CULL_MODE_BACK_BIT,
+        .cullMode    = VK_CULL_MODE_NONE,
         .frontFace   = VK_FRONT_FACE_COUNTER_CLOCKWISE,
         .lineWidth   = 1.0f
     };
@@ -242,52 +247,22 @@ bool Pipeline::create(VkDevice device,
     // Depth/stencil
     VkPipelineDepthStencilStateCreateInfo depthStencil{
         .sType            = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-        .depthTestEnable  = VK_TRUE,
-        .depthWriteEnable = VK_TRUE,
+        .depthTestEnable  = desc.depthTest ? VK_TRUE : VK_FALSE,
+        .depthWriteEnable = desc.depthTest ? VK_TRUE : VK_FALSE,
         .depthCompareOp   = VK_COMPARE_OP_LESS_OR_EQUAL
     };
 
-    // Color blending (configured based on blend mode)
+    // Color blending (alpha blending for smooth lines)
     VkPipelineColorBlendAttachmentState colorBlendAttachment{};
     colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
                                           VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-
-    switch (desc.blendMode)
-    {
-        case BlendMode::Opaque:
-            colorBlendAttachment.blendEnable = VK_FALSE;
-            break;
-
-        case BlendMode::Transparent:
-            colorBlendAttachment.blendEnable = VK_TRUE;
-            colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-            colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-            colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
-            colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-            colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-            colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
-            break;
-
-        case BlendMode::Additive:
-            colorBlendAttachment.blendEnable = VK_TRUE;
-            colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-            colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
-            colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
-            colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-            colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-            colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
-            break;
-
-        case BlendMode::Multiply:
-            colorBlendAttachment.blendEnable = VK_TRUE;
-            colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_DST_COLOR;
-            colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
-            colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
-            colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-            colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-            colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
-            break;
-    }
+    colorBlendAttachment.blendEnable = VK_TRUE;
+    colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+    colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+    colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+    colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
 
     VkPipelineColorBlendStateCreateInfo colorBlending{
         .sType           = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
@@ -307,7 +282,7 @@ bool Pipeline::create(VkDevice device,
     VkGraphicsPipelineCreateInfo pipelineCI{
         .sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
         .pNext               = &renderingCI,
-        .stageCount          = 2,
+        .stageCount          = 3,  // vertex, geometry, fragment
         .pStages             = shaderStages,
         .pVertexInputState   = &vertexInputState,
         .pInputAssemblyState = &inputAssembly,
@@ -322,14 +297,15 @@ bool Pipeline::create(VkDevice device,
 
     VkResult result = vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &pipeline);
 
-    // Destroy shader modules (no longer needed)
+    // Destroy shader modules
     vkDestroyShaderModule(device, vertModule, nullptr);
+    vkDestroyShaderModule(device, geomModule, nullptr);
     vkDestroyShaderModule(device, fragModule, nullptr);
 
     return result == VK_SUCCESS;
 }
 
-void Pipeline::destroy(VkDevice device)
+void LinePipeline::destroy(VkDevice device)
 {
     if (pipeline != VK_NULL_HANDLE)
         vkDestroyPipeline(device, pipeline, nullptr);
