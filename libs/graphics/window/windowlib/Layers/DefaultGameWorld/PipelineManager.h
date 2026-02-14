@@ -28,9 +28,19 @@ namespace std {
     {
         size_t operator()(const PipelineVariantKey& k) const
         {
-            return ((hash<int>()(static_cast<int>(k.shadingMode))
-                   ^ (hash<int>()(static_cast<int>(k.blendMode)) << 1)) >> 1)
-                   ^ (hash<bool>()(k.doubleSided) << 1);
+            // Use boost-style hash_combine to properly combine hash values
+            size_t seed = 0;
+
+            // Combine shadingMode hash
+            seed ^= hash<int>()(static_cast<int>(k.shadingMode)) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+
+            // Combine blendMode hash
+            seed ^= hash<int>()(static_cast<int>(k.blendMode)) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+
+            // Combine doubleSided hash
+            seed ^= hash<bool>()(k.doubleSided) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+
+            return seed;
         }
     };
 }

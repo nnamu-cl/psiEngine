@@ -50,7 +50,6 @@ LineRendererNode::LineRendererNode() {
     addInput("To", SocketType::Vec3, glm::vec3(0.0f));
 
 
-
     // Call the callback to get line data pointer
     if (s_CreateLineCallback) {
         m_LineData = s_CreateLineCallback();
@@ -65,83 +64,71 @@ LineRendererNode::LineRendererNode() {
 }
 
 
-// void  LineRendererNode ::SwitchMode( LineRendererNode ::LineRendererMode mode) {
-//
-//
-//     switch (mode) {
-//         case LineRendererMode::Tracker:
-//
-//
-//
-//             // Remove the From  and to connectors
-//             addInput()
-//
-//
-//             // Add the position connector
-//
-//
-//             break;
-//
-//         case LineRendererMode::PointConnector:
-//
-//
-//             // Remove the position connector
-//             // Add the From  and to connectors
-//
-//
-//             break;
-//     }
-//
-//
-// }
-
-
-
 void LineRendererNode::evaluate() {
     bool isConnected = getInput("Position")->isConnected();
 
-    if (m_LineData && isConnected) {
-        // Read position input
-        glm::vec3 position = std::get<glm::vec3>(getInput("Position")->getValue());
+    if (record) {
+        if (m_LineData && isConnected) {
+            // Read position input
+            glm::vec3 position = std::get<glm::vec3>(getInput("Position")->getValue());
 
-        // Check if we should add this point
-        bool shouldAddPoint = false;
-        //Only add points if we are connected to an input node
-        if (m_LineData->points.empty() &&
-            getInput("Position")->isConnected()) {
-            // Always add first point
-            shouldAddPoint = true;
-        } else {
-            // Check distance from last point
-            glm::vec3 lastPoint = m_LineData->points.back();
-            float distance = glm::length(position - lastPoint);
-
-            if (distance >= m_MinDistance) {
+            // Check if we should add this point
+            bool shouldAddPoint = false;
+            //Only add points if we are connected to an input node
+            if (m_LineData->points.empty() &&
+                getInput("Position")->isConnected()) {
+                // Always add first point
                 shouldAddPoint = true;
+            } else {
+                // Check distance from last point
+                glm::vec3 lastPoint = m_LineData->points.back();
+                float distance = glm::length(position - lastPoint);
+
+                if (distance >= m_MinDistance) {
+                    shouldAddPoint = true;
+                }
             }
-        }
 
-        // Add point if threshold met
-        if (shouldAddPoint) {
-            m_LineData->points.push_back(position);
-            m_LineData->needsGPUUpdate = true;
-
-            // Remove oldest points if we exceed max points limit
-            if (m_MaxPoints > 0 && m_LineData->points.size() > static_cast<size_t>(m_MaxPoints)) {
-                m_LineData->points.erase(m_LineData->points.begin());
+            // Add point if threshold met
+            if (shouldAddPoint) {
+                m_LineData->points.push_back(position);
                 m_LineData->needsGPUUpdate = true;
+
+                // Remove oldest points if we exceed max points limit
+                if (m_MaxPoints > 0 && m_LineData->points.size() > static_cast<size_t>(m_MaxPoints)) {
+                    m_LineData->points.erase(m_LineData->points.begin());
+                }
+
+                needsGPUUpdate = true; //do a gpu update since we have added a point
             }
         }
+
+        //When we have no connection, use the points from the connected positions
+        else {
+
+            std::vector<glm::vec3> original = m_LineData->points;
+
+
+            m_LineData->points = std::vector<glm::vec3>(2);
+            m_LineData->points[0] = std::get<glm::vec3>(getInput("From")->getValue());
+            m_LineData->points[1] = std::get<glm::vec3>(getInput("To")->getValue());
+
+
+            if (original != m_LineData->points) { //we have made some changes, we need rerender
+                needsGPUUpdate = true;
+            }
+
+        }
+
+        //Tell the mesh render pipeline to update the gpu if we need it
+
+        if (needsGPUUpdate) {
+            m_LineData->needsGPUUpdate = needsGPUUpdate;
+            std::cout << "Doing a GPU update" << "\n";
+        }
+
     }
 
-    //When we have no connection, use the points from the connected positions
-    else {
-        m_LineData->points = std::vector<glm::vec3> (2);
-        m_LineData->points[0] = std::get<glm::vec3>(getInput("From")->getValue());
-        m_LineData->points[1] = std::get<glm::vec3>(getInput("To")->getValue());
-        m_LineData->needsGPUUpdate = true;
-
-    }
 
     // Update appearance properties from UI settings
     m_LineData->properties.color = m_Color;
@@ -156,6 +143,7 @@ void LineRendererNode::evaluate() {
 }
 
 void LineRendererNode::OnDrawNodeUI() {
+
     ImGui::PushID(this);
 
     if (m_LineData) {
@@ -163,68 +151,84 @@ void LineRendererNode::OnDrawNodeUI() {
         ImGui::SameLine();
         if (ImGui::Button("Clear Points")) {
             m_LineData->points.clear();
-            m_LineData->needsGPUUpdate = true;
+            needsGPUUpdate = true;
         }
 
+        ImColor red = ImColor::HSV(343.0f, 93.3f, 99.6f);
+        ImColor blue = ImColor::HSV(200.0f, 80.4f, 100.0);
+
+        //Button - Record/Stop
+        if (record) {
+            ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4) blue);
+            if (ImGui::Button("Stop")) {
+                record = false;
+                needsGPUUpdate = true;
+            }
+            ImGui::PopStyleColor(1);
+        } else {
+            ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4) red);
+            if (ImGui::Button("Record")) {
+                record = true;
+                needsGPUUpdate = true;
+            }
+            ImGui::PopStyleColor(1);
+        }
 
         // Min Distance
         ImGui::Text("Min Distance");
         ImGui::SetNextItemWidth(150);
-        ImGui::DragFloat("##MinDist", &m_MinDistance, 0.01f, 0.01f, 10.0f, "%.2f");
+        needsGPUUpdate |= ImGui::DragFloat("##MinDist", &m_MinDistance, 0.01f, 0.01f, 10.0f, "%.2f");
 
         // Max Points
         ImGui::Text("Max Points");
         ImGui::SetNextItemWidth(150);
-        ImGui::DragInt("##MaxPoints", &m_MaxPoints, 1.0f, 0, 10000);
-
+        needsGPUUpdate |= ImGui::DragInt("##MaxPoints", &m_MaxPoints, 1.0f, 0, 10000);
 
         // Color
         ImGui::Text("Color");
         ImGui::SetNextItemWidth(200);
-        ImGui::ColorEdit4("##Color", &m_Color.x);
+        needsGPUUpdate |= ImGui::ColorEdit4("##Color", &m_Color.x);
 
         // Thickness
         ImGui::Text("Thickness");
         ImGui::SetNextItemWidth(150);
-        ImGui::DragFloat("##Thickness", &m_Thickness);
-
+        needsGPUUpdate |= ImGui::DragFloat("##Thickness", &m_Thickness);
 
         // Line Style
         ImGui::Text("Line Style");
         const char *lineStyles[] = {"Solid", "Dashed", "Dotted"};
         ImGui::SetNextItemWidth(150);
-        ImGui::Combo("##LineStyle", &m_LineStyle, lineStyles, 3);
+        needsGPUUpdate |= ImGui::Combo("##LineStyle", &m_LineStyle, lineStyles, 3);
 
         // Dash/Gap settings (only for Dashed/Dotted)
         if (m_LineStyle != 0) {
             ImGui::Text("Dash Length");
             ImGui::SetNextItemWidth(150);
-            ImGui::DragFloat("##DashLength", &m_DashLength, 1.0f);
+            needsGPUUpdate |= ImGui::DragFloat("##DashLength", &m_DashLength, 1.0f);
 
             ImGui::Text("Gap Length");
             ImGui::SetNextItemWidth(150);
-            ImGui::DragFloat("##GapLength", &m_GapLength, 1.0f);
+            needsGPUUpdate |= ImGui::DragFloat("##GapLength", &m_GapLength, 1.0f);
         }
-
 
         // Anti-aliasing
         ImGui::Text("Anti-alias");
-        ImGui::Checkbox("##AntiAlias", &m_AntiAlias);
+        needsGPUUpdate |= ImGui::Checkbox("##AntiAlias", &m_AntiAlias);
 
         if (m_AntiAlias) {
             ImGui::Text("Smoothness");
             ImGui::SetNextItemWidth(150);
-            ImGui::DragFloat("##Smoothness", &m_Smoothness, 1.0f);
+            needsGPUUpdate |= ImGui::DragFloat("##Smoothness", &m_Smoothness, 1.0f);
         }
 
         // Curve Smoothing
         ImGui::Text("Curve Smooth");
-        ImGui::Checkbox("##CurveSmooth", &m_CurveSmoothing);
+        needsGPUUpdate |= ImGui::Checkbox("##CurveSmooth", &m_CurveSmoothing);
 
         if (m_CurveSmoothing) {
             ImGui::Text("Subdivisions");
             ImGui::SetNextItemWidth(150);
-            ImGui::DragInt("##Subdivisions", &m_Subdivisions);
+            needsGPUUpdate |= ImGui::DragInt("##Subdivisions", &m_Subdivisions);
         }
     } else {
         ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "No line data!");
