@@ -89,7 +89,7 @@ public:
 
     float rangedTime;
     std::vector <float> min_max = {0,1};
-    bool useMinMax;
+    bool useMinMax = false;
 
 
 private:

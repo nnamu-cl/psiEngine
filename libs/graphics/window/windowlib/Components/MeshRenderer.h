@@ -1,26 +1,23 @@
 #pragma once
 #include "ecs/IComponent.h"
+#include "../Data/Material.h"
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
-
-enum class ColorMode
-{
-    VertexColor,  // Use per-vertex colors from mesh
-    ObjectColor   // Use single color for entire object
-};
 
 class MeshRenderer : public IComponent
 {
 public:
     COMPONENT_TYPE_ID(MeshRenderer)
 
-    ColorMode colorMode = ColorMode::VertexColor;
-    glm::vec4 objectColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);  // White default
+    // Material properties
+    MaterialProperties material;
 
     MeshRenderer() = default;
     MeshRenderer(ColorMode mode, const glm::vec4& color = glm::vec4(1.0f))
-        : colorMode(mode), objectColor(color)
-    {}
+    {
+        material.colorMode = mode;
+        material.objectColor = color;
+    }
 
     std::unique_ptr<IComponent> clone() const override
     {

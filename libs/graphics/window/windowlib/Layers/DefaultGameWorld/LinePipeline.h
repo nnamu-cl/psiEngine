@@ -7,26 +7,26 @@
 namespace slang { struct IGlobalSession; }
 namespace Slang { template<typename T> class ComPtr; }
 
-// Forward declare for blend mode
-enum class BlendMode;
+// Forward declare
+enum class LineStyle;
+struct LineProperties;
 
-// Describes which shaders back a pipeline.
-struct PipelineDesc
+// Describes shaders for line pipeline
+struct LinePipelineDesc
 {
     std::string vertexShaderPath;
+    std::string geometryShaderPath;
     std::string fragmentShaderPath;
-    BlendMode blendMode;
-    bool doubleSided = false;  // If true, disable backface culling
+    VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
+    bool depthTest = true;
 };
 
-class Pipeline
+class LinePipeline
 {
 public:
-    // Creates the VkPipelineLayout + VkPipeline.  setLayouts is the
-    // ordered list of descriptor-set layouts that the shaders expect
-    // (set 0 = global, set 1 = per-object, etc.).
+    // Creates the VkPipelineLayout + VkPipeline for line rendering
     bool create(VkDevice device,
-                const PipelineDesc& desc,
+                const LinePipelineDesc& desc,
                 const std::vector<VkDescriptorSetLayout>& setLayouts,
                 VkFormat colorFormat,
                 VkFormat depthFormat);
@@ -37,10 +37,9 @@ public:
     VkPipelineLayout layout{   VK_NULL_HANDLE };
 
 private:
-    // Compiles GLSL shader to SPIR-V via Slang and wraps it in a VkShaderModule.
-    // Shader modules are destroyed immediately after pipeline creation.
+    // Compiles shader to SPIR-V via Slang and wraps it in a VkShaderModule
     VkShaderModule loadShaderModule(VkDevice device, const std::string& path);
 
-    // Shared Slang global session (created on first use)
+    // Shared Slang global session (reuses from Pipeline)
     static Slang::ComPtr<slang::IGlobalSession>& getSlangSession();
 };

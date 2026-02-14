@@ -9,11 +9,13 @@
 
 constexpr uint32_t maxFramesInFlight{2};
 
+
+
 struct ApplicationWindowSpecifications {
     int w;
     int h;
     const char *title;
-    SDL_WindowFlags flags;
+    SDL_WindowFlags flags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE;
 };
 
 struct ApplicationWindowData {

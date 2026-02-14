@@ -387,6 +387,11 @@ void ControlPanel::Render()
                     graph.createNode<TransformNode>();
                 }
 
+                if (ImGui::Button("Line Renderer", ImVec2(-1, 0)))
+                {
+                    graph.createNode<LineRendererNode>();
+                }
+
                 ImGui::PopStyleColor(3);
 
                 ImGui::EndTabItem();
