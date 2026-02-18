@@ -60,10 +60,17 @@ int main(int argc, char* argv[])
     PsiNodeEditorLayer nodeEditorLayer(&worldLayer);         // Node editor layer (below UI)
     PsiUILayer uiLayer(&worldLayer, &nodeEditorLayer, &app); // PSI-specific UI layer (with app reference for settings)
 
+    // Give the project manager a reference to the active node graph so that
+    // SaveProject() / LoadProject() know which graph to operate on.
+    PsiProjectManager::SetNodeGraph(&nodeEditorLayer.getNodeGraph());
+
     // Attach layers to the application
     // Order matters: worldLayer renders first, then node editor, then UI overlays on top
     app.PushLayer(&worldLayer);
     app.PushLayer(&nodeEditorLayer);
+
+    // Give the project manager a pointer to the drawer (OnAttach creates it during PushLayer).
+    PsiProjectManager::SetNodeSystemDrawer(nodeEditorLayer.getNodeSystemDrawer());
 
     //Add demo time node
     nodeEditorLayer.getNodeGraph().createNode<TimeNode>();

@@ -1,10 +1,17 @@
 #pragma once
 
+#include <Project.h>
 #include <filesystem>
+#include <memory>
 #include <string>
 #include <vector>
 
 namespace fs = std::filesystem;
+
+// Forward declaration — avoids pulling the full NodeSystem header into every
+// translation unit that includes this file.
+class NodeGraph;
+class NodeSystemDrawer;
 
 // Metadata for a single psi project on disk
 struct PsiProjectEntry {
@@ -33,6 +40,11 @@ public:
     //   ~/Documents/psiEngine/psi_projects.json
     static fs::path GetProjectsFilePath();
 
+    // -----------------------------------------------------------------------
+    // Project registry — load/save the list of known projects (psi_projects.json)
+    // These are NOT the same as SaveProject/LoadProject below.
+    // -----------------------------------------------------------------------
+
     // Load project list from disk. Safe to call even if the file doesn't exist yet.
     static void Load();
 
@@ -51,6 +63,40 @@ public:
     // Returns nullptr if not found.
     static PsiProjectEntry* FindProject(const std::string& directory);
 
+    // -----------------------------------------------------------------------
+    // Active project — the project currently open in the editor
+    // -----------------------------------------------------------------------
+
+    // Set the node graph that SaveProject/LoadProject will operate on.
+    // Call this once in main() after the node editor layer is constructed.
+    static void SetNodeGraph(NodeGraph* graph);
+
+    // Set the node system drawer for saving/loading editor layout.
+    // Call this once in main() after the node editor layer is attached.
+    static void SetNodeSystemDrawer(NodeSystemDrawer* drawer);
+
+    // Mark a project as the currently-open project.
+    // Creates a Project object from the given name + directory and stores it.
+    static void SetCurrentProject(const std::string& name, const std::string& dir);
+
+    // Returns the currently-open project, or nullptr if none is open.
+    static Project* GetCurrentProject();
+
+    // -----------------------------------------------------------------------
+    // Project content I/O — save/load the actual node graph on disk.
+    // These are distinct from Save()/Load() which only touch the registry.
+    //
+    //   SaveProject  ->  writes  {currentProject->directory}/graph.json
+    //   LoadProject  ->  reads   {currentProject->directory}/graph.json
+    //
+    // Both are no-ops if no current project or no node graph is set.
+    // -----------------------------------------------------------------------
+    static void SaveProject();
+    static void LoadProject();
+
 private:
-    static PsiProjectList s_List;
+    static PsiProjectList          s_List;
+    static std::unique_ptr<Project> s_CurrentProject;
+    static NodeGraph*              s_NodeGraph;
+    static NodeSystemDrawer*       s_NodeSystemDrawer;
 };

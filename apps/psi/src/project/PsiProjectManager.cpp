@@ -2,6 +2,8 @@
 
 #include <Project.h>         // Project::GetUserHome()
 #include <glaze/glaze.hpp>
+#include "nodes/NodeSystem.h"
+#include "drawers/NodeSystemDrawer.h"
 
 #include <chrono>
 #include <fstream>
@@ -12,7 +14,10 @@
 // (all public, no user-defined constructors).
 // -----------------------------------------------------------------------
 
-PsiProjectList PsiProjectManager::s_List;
+PsiProjectList           PsiProjectManager::s_List;
+std::unique_ptr<Project> PsiProjectManager::s_CurrentProject  = nullptr;
+NodeGraph*               PsiProjectManager::s_NodeGraph        = nullptr;
+NodeSystemDrawer*        PsiProjectManager::s_NodeSystemDrawer = nullptr;
 
 // -----------------------------------------------------------------------
 // Helpers
@@ -117,4 +122,50 @@ PsiProjectEntry* PsiProjectManager::FindProject(const std::string& directory) {
         if (e.directory == directory) return &e;
     }
     return nullptr;
+}
+
+// -----------------------------------------------------------------------
+// Active project
+// -----------------------------------------------------------------------
+
+void PsiProjectManager::SetNodeGraph(NodeGraph* graph) {
+    s_NodeGraph = graph;
+}
+
+void PsiProjectManager::SetNodeSystemDrawer(NodeSystemDrawer* drawer) {
+    s_NodeSystemDrawer = drawer;
+}
+
+void PsiProjectManager::SetCurrentProject(const std::string& name, const std::string& dir) {
+    s_CurrentProject = std::make_unique<Project>(dir);
+}
+
+Project* PsiProjectManager::GetCurrentProject() {
+    return s_CurrentProject.get();
+}
+
+// -----------------------------------------------------------------------
+// Project content I/O
+// Distinct from Save()/Load() which only touch the project registry.
+// -----------------------------------------------------------------------
+
+void PsiProjectManager::SaveProject() {
+    if (!s_NodeGraph || !s_CurrentProject) return;
+    s_NodeGraph->Save(s_CurrentProject->directory);
+
+    if (s_NodeSystemDrawer) {
+        fs::path rendererFile = fs::path(s_CurrentProject->directory) / "node_renderer.json";
+        s_NodeSystemDrawer->Save(rendererFile.string());
+    }
+}
+
+void PsiProjectManager::LoadProject() {
+    if (!s_NodeGraph || !s_CurrentProject) return;
+    fs::path graphFile = fs::path(s_CurrentProject->directory) / "graph.json";
+    s_NodeGraph->Load(graphFile.string());
+
+    if (s_NodeSystemDrawer) {
+        fs::path rendererFile = fs::path(s_CurrentProject->directory) / "node_renderer.json";
+        s_NodeSystemDrawer->Load(rendererFile.string());
+    }
 }

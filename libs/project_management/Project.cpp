@@ -8,7 +8,6 @@ namespace fs = std::filesystem;
 Project::Project(std::string dir)
     : directory(dir)
 {
-    current = this;  //Make sure to save us as the currently active project
 }
 
 

@@ -237,6 +237,42 @@ void LineRendererNode::OnDrawNodeUI() {
     ImGui::PopID();
 }
 
+void LineRendererNode::SaveProperties(std::unordered_map<std::string, std::string>& props) {
+    props["minDist"]      = std::to_string(m_MinDistance);
+    props["maxPoints"]    = std::to_string(m_MaxPoints);
+    props["colorR"]       = std::to_string(m_Color.x);
+    props["colorG"]       = std::to_string(m_Color.y);
+    props["colorB"]       = std::to_string(m_Color.z);
+    props["colorA"]       = std::to_string(m_Color.w);
+    props["thickness"]    = std::to_string(m_Thickness);
+    props["dashLength"]   = std::to_string(m_DashLength);
+    props["gapLength"]    = std::to_string(m_GapLength);
+    props["lineStyle"]    = std::to_string(m_LineStyle);
+    props["antiAlias"]    = std::to_string(m_AntiAlias);
+    props["smoothness"]   = std::to_string(m_Smoothness);
+    props["curveSmooth"]  = std::to_string(m_CurveSmoothing);
+    props["subdivisions"] = std::to_string(m_Subdivisions);
+    props["record"]       = std::to_string(record);
+}
+
+void LineRendererNode::LoadProperties(const std::unordered_map<std::string, std::string>& props) {
+    if (auto it = props.find("minDist");      it != props.end()) m_MinDistance    = std::stof(it->second);
+    if (auto it = props.find("maxPoints");    it != props.end()) m_MaxPoints      = std::stoi(it->second);
+    if (auto it = props.find("colorR");       it != props.end()) m_Color.x        = std::stof(it->second);
+    if (auto it = props.find("colorG");       it != props.end()) m_Color.y        = std::stof(it->second);
+    if (auto it = props.find("colorB");       it != props.end()) m_Color.z        = std::stof(it->second);
+    if (auto it = props.find("colorA");       it != props.end()) m_Color.w        = std::stof(it->second);
+    if (auto it = props.find("thickness");    it != props.end()) m_Thickness      = std::stof(it->second);
+    if (auto it = props.find("dashLength");   it != props.end()) m_DashLength     = std::stof(it->second);
+    if (auto it = props.find("gapLength");    it != props.end()) m_GapLength      = std::stof(it->second);
+    if (auto it = props.find("lineStyle");    it != props.end()) m_LineStyle      = std::stoi(it->second);
+    if (auto it = props.find("antiAlias");    it != props.end()) m_AntiAlias      = std::stoi(it->second);
+    if (auto it = props.find("smoothness");   it != props.end()) m_Smoothness     = std::stof(it->second);
+    if (auto it = props.find("curveSmooth");  it != props.end()) m_CurveSmoothing = std::stoi(it->second);
+    if (auto it = props.find("subdivisions"); it != props.end()) m_Subdivisions   = std::stoi(it->second);
+    if (auto it = props.find("record");       it != props.end()) record           = std::stoi(it->second);
+}
+
 namespace {
     const bool s_objectNodes_registered = []() {
         NodeGraph::RegisterNodeType("Transform",     []() { return std::make_unique<TransformNode>(); });

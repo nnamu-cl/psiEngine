@@ -43,6 +43,15 @@ void PhysicsConstantNode::evaluate() {
     getOutput("Value")->setValue(Value);
 }
 
+void PhysicsConstantNode::SaveProperties(std::unordered_map<std::string, std::string>& props) {
+    props["mode"] = std::to_string(static_cast<int>(mode));
+}
+
+void PhysicsConstantNode::LoadProperties(const std::unordered_map<std::string, std::string>& props) {
+    if (auto it = props.find("mode"); it != props.end())
+        mode = static_cast<PhysicsConstantMode>(std::stoi(it->second));
+}
+
 
 // FloatConstantNode implementation
 FloatConstantNode::FloatConstantNode(float value)
@@ -60,6 +69,15 @@ void FloatConstantNode::OnDrawNodeUI() {
     ImGui::DragFloat("##value", &m_Value, 0.01f);
     ImGui::PopItemWidth();
     ImGui::PopID();
+}
+
+void FloatConstantNode::SaveProperties(std::unordered_map<std::string, std::string>& props) {
+    props["value"] = std::to_string(m_Value);
+}
+
+void FloatConstantNode::LoadProperties(const std::unordered_map<std::string, std::string>& props) {
+    if (auto it = props.find("value"); it != props.end())
+        m_Value = std::stof(it->second);
 }
 
 void FloatConstantNode::setValue(float value) {
@@ -90,6 +108,15 @@ void IntConstantNode::OnDrawNodeUI() {
     ImGui::PopID();
 }
 
+void IntConstantNode::SaveProperties(std::unordered_map<std::string, std::string>& props) {
+    props["value"] = std::to_string(m_Value);
+}
+
+void IntConstantNode::LoadProperties(const std::unordered_map<std::string, std::string>& props) {
+    if (auto it = props.find("value"); it != props.end())
+        m_Value = std::stoi(it->second);
+}
+
 void IntConstantNode::setValue(int value) {
     if (m_Value != value) {
         m_Value = value;
@@ -116,6 +143,18 @@ void Vec3ConstantNode::OnDrawNodeUI() {
     ImGui::DragFloat3("##value", glm::value_ptr(m_Value), 0.01f);
     ImGui::PopItemWidth();
     ImGui::PopID();
+}
+
+void Vec3ConstantNode::SaveProperties(std::unordered_map<std::string, std::string>& props) {
+    props["x"] = std::to_string(m_Value.x);
+    props["y"] = std::to_string(m_Value.y);
+    props["z"] = std::to_string(m_Value.z);
+}
+
+void Vec3ConstantNode::LoadProperties(const std::unordered_map<std::string, std::string>& props) {
+    if (auto it = props.find("x"); it != props.end()) m_Value.x = std::stof(it->second);
+    if (auto it = props.find("y"); it != props.end()) m_Value.y = std::stof(it->second);
+    if (auto it = props.find("z"); it != props.end()) m_Value.z = std::stof(it->second);
 }
 
 void Vec3ConstantNode::setValue(const glm::vec3 &value) {
@@ -172,6 +211,18 @@ void TimeNode::OnDrawNodeUI() {
 
     ImGui::Text("Delta Time %.5fs", ApplicationWindow::instance->timestep);
     ImGui::PopID();
+}
+
+void TimeNode::SaveProperties(std::unordered_map<std::string, std::string>& props) {
+    props["useMinMax"] = std::to_string(useMinMax);
+    props["min"]       = std::to_string(min_max[0]);
+    props["max"]       = std::to_string(min_max[1]);
+}
+
+void TimeNode::LoadProperties(const std::unordered_map<std::string, std::string>& props) {
+    if (auto it = props.find("useMinMax"); it != props.end()) useMinMax   = std::stoi(it->second);
+    if (auto it = props.find("min");       it != props.end()) min_max[0]  = std::stof(it->second);
+    if (auto it = props.find("max");       it != props.end()) min_max[1]  = std::stof(it->second);
 }
 
 namespace {
