@@ -1,6 +1,7 @@
 #include "PsiUILayer.h"
 #include "layers/PsiWorldLayer.h"
 #include "Application.h"
+#include "project/ProjectHub.h"
 #include "UI/ControlPanel.h"
 #include "UI/StatsPanel.h"
 #include "UI/InspectorPanel.h"
@@ -58,10 +59,10 @@ PsiUILayer::PsiUILayer(PsiWorldLayer* worldLayer, PsiNodeEditorLayer* nodeEditor
     , m_NodeEditorLayer(nodeEditorLayer)
     , m_Application(app)
 {
-    // Create UI panels
-    m_ControlPanel = std::make_unique<ControlPanel>(worldLayer, nodeEditorLayer, app);
-    m_StatsPanel = std::make_unique<StatsPanel>(worldLayer);
+    m_ControlPanel  = std::make_unique<ControlPanel>(worldLayer, nodeEditorLayer, app);
+    m_StatsPanel    = std::make_unique<StatsPanel>(worldLayer);
     m_InspectorPanel = std::make_unique<InspectorPanel>(worldLayer, nodeEditorLayer);
+    m_ProjectHub    = std::make_unique<ProjectHub>();
 }
 
 PsiUILayer::~PsiUILayer()
@@ -90,7 +91,13 @@ void PsiUILayer::OnUpdate(float ts)
 
 void PsiUILayer::OnUIRender()
 {
-    // Render the UI using ImGui
+    if (m_ShowProjectHub)
+    {
+        if (m_ProjectHub->Render())
+            m_ShowProjectHub = false;
+        return;
+    }
+
     // Render panels (StatsPanel last so it appears on top)
     m_ControlPanel->Render();
     m_InspectorPanel->Render();
@@ -98,4 +105,5 @@ void PsiUILayer::OnUIRender()
     // Render StatsPanel last so it's on top
     m_StatsPanel->Render();
 }
+
 

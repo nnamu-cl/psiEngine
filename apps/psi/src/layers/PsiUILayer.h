@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Layers/Layer.h"
-#include <string>
 #include <memory>
 
 // Forward declarations
@@ -10,6 +9,7 @@ class PsiNodeEditorLayer;
 class ControlPanel;
 class StatsPanel;
 class InspectorPanel;
+class ProjectHub;
 namespace Application { class Application; }
 
 /**
@@ -49,6 +49,10 @@ private:
     // Simulation parameters
     float m_TimeScale = 1.0f;
     bool m_SimulationPaused = false;
+
+    // Project hub (shown on startup)
+    bool m_ShowProjectHub = true;
+    std::unique_ptr<ProjectHub> m_ProjectHub;
 
     // Render methods
     void RenderMenuBar();

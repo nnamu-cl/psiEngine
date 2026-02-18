@@ -91,6 +91,22 @@ endif()
 
 
 # ==============================================================================
+# FETCH GLAZE (JSON/binary serialization library)
+# ==============================================================================
+
+# Glaze is a fast, header-only JSON & binary serialization library for C++23
+# It supports automatic reflection for aggregate types — no manual schema needed
+FetchContent_Declare(
+        glaze
+        GIT_REPOSITORY https://github.com/stephenberry/glaze.git
+        GIT_TAG        main
+        GIT_SHALLOW    TRUE
+        SYSTEM
+)
+FetchContent_MakeAvailable(glaze)
+
+
+# ==============================================================================
 # BUILD KTX LIBRARY (For texture loading)
 # ==============================================================================
 
@@ -217,6 +233,7 @@ add_subdirectory(external/ScopeGuard)
 add_subdirectory(external/stb_image)
 add_subdirectory(external/imgui_node_editor)
 add_subdirectory(external/generator)
+add_subdirectory(external/nativefiledialog-extended)
 
 # Add the core library
 add_subdirectory(libs/core)
