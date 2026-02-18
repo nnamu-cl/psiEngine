@@ -3,6 +3,9 @@
 #include "INodeDrawer.h"
 #include "../nodes/NodeSystem.h"
 #include <unordered_map>
+#include <string>
+
+#include "imgui_node_editor.h"
 
 /**
  * NodeSystemDrawer - Draws node system nodes (TimeNode, AddNode, etc.) in the node editor
@@ -26,8 +29,14 @@ public:
     // High-level method to draw the entire node graph (nodes, links, and handle interactions)
     void DrawNodeGraph();
 
+    void Save(const std::string& filePath);
+    void Load(const std::string& filePath);
+
 private:
     NodeGraph* m_NodeGraph;
+    ax::NodeEditor::Config m_Config;
+    std::string m_SettingsFilePath;
+    bool m_NeedsRestore = false;
 
     // Track positioned nodes (node ID -> positioned flag)
     std::unordered_map<uint64_t, bool> m_PositionedNodes;

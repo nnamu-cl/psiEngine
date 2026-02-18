@@ -23,6 +23,9 @@ public:
     void evaluate() override;
     void OnDrawNodeUI() override;
     const char* getTypeName() const override { return "Physics Constant"; }
+    void SaveProperties(std::unordered_map<std::string, std::string>& props) override;
+    void LoadProperties(const std::unordered_map<std::string, std::string>& props) override;
+
     PhysicsConstantMode mode = PhysicsConstantMode::Gravity;
 
     float Value;
@@ -38,6 +41,8 @@ public:
     void evaluate() override;
     void OnDrawNodeUI() override;
     const char* getTypeName() const override { return "Float"; }
+    void SaveProperties(std::unordered_map<std::string, std::string>& props) override;
+    void LoadProperties(const std::unordered_map<std::string, std::string>& props) override;
 
     void setValue(float value);
     float getValue() const;
@@ -54,6 +59,8 @@ public:
     void evaluate() override;
     void OnDrawNodeUI() override;
     const char* getTypeName() const override { return "Int"; }
+    void SaveProperties(std::unordered_map<std::string, std::string>& props) override;
+    void LoadProperties(const std::unordered_map<std::string, std::string>& props) override;
 
     void setValue(int value);
     int getValue() const;
@@ -70,6 +77,8 @@ public:
     void evaluate() override;
     void OnDrawNodeUI() override;
     const char* getTypeName() const override { return "Vec3"; }
+    void SaveProperties(std::unordered_map<std::string, std::string>& props) override;
+    void LoadProperties(const std::unordered_map<std::string, std::string>& props) override;
 
     void setValue(const glm::vec3& value);
     glm::vec3 getValue() const;
@@ -86,6 +95,8 @@ public:
     void evaluate() override;
     void OnDrawNodeUI() override;
     const char* getTypeName() const override { return "Time"; }
+    void SaveProperties(std::unordered_map<std::string, std::string>& props) override;
+    void LoadProperties(const std::unordered_map<std::string, std::string>& props) override;
 
     float rangedTime;
     std::vector <float> min_max = {0,1};

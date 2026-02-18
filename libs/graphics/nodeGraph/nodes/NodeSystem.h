@@ -125,6 +125,7 @@ public:
     void setName(const std::string& name) { m_Name = name; }
     virtual void SaveProperties(std::unordered_map<std::string, std::string>& props) {}
     virtual void LoadProperties(const std::unordered_map<std::string, std::string>& props) {}
+    virtual void PostNodeLoad() {}
 
     // Save the node graph we belong to
     NodeGraph* graph = nullptr;

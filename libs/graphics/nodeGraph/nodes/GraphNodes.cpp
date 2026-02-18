@@ -16,17 +16,45 @@ LineGraphNode::LineGraphNode()
 {
 }
 
-void LineGraphNode::evaluate() {
-   // never didge evaluation cause of not being dirty
+TransformNode* LineGraphNode::getTrackedTransform() const {
+    return resolveTrackedTransform();
+}
 
-    // if we have a transform to track
-    if (trackTransform != nullptr) {
-        // Get the position output socket
-        if (OutputSocket* posOutput = trackTransform->getOutput("Pos")) {
-            // Get the Vec3 value from the output
+TransformNode* LineGraphNode::resolveTrackedTransform() const {
+    if (m_TrackTransformId == 0 || !graph) return nullptr;
+    for (const auto& node : graph->getNodes()) {
+        if (node->getId() == m_TrackTransformId)
+            return dynamic_cast<TransformNode*>(node.get());
+    }
+    return nullptr;
+}
+
+void LineGraphNode::SaveProperties(std::unordered_map<std::string, std::string>& props) {
+    props["maxCount"]  = std::to_string(maxCount);
+    props["axis"]      = std::to_string(static_cast<int>(selectedAxis));
+    props["drawGraph"] = std::to_string(drawGraph);
+    if (m_TrackTransformId != 0)
+        props["trackId"] = std::to_string(m_TrackTransformId);
+}
+
+void LineGraphNode::LoadProperties(const std::unordered_map<std::string, std::string>& props) {
+    if (auto it = props.find("maxCount");  it != props.end()) maxCount         = std::stoull(it->second);
+    if (auto it = props.find("axis");      it != props.end()) selectedAxis     = static_cast<Axis>(std::stoi(it->second));
+    if (auto it = props.find("drawGraph"); it != props.end()) drawGraph        = std::stoi(it->second);
+    if (auto it = props.find("trackId");   it != props.end()) m_TrackTransformId = std::stoull(it->second);
+}
+
+void LineGraphNode::PostNodeLoad() {
+    // Clear the ID if the referenced node no longer exists in the graph
+    if (m_TrackTransformId != 0 && resolveTrackedTransform() == nullptr)
+        m_TrackTransformId = 0;
+}
+
+void LineGraphNode::evaluate() {
+    if (TransformNode* tracked = resolveTrackedTransform()) {
+        if (OutputSocket* posOutput = tracked->getOutput("Pos")) {
             glm::vec3 pos3d = std::get<glm::vec3>(posOutput->getValue());
 
-            // Extract the selected axis component
             float value = 0.0f;
             switch (selectedAxis) {
                 case Axis::X: value = pos3d.x; break;
@@ -34,11 +62,9 @@ void LineGraphNode::evaluate() {
                 case Axis::Z: value = pos3d.z; break;
             }
 
-            // Push the single dimension value to buffer
             points.Push(value);
         }
     }
-
 }
 
 void LineGraphNode::OnDrawNodeUI() {
@@ -60,39 +86,29 @@ void LineGraphNode::OnDrawNodeUI() {
 
     // Track Transform dropdown (inside node)
     ImGui::Text("Track Transform");
-    const char* currentSelection = trackTransform ? trackTransform->getName().c_str() : "None";
+    TransformNode* tracked = resolveTrackedTransform();
+    const char* currentSelection = tracked ? tracked->getName().c_str() : "None";
 
     if (ImGui::BeginCombo("##TrackTransform", currentSelection))
     {
-        // Option to clear selection
-        bool isNoneSelected = (trackTransform == nullptr);
-        if (ImGui::Selectable("None", isNoneSelected))
-        {
-            trackTransform = nullptr;
-        }
+        if (ImGui::Selectable("None", m_TrackTransformId == 0))
+            m_TrackTransformId = 0;
 
-        // List all TransformNode instances in the graph
         if (graph)
         {
             for (const auto& node : graph->getNodes())
             {
-                // Check if this node is a TransformNode
                 TransformNode* transformNode = dynamic_cast<TransformNode*>(node.get());
                 if (transformNode)
                 {
-                    // Display node name with ID
                     std::string label = transformNode->getName() + " [ID: " + std::to_string(transformNode->getId()) + "]";
-                    bool isSelected = (trackTransform == transformNode);
+                    bool isSelected = (m_TrackTransformId == transformNode->getId());
 
                     if (ImGui::Selectable(label.c_str(), isSelected))
-                    {
-                        trackTransform = transformNode;
-                    }
+                        m_TrackTransformId = transformNode->getId();
 
                     if (isSelected)
-                    {
                         ImGui::SetItemDefaultFocus();
-                    }
                 }
             }
         }
@@ -101,7 +117,7 @@ void LineGraphNode::OnDrawNodeUI() {
     }
 
     // Axis selection (only show if tracking a transform)
-    if (trackTransform)
+    if (m_TrackTransformId != 0)
     {
         ImGui::Text("Track Axis");
         int axisIndex = static_cast<int>(selectedAxis);
@@ -111,7 +127,6 @@ void LineGraphNode::OnDrawNodeUI() {
         ImGui::SameLine();
         if (ImGui::RadioButton("Z", &axisIndex, 2)) selectedAxis = Axis::Z;
 
-        // Show tracking info
         ImGui::Text("Tracking: %d points", static_cast<int>(points.buffer.size()));
     }
 

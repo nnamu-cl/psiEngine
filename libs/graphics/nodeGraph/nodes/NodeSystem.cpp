@@ -387,4 +387,8 @@ void NodeGraph::Load(std::string filename) {
 
         if (from && to) connect(from, to);
     }
+
+    // Phase 3 — let nodes do any post-load wiring/validation
+    for (const auto& n : m_Nodes)
+        n->PostNodeLoad();
 }
