@@ -236,3 +236,11 @@ void LineRendererNode::OnDrawNodeUI() {
 
     ImGui::PopID();
 }
+
+namespace {
+    const bool s_objectNodes_registered = []() {
+        NodeGraph::RegisterNodeType("Transform",     []() { return std::make_unique<TransformNode>(); });
+        NodeGraph::RegisterNodeType("Line Renderer", []() { return std::make_unique<LineRendererNode>(); });
+        return true;
+    }();
+}

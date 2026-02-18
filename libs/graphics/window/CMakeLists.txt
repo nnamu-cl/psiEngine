@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 4.0.0 FATAL_ERROR)
 
 set(NAME window)
 project(${NAME})
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIGURATION>")
@@ -40,9 +40,13 @@ target_sources(WindowLib PRIVATE
 
 target_compile_definitions(WindowLib PRIVATE IMGUI_IMPL_VULKAN_USE_VOLK "IMGUI_IMPL_VULKAN_VOLK_FILENAME=<volk/volk.h>")
 target_link_libraries(WindowLib
-    PRIVATE ${SDL_LIBRARY} ${SLANG_LIBRARY} CoreLib
+    PRIVATE ${SDL_LIBRARY} ${SLANG_LIBRARY} CoreLib glaze::glaze
     PUBLIC generator imgui_node_editor implot
 )
+
+if(MSVC)
+    target_compile_options(WindowLib PRIVATE /Zc:preprocessor)
+endif()
 
 # OpenWindow example
 file(GLOB OPENWINDOWFILES "examples/OpenWindow/*.cpp" "examples/OpenWindow/*.h")
@@ -178,3 +182,13 @@ add_custom_command(
         COMMAND ${CMAKE_COMMAND} -E copy_directory ${ASSETS_SRC} $<TARGET_FILE_DIR:GraphDemo>/libs/graphics/window/assets
         COMMENT "Copying assets to GraphDemo executable directory"
 )
+
+
+
+# Add the project management here
+add_subdirectory(../../project_management ${CMAKE_BINARY_DIR}/project_managment)
+
+# SavingDemo example
+file(GLOB SAVINGDEMO "examples/SavingDemo/*.cpp" "examples/SavingDemo/*.h")
+add_executable(SavingDemo ${SAVINGDEMO})
+target_link_libraries(SavingDemo PRIVATE WindowLib project_management)

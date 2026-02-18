@@ -15,6 +15,8 @@
 #include <iostream>
 
 #include "nodes/ValueNodes.h"
+#include "project/PsiProjectManager.h"
+#include <nfd.h>
 
 int main(int argc, char* argv[])
 {
@@ -34,6 +36,9 @@ int main(int argc, char* argv[])
         return -1;
     }
 
+    // Initialise NFD (native file dialog) for the lifetime of the application
+    NFD_Init();
+
     // Create the application instance
     Application::Application app;
 
@@ -46,6 +51,9 @@ int main(int argc, char* argv[])
     // Apply UI theme (ShadSkin for consistent look)
     Application::Skins::ShadSkin shadSkin;
     shadSkin.ApplySkin();
+
+    // Load the saved project registry from ~/Documents/psiEngine/psi_projects.json
+    PsiProjectManager::Load();
 
     // Create layers
     PsiWorldLayer worldLayer(&window.data);                  // PSI 3D world rendering layer
@@ -66,5 +74,6 @@ int main(int argc, char* argv[])
     std::cout << "Starting PSI Application..." << std::endl;
     window.Start(app);
 
+    NFD_Quit();
     return 0;
 }

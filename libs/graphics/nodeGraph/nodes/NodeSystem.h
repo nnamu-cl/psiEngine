@@ -7,6 +7,7 @@
 #include <unordered_set>
 #include <string>
 #include <memory>
+#include <functional>
 #include <glm/glm.hpp>
 
 // Forward declarations
@@ -122,6 +123,8 @@ public:
     // Node display name
     const std::string& getName() const { return m_Name; }
     void setName(const std::string& name) { m_Name = name; }
+    virtual void SaveProperties(std::unordered_map<std::string, std::string>& props) {}
+    virtual void LoadProperties(const std::unordered_map<std::string, std::string>& props) {}
 
     // Save the node graph we belong to
     NodeGraph* graph = nullptr;
@@ -174,6 +177,13 @@ public:
 
     // Access to all nodes
     const std::vector<std::unique_ptr<Node>>& getNodes() const { return m_Nodes; }
+
+    void Save(std::string directory);
+    void Load(std::string filename);
+
+    static void RegisterNodeType(const std::string& typeName,
+                                  std::function<std::unique_ptr<Node>()> factory);
+    static std::unique_ptr<Node> CreateNode(const std::string& typeName);
 
 private:
     std::vector<std::unique_ptr<Node>> m_Nodes;

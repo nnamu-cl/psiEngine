@@ -1,6 +1,45 @@
 #include "NodeSystem.h"
 #include <cmath>
 #include <algorithm>
+#include <iostream>
+#include <filesystem>
+#include <fstream>
+#include <glaze/glaze.hpp>
+
+namespace fs = std::filesystem;
+
+// ---------------------------------------------------------------------------
+// Serialization data structures (used only by NodeGraph::Save / Load)
+// ---------------------------------------------------------------------------
+namespace {
+
+struct NodeSaveData {
+    uint64_t id = 0;
+    std::string type;
+    std::string name;
+    std::unordered_map<std::string, std::string> props;
+};
+
+struct ConnectionSaveData {
+    uint64_t fromNode   = 0;
+    std::string fromSocket;
+    uint64_t toNode     = 0;
+    std::string toSocket;
+};
+
+struct GraphSaveData {
+    std::vector<NodeSaveData>       nodes;
+    std::vector<ConnectionSaveData> connections;
+};
+
+// Meyers-singleton factory map — guaranteed to be initialised before first use,
+// regardless of static initialisation order across translation units.
+auto& GetFactories() {
+    static std::unordered_map<std::string, std::function<std::unique_ptr<Node>()>> s;
+    return s;
+}
+
+} // namespace
 
 // TypeConverter implementation
 std::optional<NodeValue> TypeConverter::convert(const NodeValue& from, SocketType toType) {
@@ -163,6 +202,22 @@ OutputSocket& Node::addOutput(const std::string& name, SocketType type, const No
     return m_Outputs.back();
 }
 
+// ---------------------------------------------------------------------------
+// NodeGraph — factory registry
+// ---------------------------------------------------------------------------
+
+void NodeGraph::RegisterNodeType(const std::string& typeName,
+                                  std::function<std::unique_ptr<Node>()> factory) {
+    GetFactories()[typeName] = std::move(factory);
+}
+
+std::unique_ptr<Node> NodeGraph::CreateNode(const std::string& typeName) {
+    auto& factories = GetFactories();
+    auto  it        = factories.find(typeName);
+    if (it != factories.end()) return it->second();
+    return nullptr;
+}
+
 // NodeGraph implementation
 bool NodeGraph::connect(OutputSocket* output, InputSocket* input) {
     if (!output || !input) return false;
@@ -249,4 +304,87 @@ NodeValue NodeGraph::evaluate(OutputSocket* output) {
     output->owner->evaluate();
 
     return output->getValue();
+}
+
+
+void NodeGraph::Save(std::string directory) {
+    GraphSaveData data;
+
+    for (const auto& nodePtr : m_Nodes) {
+        Node* node = nodePtr.get();
+
+        NodeSaveData nd;
+        nd.id   = node->getId();
+        nd.type = node->getTypeName();
+        nd.name = node->getName();
+        node->SaveProperties(nd.props);
+        data.nodes.push_back(std::move(nd));
+
+        // Each connected input socket represents one directed edge in the graph
+        for (const auto& input : node->getInputs()) {
+            if (input.isConnected()) {
+                data.connections.push_back({
+                    input.connectedOutput->owner->getId(),
+                    input.connectedOutput->name,
+                    node->getId(),
+                    input.name
+                });
+            }
+        }
+    }
+
+    std::string buffer;
+    auto err = glz::write<glz::opts{.prettify = true}>(data, buffer);
+    if (err) return;
+
+    fs::create_directories(directory);
+    std::ofstream file(fs::path(directory) / "graph.json", std::ios::trunc);
+    file << buffer;
+}
+
+void NodeGraph::Load(std::string filename) {
+    std::ifstream file(filename);
+    if (!file.is_open()) return;
+
+    std::string buffer((std::istreambuf_iterator<char>(file)),
+                        std::istreambuf_iterator<char>());
+
+    GraphSaveData data;
+    auto err = glz::read_json(data, buffer);
+    if (err) return;
+
+    m_Nodes.clear();
+    m_NextNodeId = 1;
+
+    // Phase 1 — rebuild nodes from their saved type + properties
+    for (const auto& nd : data.nodes) {
+        auto node = CreateNode(nd.type);
+        if (!node) {
+            std::cerr << "[NodeGraph::Load] Unknown node type: " << nd.type << "\n";
+            continue;
+        }
+
+        node->setId(nd.id);
+        node->setName(nd.name);
+        node->graph = this;
+        node->LoadProperties(nd.props);
+
+        if (nd.id >= m_NextNodeId)
+            m_NextNodeId = nd.id + 1;
+
+        m_Nodes.push_back(std::move(node));
+    }
+
+    // Phase 2 — rewire connections using stable socket names
+    for (const auto& conn : data.connections) {
+        OutputSocket* from = nullptr;
+        InputSocket*  to   = nullptr;
+
+        for (const auto& n : m_Nodes) {
+            if (n->getId() == conn.fromNode) from = n->getOutput(conn.fromSocket);
+            if (n->getId() == conn.toNode)   to   = n->getInput(conn.toSocket);
+        }
+
+        if (from && to) connect(from, to);
+    }
 }

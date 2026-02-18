@@ -42,8 +42,10 @@ target_include_directories(${NAME} PUBLIC
 # Link against WindowLib and other dependencies
 target_link_libraries(${NAME} PUBLIC
     WindowLib
+    project_management
     imgui_node_editor
     implot
+    nfd
     ${SDL_LIBRARY}
     ${SLANG_LIBRARY}
 )
