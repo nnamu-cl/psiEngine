@@ -50,6 +50,13 @@ private:
     float m_TimeScale = 1.0f;
     bool m_SimulationPaused = false;
 
+    // Project hub state (shown on startup)
+    bool m_ShowProjectHub = true;
+    char m_NewProjectName[256]     = {};
+    char m_NewProjectLocation[512] = {};
+    std::string m_NewProjectError;
+
     // Render methods
     void RenderMenuBar();
+    void RenderProjectHub();
 };

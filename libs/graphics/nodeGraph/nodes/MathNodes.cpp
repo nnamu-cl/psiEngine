@@ -268,3 +268,22 @@ void PINode::OnDrawNodeUI() {
     ImGui::Text("3.14159...");
     ImGui::PopID();
 }
+
+namespace {
+    const bool s_mathNodes_registered = []() {
+        NodeGraph::RegisterNodeType("Add",      []() { return std::make_unique<AddNode>(); });
+        NodeGraph::RegisterNodeType("Subtract", []() { return std::make_unique<SubtractNode>(); });
+        NodeGraph::RegisterNodeType("Multiply", []() { return std::make_unique<MultiplyNode>(); });
+        NodeGraph::RegisterNodeType("Divide",   []() { return std::make_unique<DivideNode>(); });
+        NodeGraph::RegisterNodeType("Sin",      []() { return std::make_unique<SinNode>(); });
+        NodeGraph::RegisterNodeType("Cos",      []() { return std::make_unique<CosNode>(); });
+        NodeGraph::RegisterNodeType("Tan",      []() { return std::make_unique<TanNode>(); });
+        NodeGraph::RegisterNodeType("Arctan",   []() { return std::make_unique<ArctanNode>(); });
+        NodeGraph::RegisterNodeType("Arcsin",   []() { return std::make_unique<ArcsinNode>(); });
+        NodeGraph::RegisterNodeType("Arccos",   []() { return std::make_unique<ArccosNode>(); });
+        NodeGraph::RegisterNodeType("Pow",      []() { return std::make_unique<PowNode>(); });
+        NodeGraph::RegisterNodeType("Root",     []() { return std::make_unique<RootNode>(); });
+        NodeGraph::RegisterNodeType("PI",       []() { return std::make_unique<PINode>(); });
+        return true;
+    }();
+}

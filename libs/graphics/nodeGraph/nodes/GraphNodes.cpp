@@ -118,3 +118,10 @@ void LineGraphNode::OnDrawNodeUI() {
     ImGui::PopItemWidth();
     ImGui::PopID();
 }
+
+namespace {
+    const bool s_graphNodes_registered = []() {
+        NodeGraph::RegisterNodeType("Line Graph", []() { return std::make_unique<LineGraphNode>(); });
+        return true;
+    }();
+}

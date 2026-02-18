@@ -173,3 +173,14 @@ void TimeNode::OnDrawNodeUI() {
     ImGui::Text("Delta Time %.5fs", ApplicationWindow::instance->timestep);
     ImGui::PopID();
 }
+
+namespace {
+    const bool s_valueNodes_registered = []() {
+        NodeGraph::RegisterNodeType("Float",            []() { return std::make_unique<FloatConstantNode>(); });
+        NodeGraph::RegisterNodeType("Int",              []() { return std::make_unique<IntConstantNode>(); });
+        NodeGraph::RegisterNodeType("Vec3",             []() { return std::make_unique<Vec3ConstantNode>(); });
+        NodeGraph::RegisterNodeType("Time",             []() { return std::make_unique<TimeNode>(); });
+        NodeGraph::RegisterNodeType("Physics Constant", []() { return std::make_unique<PhysicsConstantNode>(); });
+        return true;
+    }();
+}
