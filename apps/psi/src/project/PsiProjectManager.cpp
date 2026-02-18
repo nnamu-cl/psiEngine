@@ -153,10 +153,11 @@ void PsiProjectManager::SaveProject() {
     if (!s_NodeGraph || !s_CurrentProject) return;
     s_NodeGraph->Save(s_CurrentProject->directory);
 
-    if (s_NodeSystemDrawer) {
-        fs::path rendererFile = fs::path(s_CurrentProject->directory) / "node_renderer.json";
-        s_NodeSystemDrawer->Save(rendererFile.string());
-    }
+    // Node system drawer saving and loading doesn't work for now we shall fix this later on, no need to worry about for now
+    // if (s_NodeSystemDrawer) {
+    //     fs::path rendererFile = fs::path(s_CurrentProject->directory) / "node_renderer.json";
+    //     s_NodeSystemDrawer->Save(rendererFile.string());
+    // }
 }
 
 void PsiProjectManager::LoadProject() {
@@ -164,8 +165,9 @@ void PsiProjectManager::LoadProject() {
     fs::path graphFile = fs::path(s_CurrentProject->directory) / "graph.json";
     s_NodeGraph->Load(graphFile.string());
 
-    if (s_NodeSystemDrawer) {
-        fs::path rendererFile = fs::path(s_CurrentProject->directory) / "node_renderer.json";
-        s_NodeSystemDrawer->Load(rendererFile.string());
-    }
+    // Node system drawer saving and loading doesn't work for now we shall fix this later on, no need to worry about for now
+    // if (s_NodeSystemDrawer) {
+    //     fs::path rendererFile = fs::path(s_CurrentProject->directory) / "node_renderer.json";
+    //     s_NodeSystemDrawer->Load(rendererFile.string());
+    // }
 }

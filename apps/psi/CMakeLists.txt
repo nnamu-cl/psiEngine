@@ -135,3 +135,23 @@ target_compile_definitions(psi_tests PRIVATE
 if(WIN32)
     target_compile_definitions(psi_tests PRIVATE _CRT_SECURE_NO_WARNINGS)
 endif()
+
+# Node Save/Load tests (no Vulkan required - tests NodeGraph::Save / Load round-trip)
+add_executable(psi_node_save_tests tests/test_NodeSave.cpp)
+target_link_libraries(psi_node_save_tests PRIVATE WindowLib Catch2::Catch2WithMain)
+
+target_include_directories(psi_node_save_tests PRIVATE
+    $ENV{VULKAN_SDK}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../libs/graphics/window/windowlib
+)
+
+target_compile_definitions(psi_node_save_tests PRIVATE
+    VK_NO_PROTOTYPES
+    IMGUI_IMPL_VULKAN_USE_VOLK
+    "IMGUI_IMPL_VULKAN_VOLK_FILENAME=<volk/volk.h>"
+)
+
+if(WIN32)
+    target_compile_definitions(psi_node_save_tests PRIVATE _CRT_SECURE_NO_WARNINGS)
+endif()
