@@ -42,6 +42,8 @@ public:
     void evaluate() override;
     void OnDrawNodeUI() override;
     const char* getTypeName() const override { return "Line Renderer"; }
+    void SaveProperties(std::unordered_map<std::string, std::string>& props) override;
+    void LoadProperties(const std::unordered_map<std::string, std::string>& props) override;
 
 private:
     LineRendererData* m_LineData = nullptr;

@@ -80,3 +80,14 @@ void LengthNode::evaluate() {
     float result = glm::length(vec);
     getOutput("Length")->setValue(result);
 }
+
+namespace {
+    const bool s_vectorNodes_registered = []() {
+        NodeGraph::RegisterNodeType("Combine Vec3",  []() { return std::make_unique<CombineVec3Node>(); });
+        NodeGraph::RegisterNodeType("Separate Vec3", []() { return std::make_unique<SeparateVec3Node>(); });
+        NodeGraph::RegisterNodeType("Dot Product",   []() { return std::make_unique<DotProductNode>(); });
+        NodeGraph::RegisterNodeType("Cross Product",  []() { return std::make_unique<CrossProductNode>(); });
+        NodeGraph::RegisterNodeType("Length",        []() { return std::make_unique<LengthNode>(); });
+        return true;
+    }();
+}

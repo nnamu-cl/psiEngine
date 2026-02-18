@@ -32,6 +32,7 @@ public:
     NodeGraph& getNodeGraph() { return m_NodeGraph; }
     NodePropertyBinding& getPropertyBinding() { return *m_PropertyBinding; }
     float getElapsedTime() const { return m_ElapsedTime; }
+    NodeSystemDrawer* getNodeSystemDrawer() { return m_NodeSystemDrawer.get(); }
 
 private:
     PsiWorldLayer* m_WorldLayer;

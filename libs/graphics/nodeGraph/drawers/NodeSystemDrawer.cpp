@@ -4,7 +4,6 @@
 #include "NodeEditorPinDrawing.h"
 #include "imgui.h"
 #include "imgui_node_editor.h"
-#include "imgui_node_editor_internal.h"
 
 namespace ed = ax::NodeEditor;
 
@@ -12,9 +11,8 @@ namespace ed = ax::NodeEditor;
 NodeSystemDrawer::NodeSystemDrawer(NodeGraph* nodeGraph)
     : m_NodeGraph(nodeGraph)
 {
-    // Create node editor context
-    ed::Config config;
-    m_NodeEditorContext = ed::CreateEditor(&config);
+    m_Config.SettingsFile = nullptr;
+    m_NodeEditorContext = ed::CreateEditor(&m_Config);
 }
 
 NodeSystemDrawer::~NodeSystemDrawer()
@@ -79,6 +77,14 @@ void NodeSystemDrawer::DrawNodeGraph()
     DrawAllNodes();
     DrawLinks();
     HandleInteractions();
+
+    // After Begin() has fired LoadSettings() internally, restore all node states from file
+    if (m_NeedsRestore && m_NodeGraph)
+    {
+        for (const auto& node : m_NodeGraph->getNodes())
+            ed::RestoreNodeState(node->getId());
+        m_NeedsRestore = false;
+    }
 
     // Navigate to show all content on first frame
     static bool firstFrame = true;
@@ -259,6 +265,55 @@ void NodeSystemDrawer::DrawLinks()
         // Use connection index as link ID (offset by a large number to avoid conflicts)
         ed::Link(100000 + i, conn.outputPinId, conn.inputPinId);
     }
+}
+
+
+// Loading and saving here doesn't work yet
+// We shall fix this to make it work later on
+// It has been put off for later for now
+//TODO: Make the load and save functions here work
+void NodeSystemDrawer::Save(const std::string& filePath)
+{
+    // Collect current node positions before destroying the context
+    std::unordered_map<uint64_t, ImVec2> positions;
+    if (m_NodeGraph)
+    {
+        ed::SetCurrentEditor(m_NodeEditorContext);
+        for (const auto& node : m_NodeGraph->getNodes())
+        {
+            uint64_t id = node->getId();
+            positions[id] = ed::GetNodePosition(id);
+        }
+        ed::SetCurrentEditor(nullptr);
+    }
+
+    // Recreate context pointing at the project settings file
+    ed::DestroyEditor(m_NodeEditorContext);
+    m_SettingsFilePath = filePath;
+    m_Config.SettingsFile = m_SettingsFilePath.c_str();
+    m_NodeEditorContext = ed::CreateEditor(&m_Config);
+
+    // Push positions into the new context so they're dirty and written on next End()
+    ed::SetCurrentEditor(m_NodeEditorContext);
+    for (const auto& [id, pos] : positions)
+    {
+        ed::SetNodePosition(id, pos);
+        m_PositionedNodes[id] = true;
+    }
+    ed::SetCurrentEditor(nullptr);
+}
+
+void NodeSystemDrawer::Load(const std::string& filePath)
+{
+    // Recreate context pointing at the project settings file.
+    // The first Begin() call will trigger LoadSettings() internally.
+    ed::DestroyEditor(m_NodeEditorContext);
+    m_SettingsFilePath = filePath;
+    m_Config.SettingsFile = m_SettingsFilePath.c_str();
+    m_NodeEditorContext = ed::CreateEditor(&m_Config);
+
+    m_PositionedNodes.clear();
+    m_NeedsRestore = true;
 }
 
 void NodeSystemDrawer::HandleInteractions()

@@ -70,7 +70,7 @@ void GraphDrawer::DrawGraphs()
                 std::string label = graphNode->getName();
 
                 // Add axis indicator to label if tracking a transform
-                if (graphNode->trackTransform)
+                if (graphNode->getTrackedTransform())
                 {
                     switch (graphNode->selectedAxis)
                     {
