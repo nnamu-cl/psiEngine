@@ -43,9 +43,9 @@ int main(int argc, char* argv[])
     Application::Application app;
 
     // Set the background clear color to PSI secondary background
-    app.clearColorValue.float32[0] = psi::Colors::SecondaryBackground.r;
-    app.clearColorValue.float32[1] = psi::Colors::SecondaryBackground.g;
-    app.clearColorValue.float32[2] = psi::Colors::SecondaryBackground.b;
+    app.clearColorValue.float32[0] = psi::Colors::Background3D.r;
+    app.clearColorValue.float32[1] = psi::Colors::Background3D.g;
+    app.clearColorValue.float32[2] = psi::Colors::Background3D.b;
     app.clearColorValue.float32[3] = 1.0f;
 
     // Apply UI theme (ShadSkin for consistent look)
