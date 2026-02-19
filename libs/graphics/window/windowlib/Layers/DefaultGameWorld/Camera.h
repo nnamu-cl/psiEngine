@@ -6,6 +6,8 @@
 class Camera
 {
 public:
+    Camera();
+
     glm::vec3 position{ 0.0f, 0.0f, 5.0f };
     glm::vec3 target{   0.0f, 0.0f, 0.0f };
     glm::vec3 up{       0.0f, 1.0f, 0.0f };
@@ -16,4 +18,9 @@ public:
 
     glm::mat4 viewMatrix() const;
     glm::mat4 projectionMatrix(float aspectRatio) const;
+
+    static Camera* GetMain() { return s_MainCamera; }
+
+private:
+    static Camera* s_MainCamera;
 };

@@ -1,6 +1,7 @@
 #include "ControlPanel.h"
 #include "layers/PsiWorldLayer.h"
 #include "layers/PsiNodeEditorLayer.h"
+#include "PsiMode.h"
 #include "Application.h"
 #include "project/PsiProjectManager.h"
 #include "Layers/DefaultGameWorld/Mesh.h"
@@ -79,6 +80,41 @@ void ControlPanel::Render()
     ImGui::SetNextWindowSize(ImVec2(300, 0), ImGuiCond_FirstUseEver);
 
     ImGui::Begin("Control Panel", &m_Visible);
+
+    // Mode switcher
+    {
+        const bool inWorld = (m_CurrentMode == PsiMode::WorldViewport);
+        const bool inGraph = (m_CurrentMode == PsiMode::GraphEditor);
+        const float halfWidth = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
+
+        if (inWorld) ImGui::BeginDisabled();
+        if (ImGui::Button("World Viewport", ImVec2(halfWidth, 0)))
+        {
+            m_CurrentMode = PsiMode::WorldViewport;
+            if (m_NodeEditorLayer)
+                m_NodeEditorLayer->SetShowNodeEditor(false);
+            if (m_WorldLayer)
+                m_WorldLayer->data.cameraController.dynamicMainCamera = true;
+        }
+        if (inWorld) ImGui::EndDisabled();
+
+        ImGui::SameLine();
+
+        if (inGraph) ImGui::BeginDisabled();
+        if (ImGui::Button("Graph Editor", ImVec2(halfWidth, 0)))
+        {
+            m_CurrentMode = PsiMode::GraphEditor;
+            if (m_NodeEditorLayer)
+                m_NodeEditorLayer->SetShowNodeEditor(true);
+            if (m_WorldLayer)
+                m_WorldLayer->data.cameraController.dynamicMainCamera = false;
+        }
+        if (inGraph) ImGui::EndDisabled();
+    }
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
 
     const bool hasProject = PsiProjectManager::GetCurrentProject() != nullptr;
     if (!hasProject) ImGui::BeginDisabled();

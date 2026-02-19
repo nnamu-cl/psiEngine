@@ -2,6 +2,13 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
+Camera* Camera::s_MainCamera = nullptr;
+
+Camera::Camera()
+{
+    s_MainCamera = this;
+}
+
 glm::mat4 Camera::viewMatrix() const
 {
     return glm::lookAt(position, target, up);

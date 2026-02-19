@@ -34,6 +34,8 @@ public:
     float getElapsedTime() const { return m_ElapsedTime; }
     NodeSystemDrawer* getNodeSystemDrawer() { return m_NodeSystemDrawer.get(); }
 
+    void SetShowNodeEditor(bool show) { m_ShowNodeEditor = show; }
+
 private:
     PsiWorldLayer* m_WorldLayer;
 
@@ -47,7 +49,7 @@ private:
     float m_ElapsedTime = 0.0f;
 
     // UI state
-    bool m_ShowNodeEditor = true;
+    bool m_ShowNodeEditor = false;
     bool m_NodeEditorFullscreen = true;
 
     // Render methods

@@ -10,6 +10,7 @@ class ControlPanel;
 class StatsPanel;
 class InspectorPanel;
 class ProjectHub;
+class ViewManipulatorPanel;
 namespace Application { class Application; }
 
 /**
@@ -42,6 +43,7 @@ private:
     std::unique_ptr<ControlPanel> m_ControlPanel;
     std::unique_ptr<StatsPanel> m_StatsPanel;
     std::unique_ptr<InspectorPanel> m_InspectorPanel;
+    std::unique_ptr<ViewManipulatorPanel> m_ViewManipulator;
 
     // UI state
     bool m_ShowDemoWindow = true;
