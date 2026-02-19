@@ -43,6 +43,9 @@ namespace psi::Colors
     // This is the deepest layer, providing depth and separation from UI elements
     constexpr glm::vec3 SecondaryBackground = HexToRGB(0x000000);
 
+    // 3D Background: Background color for the 3D viewport/scene area
+    constexpr glm::vec3 Background3D = HexToRGB(0x080808);
+
     // Tertiary Background: Slightly lighter than primary, for nested panels or hover states
     constexpr glm::vec3 TertiaryBackground = HexToRGB(0x2A2F38);
 

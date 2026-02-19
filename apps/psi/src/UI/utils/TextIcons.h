@@ -1,6 +1,7 @@
 #pragma once
 #include "imgui.h"
 #include "ApplicationWindow.h"
+#include "../UISettings.h"
 
 enum class IconPosition { Left, Right };
 
@@ -12,7 +13,7 @@ namespace UIUtils {
     inline void IconText(const char* icon, IconPosition pos = IconPosition::Left, const char* text = nullptr) {
 
         const float textH  = ImGui::GetFontSize();
-        const float iconH  = 30.0f;
+        const float iconH  = g_UISettings.iconTextHeight;
         const float offset = (iconH - textH) * -0.5f;
         const float lineY  = ImGui::GetCursorPosY();
 
@@ -25,15 +26,15 @@ namespace UIUtils {
 
             if (hasText) {
                 ImGui::SameLine();
-                ImGui::SetCursorPosY(lineY + offset);
+                //ImGui::SetCursorPosY(lineY + offset);
                 ImGui::Text("%s", text);
             }
         } else {
             if (hasText) {
-                ImGui::SetCursorPosY(lineY + offset);
+                //ImGui::SetCursorPosY(lineY + offset);
                 ImGui::Text("%s", text);
                 ImGui::SameLine();
-                ImGui::SetCursorPosY(lineY);
+                //ImGui::SetCursorPosY(lineY);
             }
 
             ApplicationWindow::PushIconFont();

@@ -1,4 +1,5 @@
 #include "ControlPanel.h"
+#include "UISettings.h"
 #include "layers/PsiWorldLayer.h"
 #include "layers/PsiNodeEditorLayer.h"
 #include "PsiMode.h"
@@ -443,6 +444,44 @@ void ControlPanel::Render()
 
                 ImGui::EndTabItem();
             }
+        }
+
+        // UI Layout Tab
+        if (ImGui::BeginTabItem("UI Layout"))
+        {
+            UISettings& s = g_UISettings;
+
+            ImGui::Text("Gizmo Toolbar");
+            ImGui::Separator();
+            ImGui::Spacing();
+
+            ImGui::SliderFloat("Left Margin",    &s.gizmoLeftMargin,   0.0f,  400.0f);
+            ImGui::SliderFloat("Top Margin",     &s.gizmoTopMargin,    0.0f,  800.0f);
+            ImGui::Spacing();
+            ImGui::SliderFloat("Frame Pad X",    &s.gizmoFramePadX,    0.0f,  30.0f);
+            ImGui::SliderFloat("Frame Pad Y",    &s.gizmoFramePadY,    0.0f,  30.0f);
+            ImGui::SliderFloat("Item Spacing X", &s.gizmoItemSpacingX, 0.0f,  30.0f);
+            ImGui::SliderFloat("Item Spacing Y", &s.gizmoItemSpacingY, 0.0f,  30.0f);
+            ImGui::Spacing();
+            ImGui::SliderFloat("Font Scale",     &s.gizmoFontScale,    0.5f,  4.0f);
+            ImGui::SliderFloat("Hover Alpha",    &s.gizmoHoverAlpha,   0.0f,  1.0f);
+            ImGui::SliderFloat("Active Alpha",   &s.gizmoActiveAlpha,  0.0f,  1.0f);
+
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::Spacing();
+
+            ImGui::Text("Icon + Text Centering");
+            ImGui::Separator();
+            ImGui::Spacing();
+
+            ImGui::SliderFloat("Icon Height",    &s.iconTextHeight,    10.0f, 60.0f);
+
+            ImGui::Spacing();
+            if (ImGui::Button("Reset Defaults", ImVec2(-1, 0)))
+                s = UISettings{};
+
+            ImGui::EndTabItem();
         }
 
         // Objects Tab
