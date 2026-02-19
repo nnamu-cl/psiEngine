@@ -3,7 +3,6 @@
 #include "layers/PsiWorldLayer.h"
 #include "layers/PsiNodeEditorLayer.h"
 #include "Application.h"
-#include "project/PsiProjectManager.h"
 #include "Layers/DefaultGameWorld/Mesh.h"
 #include "imgui.h"
 #include <generator/BoxMesh.hpp>
@@ -80,16 +79,6 @@ void ControlPanel::Render()
     ImGui::SetNextWindowSize(ImVec2(300, 0), ImGuiCond_FirstUseEver);
 
     ImGui::Begin("Control Panel", &m_Visible);
-
-    const bool hasProject = PsiProjectManager::GetCurrentProject() != nullptr;
-    if (!hasProject) ImGui::BeginDisabled();
-    if (ImGui::Button("Save Project", ImVec2(-1, 0)))
-        PsiProjectManager::SaveProject();
-    if (!hasProject) ImGui::EndDisabled();
-
-    ImGui::Spacing();
-    ImGui::Separator();
-    ImGui::Spacing();
 
     if (ImGui::BeginTabBar("ControlPanelTabs"))
     {

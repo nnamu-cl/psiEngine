@@ -56,6 +56,29 @@ namespace UIUtils {
         return clicked;
     }
 
+    // Renders a clickable button with an icon prefix and text label.
+    // The icon is drawn via DrawList so the two fonts don't fight over the cursor.
+    // Returns true when the button is clicked.
+    inline bool IconTextButton(const char* icon, const char* label, ImVec2 size = ImVec2(0, 0)) {
+        char buf[256];
+        snprintf(buf, sizeof(buf), "      %s", label);
+        bool clicked = ImGui::Button(buf, size);
+
+        ImVec2      pos   = ImGui::GetItemRectMin();
+        ImVec2      itemSize = ImGui::GetItemRectSize();
+        const float iSz   = ImGui::GetFontSize() * (2.0f / 3.0f);
+        const float iconY = pos.y + (itemSize.y - iSz) * 0.5f;
+
+        ApplicationWindow::PushIconFont();
+        ImGui::GetWindowDrawList()->AddText(
+            ApplicationWindow::iconFont, iSz,
+            ImVec2(pos.x + ImGui::GetStyle().FramePadding.x, iconY),
+            ImGui::GetColorU32(ImGuiCol_Text), icon);
+        ApplicationWindow::PopIconFont();
+
+        return clicked;
+    }
+
     // Renders a BeginMenu with an icon prefix. No merged font required —
     // leading spaces reserve horizontal room and the icon is drawn via DrawList.
     // Returns true when the menu is open (call ImGui::EndMenu() if true).

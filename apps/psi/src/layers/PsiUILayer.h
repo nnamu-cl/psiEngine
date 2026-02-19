@@ -15,6 +15,7 @@ class GizmoToolbar;
 class ModeToolbar;
 class CreateToolbar;
 class BrandLabel;
+class SaveToolbar;
 namespace Application { class Application; }
 
 /**
@@ -52,6 +53,7 @@ private:
     std::unique_ptr<ModeToolbar>   m_ModeToolbar;
     std::unique_ptr<CreateToolbar> m_CreateToolbar;
     std::unique_ptr<BrandLabel>    m_BrandLabel;
+    std::unique_ptr<SaveToolbar>   m_SaveToolbar;
 
     // UI state
     bool m_ShowDemoWindow = true;
