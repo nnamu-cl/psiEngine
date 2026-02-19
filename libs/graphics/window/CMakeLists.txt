@@ -40,7 +40,7 @@ target_sources(WindowLib PRIVATE
 
 target_compile_definitions(WindowLib PRIVATE IMGUI_IMPL_VULKAN_USE_VOLK "IMGUI_IMPL_VULKAN_VOLK_FILENAME=<volk/volk.h>")
 target_link_libraries(WindowLib
-    PRIVATE ${SDL_LIBRARY} ${SLANG_LIBRARY} CoreLib glaze::glaze
+    PRIVATE ${SDL_LIBRARY} ${SLANG_LIBRARY} CoreLib glaze::glaze stb_image
     PUBLIC generator imgui_node_editor implot
 )
 

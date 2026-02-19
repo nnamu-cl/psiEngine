@@ -7,6 +7,10 @@
 #include "UI/InspectorPanel.h"
 #include "UI/ViewManipulatorPanel.h"
 #include "UI/GizmoToolbar.h"
+#include "UI/ModeToolbar.h"
+#include "UI/CreateToolbar.h"
+#include "UI/BrandLabel.h"
+#include "UI/SaveToolbar.h"
 #include "Layers/DefaultGameWorld/Mesh.h"
 #include "Layers/DefaultGameWorld/Camera.h"
 #include "Components/Transform.h"
@@ -71,6 +75,10 @@ PsiUILayer::PsiUILayer(PsiWorldLayer* worldLayer, PsiNodeEditorLayer* nodeEditor
     m_ProjectHub    = std::make_unique<ProjectHub>();
     m_ViewManipulator = std::make_unique<ViewManipulatorPanel>();
     m_GizmoToolbar    = std::make_unique<GizmoToolbar>();
+    m_ModeToolbar     = std::make_unique<ModeToolbar>(worldLayer, nodeEditorLayer);
+    m_CreateToolbar   = std::make_unique<CreateToolbar>(worldLayer, nodeEditorLayer);
+    m_BrandLabel      = std::make_unique<BrandLabel>();
+    m_SaveToolbar     = std::make_unique<SaveToolbar>();
 }
 
 PsiUILayer::~PsiUILayer()
@@ -99,6 +107,9 @@ void PsiUILayer::OnUpdate(float ts)
 
 void PsiUILayer::OnUIRender()
 {
+    // Keep all auto-placed windows away from the screen edges
+    ImGui::GetStyle().DisplaySafeAreaPadding = ImVec2(8.0f, 8.0f);
+
     if (m_ShowProjectHub)
     {
         if (m_ProjectHub->Render())
@@ -106,14 +117,30 @@ void PsiUILayer::OnUIRender()
         return;
     }
 
+    // Brand label at top center
+    m_BrandLabel->Render();
+
+    // Save button just below the brand label
+    m_SaveToolbar->Render();
+
     // Render the view orientation gizmo first (it calls ImGuizmo::BeginFrame internally)
     m_ViewManipulator->Render();
 
-    // Render the transform gizmo for the selected object
-    RenderSceneGizmo();
+    const bool isGraphMode = m_ModeToolbar->GetMode() == PsiMode::GraphEditor;
 
-    // Toolbar for switching gizmo operation
-    m_GizmoToolbar->Render();
+    // Render the transform gizmo for the selected object (not in graph mode)
+    if (!isGraphMode)
+        RenderSceneGizmo();
+
+    // Toolbar for switching gizmo operation (not in graph mode)
+    if (!isGraphMode)
+        m_GizmoToolbar->Render();
+
+    // Floating "+" button for adding meshes and nodes
+    m_CreateToolbar->Render();
+
+    // Mode switcher toolbar at bottom center
+    m_ModeToolbar->Render();
 
     // Render panels (StatsPanel last so it appears on top)
     m_ControlPanel->Render();

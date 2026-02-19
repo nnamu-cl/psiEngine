@@ -1,5 +1,6 @@
 #define VOLK_IMPLEMENTATION
 #define VMA_IMPLEMENTATION
+#define STB_IMAGE_IMPLEMENTATION
 #include "ApplicationWindow.h"
 
 #include <vector>
@@ -13,9 +14,18 @@
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
 #include "imgui_impl_vulkan.h"
+#include "IconsLucide.h"
+#include "FontBinaries/lucide.h"
+#include "ImageBinaries/psiIcon.h"
+#include <stb_image.h>
 
-// Define the static member
+// Define the static members
 ApplicationWindow* ApplicationWindow::instance = nullptr;
+ImFont* ApplicationWindow::iconFont = nullptr;
+float ApplicationWindow::iconFontSize = 0.0f;
+ImFont* ApplicationWindow::boldFont = nullptr;
+ImTextureID ApplicationWindow::brandIconTexture = 0;
+ImVec2 ApplicationWindow::brandIconNativeSize = { 0.0f, 0.0f };
 
 
 
@@ -96,13 +106,25 @@ bool ApplicationWindow::Init() {
 
     // Window and surface
     data.sdlWindow = SDL_CreateWindow(specification->title, specification->w, specification->h, specification->flags);
+
+    {
+        int w, h, channels;
+        unsigned char* pixels = stbi_load_from_memory(psiIconData, sizeof(psiIconData), &w, &h, &channels, 4);
+        if (pixels) {
+            SDL_Surface* icon = SDL_CreateSurfaceFrom(w, h, SDL_PIXELFORMAT_RGBA32, pixels, w * 4);
+            SDL_SetWindowIcon(data.sdlWindow, icon);
+            SDL_DestroySurface(icon);
+            stbi_image_free(pixels);
+        }
+    }
+
     chk(SDL_Vulkan_CreateSurface(data.sdlWindow, data.vkInstance, nullptr, &data.surface));
     chk(SDL_GetWindowSize(data.sdlWindow, &data.windowSize.x, &data.windowSize.y));
     VkSurfaceCapabilitiesKHR surfaceCaps{};
     chk(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(data.physicalDevice, data.surface, &surfaceCaps));
 
     // Swapchain
-    data.swapchainImageFormat = VK_FORMAT_B8G8R8A8_SRGB;
+    data.swapchainImageFormat = VK_FORMAT_B8G8R8A8_UNORM;
     VkSwapchainCreateInfoKHR swapchainCI{
         .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
         .surface = data.surface,
@@ -175,6 +197,132 @@ bool ApplicationWindow::Init() {
     // ImGui
     init_imgui();
 
+    // Upload psi brand icon as an ImGui texture
+    {
+        int w, h, channels;
+        unsigned char* pixels = stbi_load_from_memory(psiIconData, sizeof(psiIconData), &w, &h, &channels, 4);
+        if (pixels)
+        {
+            // Create GPU image
+            VkImageCreateInfo imageCI{
+                .sType       = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+                .imageType   = VK_IMAGE_TYPE_2D,
+                .format      = VK_FORMAT_R8G8B8A8_UNORM,
+                .extent      = { (uint32_t)w, (uint32_t)h, 1 },
+                .mipLevels   = 1,
+                .arrayLayers = 1,
+                .samples     = VK_SAMPLE_COUNT_1_BIT,
+                .tiling      = VK_IMAGE_TILING_OPTIMAL,
+                .usage       = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+                .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            };
+            VmaAllocationCreateInfo imgAllocCI{ .usage = VMA_MEMORY_USAGE_AUTO };
+            VkImage iconImage; VmaAllocation iconAlloc;
+            vmaCreateImage(data.allocator, &imageCI, &imgAllocCI, &iconImage, &iconAlloc, nullptr);
+
+            // Staging buffer
+            const VkDeviceSize imageSize = (VkDeviceSize)w * h * 4;
+            VkBufferCreateInfo bufCI{
+                .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+                .size  = imageSize,
+                .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            };
+            VmaAllocationCreateInfo stagingCI{
+                .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+                .usage = VMA_MEMORY_USAGE_AUTO,
+            };
+            VkBuffer stagingBuf; VmaAllocation stagingAlloc;
+            vmaCreateBuffer(data.allocator, &bufCI, &stagingCI, &stagingBuf, &stagingAlloc, nullptr);
+            void* mapped; vmaMapMemory(data.allocator, stagingAlloc, &mapped);
+            memcpy(mapped, pixels, (size_t)imageSize);
+            vmaUnmapMemory(data.allocator, stagingAlloc);
+            stbi_image_free(pixels);
+
+            // One-shot upload command buffer
+            VkCommandBuffer cb;
+            VkCommandBufferAllocateInfo cbAI{
+                .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+                .commandPool = data.commandPool, .commandBufferCount = 1,
+            };
+            vkAllocateCommandBuffers(data.device, &cbAI, &cb);
+            VkCommandBufferBeginInfo cbBI{
+                .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+                .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+            };
+            vkBeginCommandBuffer(cb, &cbBI);
+
+            VkImageMemoryBarrier2 toTransfer{
+                .sType            = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+                .dstStageMask     = VK_PIPELINE_STAGE_2_COPY_BIT,
+                .dstAccessMask    = VK_ACCESS_2_TRANSFER_WRITE_BIT,
+                .oldLayout        = VK_IMAGE_LAYOUT_UNDEFINED,
+                .newLayout        = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                .image            = iconImage,
+                .subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 },
+            };
+            VkDependencyInfo dep1{ .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO, .imageMemoryBarrierCount = 1, .pImageMemoryBarriers = &toTransfer };
+            vkCmdPipelineBarrier2(cb, &dep1);
+
+            VkBufferImageCopy region{
+                .imageSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
+                .imageExtent      = { (uint32_t)w, (uint32_t)h, 1 },
+            };
+            vkCmdCopyBufferToImage(cb, stagingBuf, iconImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+
+            VkImageMemoryBarrier2 toShaderRead{
+                .sType            = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+                .srcStageMask     = VK_PIPELINE_STAGE_2_COPY_BIT,
+                .srcAccessMask    = VK_ACCESS_2_TRANSFER_WRITE_BIT,
+                .dstStageMask     = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+                .dstAccessMask    = VK_ACCESS_2_SHADER_READ_BIT,
+                .oldLayout        = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                .newLayout        = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                .image            = iconImage,
+                .subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 },
+            };
+            VkDependencyInfo dep2{ .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO, .imageMemoryBarrierCount = 1, .pImageMemoryBarriers = &toShaderRead };
+            vkCmdPipelineBarrier2(cb, &dep2);
+
+            vkEndCommandBuffer(cb);
+            VkSubmitInfo si{ .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO, .commandBufferCount = 1, .pCommandBuffers = &cb };
+            vkQueueSubmit(data.queue, 1, &si, VK_NULL_HANDLE);
+            vkQueueWaitIdle(data.queue);
+            vkFreeCommandBuffers(data.device, data.commandPool, 1, &cb);
+            vmaDestroyBuffer(data.allocator, stagingBuf, stagingAlloc);
+
+            // Image view
+            VkImageView iconView;
+            VkImageViewCreateInfo viewCI{
+                .sType            = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+                .image            = iconImage,
+                .viewType         = VK_IMAGE_VIEW_TYPE_2D,
+                .format           = VK_FORMAT_R8G8B8A8_UNORM,
+                .subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 },
+            };
+            vkCreateImageView(data.device, &viewCI, nullptr, &iconView);
+
+            // Sampler
+            VkSampler iconSampler;
+            VkSamplerCreateInfo sampCI{
+                .sType        = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+                .magFilter    = VK_FILTER_LINEAR,
+                .minFilter    = VK_FILTER_LINEAR,
+                .mipmapMode   = VK_SAMPLER_MIPMAP_MODE_LINEAR,
+                .addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+                .addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+                .addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+            };
+            vkCreateSampler(data.device, &sampCI, nullptr, &iconSampler);
+
+            brandIconTexture    = reinterpret_cast<ImTextureID>(ImGui_ImplVulkan_AddTexture(iconSampler, iconView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL));
+            brandIconNativeSize = ImVec2((float)w, (float)h);
+        }
+    }
+
     return true;
 }
 
@@ -191,8 +339,29 @@ bool ApplicationWindow::init_imgui() {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
+
+    // Quickly add fonts for icons
+
+    io.Fonts->AddFontDefault();
+    float baseFontSize = 16.0f;
+    float iconFontSize = baseFontSize * 1.f;
+
+    // merge in icons from Font Awesome
+    static const ImWchar icons_ranges[] = { ICON_MIN_LC, ICON_MAX_16_LC, 0 };
+    ImFontConfig icons_config;
+    icons_config.MergeMode = true;
+    icons_config.PixelSnapH = true;
+    icons_config.FontDataOwnedByAtlas = false;
+    icons_config.GlyphMinAdvanceX = iconFontSize;
+    icons_config.GlyphOffset.y = 5.0f;
+    iconFont = io.Fonts->AddFontFromMemoryTTF(lucidIcons, lucidFontSize, iconFontSize, &icons_config);
+    ApplicationWindow::iconFontSize = iconFontSize;
+
+
+
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
     ImGui_ImplSDL3_InitForVulkan(data.sdlWindow);
 
@@ -203,7 +372,7 @@ bool ApplicationWindow::init_imgui() {
     init_info.Device = data.device;
     init_info.QueueFamily = data.queueFamily;
     init_info.Queue = data.queue;
-    init_info.DescriptorPoolSize = IMGUI_IMPL_VULKAN_MINIMUM_IMAGE_SAMPLER_POOL_SIZE;
+    init_info.DescriptorPoolSize = IMGUI_IMPL_VULKAN_MINIMUM_IMAGE_SAMPLER_POOL_SIZE + 4;
     init_info.MinImageCount = 2;
     init_info.ImageCount = static_cast<uint32_t>(data.swapchainImages.size());
     init_info.UseDynamicRendering = true;

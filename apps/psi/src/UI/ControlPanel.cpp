@@ -1,9 +1,8 @@
 #include "ControlPanel.h"
+#include "UISettings.h"
 #include "layers/PsiWorldLayer.h"
 #include "layers/PsiNodeEditorLayer.h"
-#include "PsiMode.h"
 #include "Application.h"
-#include "project/PsiProjectManager.h"
 #include "Layers/DefaultGameWorld/Mesh.h"
 #include "imgui.h"
 #include <generator/BoxMesh.hpp>
@@ -81,369 +80,8 @@ void ControlPanel::Render()
 
     ImGui::Begin("Control Panel", &m_Visible);
 
-    // Mode switcher
-    {
-        const bool inWorld = (m_CurrentMode == PsiMode::WorldViewport);
-        const bool inGraph = (m_CurrentMode == PsiMode::GraphEditor);
-        const float halfWidth = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
-
-        if (inWorld) ImGui::BeginDisabled();
-        if (ImGui::Button("World Viewport", ImVec2(halfWidth, 0)))
-        {
-            m_CurrentMode = PsiMode::WorldViewport;
-            if (m_NodeEditorLayer)
-                m_NodeEditorLayer->SetShowNodeEditor(false);
-            if (m_WorldLayer)
-                m_WorldLayer->data.cameraController.dynamicMainCamera = true;
-        }
-        if (inWorld) ImGui::EndDisabled();
-
-        ImGui::SameLine();
-
-        if (inGraph) ImGui::BeginDisabled();
-        if (ImGui::Button("Graph Editor", ImVec2(halfWidth, 0)))
-        {
-            m_CurrentMode = PsiMode::GraphEditor;
-            if (m_NodeEditorLayer)
-                m_NodeEditorLayer->SetShowNodeEditor(true);
-            if (m_WorldLayer)
-                m_WorldLayer->data.cameraController.dynamicMainCamera = false;
-        }
-        if (inGraph) ImGui::EndDisabled();
-    }
-
-    ImGui::Spacing();
-    ImGui::Separator();
-    ImGui::Spacing();
-
-    const bool hasProject = PsiProjectManager::GetCurrentProject() != nullptr;
-    if (!hasProject) ImGui::BeginDisabled();
-    if (ImGui::Button("Save Project", ImVec2(-1, 0)))
-        PsiProjectManager::SaveProject();
-    if (!hasProject) ImGui::EndDisabled();
-
-    ImGui::Spacing();
-    ImGui::Separator();
-    ImGui::Spacing();
-
     if (ImGui::BeginTabBar("ControlPanelTabs"))
     {
-        // Settings Tab
-        if (ImGui::BeginTabItem("Settings"))
-        {
-            // Background Color Picker
-            if (m_Application)
-            {
-                ImGui::Text("World Background Color");
-                ImGui::SameLine();
-                ImGui::TextDisabled("(?)");
-                if (ImGui::IsItemHovered())
-                {
-                    ImGui::SetTooltip("Secondary background - furthest back layer");
-                }
-
-                // Color picker with RGB sliders - directly modifies Application's clear color
-                ImGui::ColorEdit3("##BackgroundColor",
-                                m_Application->clearColorValue.float32,
-                                ImGuiColorEditFlags_NoAlpha);
-
-                // Also update the PsiWorldLayer backgroundColor to keep it in sync
-                if (m_WorldLayer)
-                {
-                    m_WorldLayer->backgroundColor = glm::vec3(
-                        m_Application->clearColorValue.float32[0],
-                        m_Application->clearColorValue.float32[1],
-                        m_Application->clearColorValue.float32[2]
-                    );
-                }
-            }
-
-            ImGui::Spacing();
-            ImGui::Separator();
-            ImGui::Spacing();
-
-            // Node Editor Appearance
-            if (m_NodeEditorLayer)
-            {
-                ImGui::Text("Node Editor Appearance");
-                ImGui::Spacing();
-
-            }
-
-            ImGui::EndTabItem();
-        }
-
-        // Add Tab
-        if (ImGui::BeginTabItem("Add"))
-        {
-            if (ImGui::Button("Cube", ImVec2(-1, 0)))
-            {
-                auto mesh = MeshTable::unitCube();
-                m_WorldLayer->addMeshPrimitive("Cube", std::move(mesh),
-                    glm::vec3(0.0f, 0.0f, 0.0f),
-                    glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
-            }
-
-            if (ImGui::Button("Triangle", ImVec2(-1, 0)))
-            {
-                auto mesh = MeshTable::unitTriangle();
-                m_WorldLayer->addMeshPrimitive("Triangle", std::move(mesh),
-                    glm::vec3(0.0f, 0.0f, 0.0f),
-                    glm::vec4(0.0f, 1.0f, 0.0f, 1.0f));
-            }
-
-            if (ImGui::Button("Sphere", ImVec2(-1, 0)))
-            {
-                auto mesh = convertFromGenerator(generator::SphereMesh(1.0, 32, 16));
-                m_WorldLayer->addMeshPrimitive("Sphere", std::move(mesh),
-                    glm::vec3(0.0f, 0.0f, 0.0f),
-                    glm::vec4(0.0f, 0.0f, 1.0f, 1.0f));
-            }
-
-            if (ImGui::Button("Cylinder", ImVec2(-1, 0)))
-            {
-                auto mesh = convertFromGenerator(generator::CylinderMesh(1.0, 1.0, 2.0, 32, 8));
-                m_WorldLayer->addMeshPrimitive("Cylinder", std::move(mesh),
-                    glm::vec3(0.0f, 0.0f, 0.0f),
-                    glm::vec4(1.0f, 1.0f, 0.0f, 1.0f));
-            }
-
-            if (ImGui::Button("Torus", ImVec2(-1, 0)))
-            {
-                auto mesh = convertFromGenerator(generator::TorusMesh(0.25, 1.0, 32, 16));
-                m_WorldLayer->addMeshPrimitive("Torus", std::move(mesh),
-                    glm::vec3(0.0f, 0.0f, 0.0f),
-                    glm::vec4(1.0f, 0.0f, 1.0f, 1.0f));
-            }
-
-            if (ImGui::Button("Cone", ImVec2(-1, 0)))
-            {
-                auto mesh = convertFromGenerator(generator::ConeMesh(1.0, 2.0, 32, 8));
-                m_WorldLayer->addMeshPrimitive("Cone", std::move(mesh),
-                    glm::vec3(0.0f, 0.0f, 0.0f),
-                    glm::vec4(0.0f, 1.0f, 1.0f, 1.0f));
-            }
-
-            if (ImGui::Button("Circle", ImVec2(-1, 0)))
-            {
-                auto mesh = convertFromGenerator(generator::DiskMesh(1.0, 0.0, 32, 4));
-                m_WorldLayer->addMeshPrimitive("Circle", std::move(mesh),
-                    glm::vec3(0.0f, 0.0f, 0.0f),
-                    glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
-            }
-
-            ImGui::EndTabItem();
-        }
-
-        // Nodes Tab
-        if (ImGui::BeginTabItem("Nodes"))
-        {
-            // Special color for node buttons (cyan/blue theme with better contrast)
-            ImVec4 nodeButtonColor = ImVec4(0.15f, 0.35f, 0.55f, 1.0f);     // Darker for readability
-            ImVec4 nodeButtonHovered = ImVec4(0.2f, 0.45f, 0.65f, 1.0f);    // Hovered
-            ImVec4 nodeButtonActive = ImVec4(0.1f, 0.3f, 0.5f, 1.0f);       // Active
-
-            if (!m_NodeEditorLayer)
-            {
-                ImGui::TextWrapped("Node Editor not available");
-                ImGui::EndTabItem();
-            }
-            else
-            {
-                NodeGraph& graph = m_NodeEditorLayer->getNodeGraph();
-
-                ImGui::Text("Graph Nodes");
-                ImGui::Separator();
-
-                ImGui::PushStyleColor(ImGuiCol_Button, nodeButtonColor);
-                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, nodeButtonHovered);
-                ImGui::PushStyleColor(ImGuiCol_ButtonActive, nodeButtonActive);
-
-                if (ImGui::Button("Graph Node", ImVec2(-1, 0)))
-                {
-                    graph.createNode<LineGraphNode>();
-                }
-
-                ImGui::PopStyleColor(3);
-
-                ImGui::Text("Value Nodes");
-                ImGui::Separator();
-
-                ImGui::PushStyleColor(ImGuiCol_Button, nodeButtonColor);
-                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, nodeButtonHovered);
-                ImGui::PushStyleColor(ImGuiCol_ButtonActive, nodeButtonActive);
-
-                if (ImGui::Button("Float Constant", ImVec2(-1, 0)))
-                {
-                    graph.createNode<FloatConstantNode>(0.0f);
-                }
-
-                if (ImGui::Button("Int Constant", ImVec2(-1, 0)))
-                {
-                    graph.createNode<IntConstantNode>(0);
-                }
-
-                if (ImGui::Button("Vec3 Constant", ImVec2(-1, 0)))
-                {
-                    graph.createNode<Vec3ConstantNode>(glm::vec3(0.0f));
-                }
-
-                if (ImGui::Button("Time", ImVec2(-1, 0)))
-                {
-                    graph.createNode<TimeNode>();
-                }
-
-
-                if (ImGui::Button("Physics Constant", ImVec2(-1, 0)))
-                {
-                    graph.createNode<PhysicsConstantNode>();
-                }
-
-                ImGui::PopStyleColor(3);
-
-                ImGui::Spacing();
-                ImGui::Text("Math Nodes");
-                ImGui::Separator();
-
-                ImGui::PushStyleColor(ImGuiCol_Button, nodeButtonColor);
-                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, nodeButtonHovered);
-                ImGui::PushStyleColor(ImGuiCol_ButtonActive, nodeButtonActive);
-
-                if (ImGui::Button("Add", ImVec2(-1, 0)))
-                {
-                    graph.createNode<AddNode>();
-                }
-
-                if (ImGui::Button("Subtract", ImVec2(-1, 0)))
-                {
-                    graph.createNode<SubtractNode>();
-                }
-
-                if (ImGui::Button("Multiply", ImVec2(-1, 0)))
-                {
-                    graph.createNode<MultiplyNode>();
-                }
-
-                if (ImGui::Button("Divide", ImVec2(-1, 0)))
-                {
-                    graph.createNode<DivideNode>();
-                }
-
-                if (ImGui::Button("Sin", ImVec2(-1, 0)))
-                {
-                    graph.createNode<SinNode>();
-                }
-
-                if (ImGui::Button("Cos", ImVec2(-1, 0)))
-                {
-                    graph.createNode<CosNode>();
-                }
-
-                if (ImGui::Button("Tan", ImVec2(-1, 0)))
-                {
-                    graph.createNode<TanNode>();
-                }
-
-                if (ImGui::Button("Arcsin", ImVec2(-1, 0)))
-                {
-                    graph.createNode<ArcsinNode>();
-                }
-
-                if (ImGui::Button("Arccos", ImVec2(-1, 0)))
-                {
-                    graph.createNode<ArccosNode>();
-                }
-
-                if (ImGui::Button("Arctan", ImVec2(-1, 0)))
-                {
-                    graph.createNode<ArctanNode>();
-                }
-
-                if (ImGui::Button("Pow", ImVec2(-1, 0)))
-                {
-                    graph.createNode<PowNode>();
-                }
-
-                if (ImGui::Button("Root", ImVec2(-1, 0)))
-                {
-                    graph.createNode<RootNode>();
-                }
-
-                ImGui::PopStyleColor(3);
-
-                ImGui::Spacing();
-                ImGui::Text("Constants");
-                ImGui::Separator();
-
-                ImGui::PushStyleColor(ImGuiCol_Button, nodeButtonColor);
-                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, nodeButtonHovered);
-                ImGui::PushStyleColor(ImGuiCol_ButtonActive, nodeButtonActive);
-
-                if (ImGui::Button("PI", ImVec2(-1, 0)))
-                {
-                    graph.createNode<PINode>();
-                }
-
-                ImGui::PopStyleColor(3);
-
-                ImGui::Spacing();
-                ImGui::Text("Vector Nodes");
-                ImGui::Separator();
-
-                ImGui::PushStyleColor(ImGuiCol_Button, nodeButtonColor);
-                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, nodeButtonHovered);
-                ImGui::PushStyleColor(ImGuiCol_ButtonActive, nodeButtonActive);
-
-                if (ImGui::Button("Combine Vec3", ImVec2(-1, 0)))
-                {
-                    graph.createNode<CombineVec3Node>();
-                }
-
-                if (ImGui::Button("Separate Vec3", ImVec2(-1, 0)))
-                {
-                    graph.createNode<SeparateVec3Node>();
-                }
-
-                if (ImGui::Button("Dot Product", ImVec2(-1, 0)))
-                {
-                    graph.createNode<DotProductNode>();
-                }
-
-                if (ImGui::Button("Cross Product", ImVec2(-1, 0)))
-                {
-                    graph.createNode<CrossProductNode>();
-                }
-
-                if (ImGui::Button("Length", ImVec2(-1, 0)))
-                {
-                    graph.createNode<LengthNode>();
-                }
-
-                ImGui::PopStyleColor(3);
-
-                ImGui::Spacing();
-                ImGui::Text("Object Nodes");
-                ImGui::Separator();
-
-                ImGui::PushStyleColor(ImGuiCol_Button, nodeButtonColor);
-                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, nodeButtonHovered);
-                ImGui::PushStyleColor(ImGuiCol_ButtonActive, nodeButtonActive);
-
-                if (ImGui::Button("Transform", ImVec2(-1, 0)))
-                {
-                    graph.createNode<TransformNode>();
-                }
-
-                if (ImGui::Button("Line Renderer", ImVec2(-1, 0)))
-                {
-                    graph.createNode<LineRendererNode>();
-                }
-
-                ImGui::PopStyleColor(3);
-
-                ImGui::EndTabItem();
-            }
-        }
 
         // Objects Tab
         if (ImGui::BeginTabItem("Objects"))
@@ -489,6 +127,375 @@ void ControlPanel::Render()
 
             ImGui::EndTabItem();
         }
+
+
+        // Add Tab
+        // if (ImGui::BeginTabItem("Add"))
+        // {
+        //     if (ImGui::Button("Cube", ImVec2(-1, 0)))
+        //     {
+        //         auto mesh = MeshTable::unitCube();
+        //         m_WorldLayer->addMeshPrimitive("Cube", std::move(mesh),
+        //             glm::vec3(0.0f, 0.0f, 0.0f),
+        //             glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
+        //     }
+        //
+        //     if (ImGui::Button("Triangle", ImVec2(-1, 0)))
+        //     {
+        //         auto mesh = MeshTable::unitTriangle();
+        //         m_WorldLayer->addMeshPrimitive("Triangle", std::move(mesh),
+        //             glm::vec3(0.0f, 0.0f, 0.0f),
+        //             glm::vec4(0.0f, 1.0f, 0.0f, 1.0f));
+        //     }
+        //
+        //     if (ImGui::Button("Sphere", ImVec2(-1, 0)))
+        //     {
+        //         auto mesh = convertFromGenerator(generator::SphereMesh(1.0, 32, 16));
+        //         m_WorldLayer->addMeshPrimitive("Sphere", std::move(mesh),
+        //             glm::vec3(0.0f, 0.0f, 0.0f),
+        //             glm::vec4(0.0f, 0.0f, 1.0f, 1.0f));
+        //     }
+        //
+        //     if (ImGui::Button("Cylinder", ImVec2(-1, 0)))
+        //     {
+        //         auto mesh = convertFromGenerator(generator::CylinderMesh(1.0, 1.0, 2.0, 32, 8));
+        //         m_WorldLayer->addMeshPrimitive("Cylinder", std::move(mesh),
+        //             glm::vec3(0.0f, 0.0f, 0.0f),
+        //             glm::vec4(1.0f, 1.0f, 0.0f, 1.0f));
+        //     }
+        //
+        //     if (ImGui::Button("Torus", ImVec2(-1, 0)))
+        //     {
+        //         auto mesh = convertFromGenerator(generator::TorusMesh(0.25, 1.0, 32, 16));
+        //         m_WorldLayer->addMeshPrimitive("Torus", std::move(mesh),
+        //             glm::vec3(0.0f, 0.0f, 0.0f),
+        //             glm::vec4(1.0f, 0.0f, 1.0f, 1.0f));
+        //     }
+        //
+        //     if (ImGui::Button("Cone", ImVec2(-1, 0)))
+        //     {
+        //         auto mesh = convertFromGenerator(generator::ConeMesh(1.0, 2.0, 32, 8));
+        //         m_WorldLayer->addMeshPrimitive("Cone", std::move(mesh),
+        //             glm::vec3(0.0f, 0.0f, 0.0f),
+        //             glm::vec4(0.0f, 1.0f, 1.0f, 1.0f));
+        //     }
+        //
+        //     if (ImGui::Button("Circle", ImVec2(-1, 0)))
+        //     {
+        //         auto mesh = convertFromGenerator(generator::DiskMesh(1.0, 0.0, 32, 4));
+        //         m_WorldLayer->addMeshPrimitive("Circle", std::move(mesh),
+        //             glm::vec3(0.0f, 0.0f, 0.0f),
+        //             glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
+        //     }
+        //
+        //     ImGui::EndTabItem();
+        // }
+        //
+        // // Nodes Tab
+        // if (ImGui::BeginTabItem("Nodes"))
+        // {
+        //     // Special color for node buttons (cyan/blue theme with better contrast)
+        //     ImVec4 nodeButtonColor = ImVec4(0.15f, 0.35f, 0.55f, 1.0f);     // Darker for readability
+        //     ImVec4 nodeButtonHovered = ImVec4(0.2f, 0.45f, 0.65f, 1.0f);    // Hovered
+        //     ImVec4 nodeButtonActive = ImVec4(0.1f, 0.3f, 0.5f, 1.0f);       // Active
+        //
+        //     if (!m_NodeEditorLayer)
+        //     {
+        //         ImGui::TextWrapped("Node Editor not available");
+        //         ImGui::EndTabItem();
+        //     }
+        //     else
+        //     {
+        //         NodeGraph& graph = m_NodeEditorLayer->getNodeGraph();
+        //
+        //         ImGui::Text("Graph Nodes");
+        //         ImGui::Separator();
+        //
+        //         ImGui::PushStyleColor(ImGuiCol_Button, nodeButtonColor);
+        //         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, nodeButtonHovered);
+        //         ImGui::PushStyleColor(ImGuiCol_ButtonActive, nodeButtonActive);
+        //
+        //         if (ImGui::Button("Graph Node", ImVec2(-1, 0)))
+        //         {
+        //             graph.createNode<LineGraphNode>();
+        //         }
+        //
+        //         ImGui::PopStyleColor(3);
+        //
+        //         ImGui::Text("Value Nodes");
+        //         ImGui::Separator();
+        //
+        //         ImGui::PushStyleColor(ImGuiCol_Button, nodeButtonColor);
+        //         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, nodeButtonHovered);
+        //         ImGui::PushStyleColor(ImGuiCol_ButtonActive, nodeButtonActive);
+        //
+        //         if (ImGui::Button("Float Constant", ImVec2(-1, 0)))
+        //         {
+        //             graph.createNode<FloatConstantNode>(0.0f);
+        //         }
+        //
+        //         if (ImGui::Button("Int Constant", ImVec2(-1, 0)))
+        //         {
+        //             graph.createNode<IntConstantNode>(0);
+        //         }
+        //
+        //         if (ImGui::Button("Vec3 Constant", ImVec2(-1, 0)))
+        //         {
+        //             graph.createNode<Vec3ConstantNode>(glm::vec3(0.0f));
+        //         }
+        //
+        //         if (ImGui::Button("Time", ImVec2(-1, 0)))
+        //         {
+        //             graph.createNode<TimeNode>();
+        //         }
+        //
+        //
+        //         if (ImGui::Button("Physics Constant", ImVec2(-1, 0)))
+        //         {
+        //             graph.createNode<PhysicsConstantNode>();
+        //         }
+        //
+        //         ImGui::PopStyleColor(3);
+        //
+        //         ImGui::Spacing();
+        //         ImGui::Text("Math Nodes");
+        //         ImGui::Separator();
+        //
+        //         ImGui::PushStyleColor(ImGuiCol_Button, nodeButtonColor);
+        //         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, nodeButtonHovered);
+        //         ImGui::PushStyleColor(ImGuiCol_ButtonActive, nodeButtonActive);
+        //
+        //         if (ImGui::Button("Add", ImVec2(-1, 0)))
+        //         {
+        //             graph.createNode<AddNode>();
+        //         }
+        //
+        //         if (ImGui::Button("Subtract", ImVec2(-1, 0)))
+        //         {
+        //             graph.createNode<SubtractNode>();
+        //         }
+        //
+        //         if (ImGui::Button("Multiply", ImVec2(-1, 0)))
+        //         {
+        //             graph.createNode<MultiplyNode>();
+        //         }
+        //
+        //         if (ImGui::Button("Divide", ImVec2(-1, 0)))
+        //         {
+        //             graph.createNode<DivideNode>();
+        //         }
+        //
+        //         if (ImGui::Button("Sin", ImVec2(-1, 0)))
+        //         {
+        //             graph.createNode<SinNode>();
+        //         }
+        //
+        //         if (ImGui::Button("Cos", ImVec2(-1, 0)))
+        //         {
+        //             graph.createNode<CosNode>();
+        //         }
+        //
+        //         if (ImGui::Button("Tan", ImVec2(-1, 0)))
+        //         {
+        //             graph.createNode<TanNode>();
+        //         }
+        //
+        //         if (ImGui::Button("Arcsin", ImVec2(-1, 0)))
+        //         {
+        //             graph.createNode<ArcsinNode>();
+        //         }
+        //
+        //         if (ImGui::Button("Arccos", ImVec2(-1, 0)))
+        //         {
+        //             graph.createNode<ArccosNode>();
+        //         }
+        //
+        //         if (ImGui::Button("Arctan", ImVec2(-1, 0)))
+        //         {
+        //             graph.createNode<ArctanNode>();
+        //         }
+        //
+        //         if (ImGui::Button("Pow", ImVec2(-1, 0)))
+        //         {
+        //             graph.createNode<PowNode>();
+        //         }
+        //
+        //         if (ImGui::Button("Root", ImVec2(-1, 0)))
+        //         {
+        //             graph.createNode<RootNode>();
+        //         }
+        //
+        //         ImGui::PopStyleColor(3);
+        //
+        //         ImGui::Spacing();
+        //         ImGui::Text("Constants");
+        //         ImGui::Separator();
+        //
+        //         ImGui::PushStyleColor(ImGuiCol_Button, nodeButtonColor);
+        //         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, nodeButtonHovered);
+        //         ImGui::PushStyleColor(ImGuiCol_ButtonActive, nodeButtonActive);
+        //
+        //         if (ImGui::Button("PI", ImVec2(-1, 0)))
+        //         {
+        //             graph.createNode<PINode>();
+        //         }
+        //
+        //         ImGui::PopStyleColor(3);
+        //
+        //         ImGui::Spacing();
+        //         ImGui::Text("Vector Nodes");
+        //         ImGui::Separator();
+        //
+        //         ImGui::PushStyleColor(ImGuiCol_Button, nodeButtonColor);
+        //         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, nodeButtonHovered);
+        //         ImGui::PushStyleColor(ImGuiCol_ButtonActive, nodeButtonActive);
+        //
+        //         if (ImGui::Button("Combine Vec3", ImVec2(-1, 0)))
+        //         {
+        //             graph.createNode<CombineVec3Node>();
+        //         }
+        //
+        //         if (ImGui::Button("Separate Vec3", ImVec2(-1, 0)))
+        //         {
+        //             graph.createNode<SeparateVec3Node>();
+        //         }
+        //
+        //         if (ImGui::Button("Dot Product", ImVec2(-1, 0)))
+        //         {
+        //             graph.createNode<DotProductNode>();
+        //         }
+        //
+        //         if (ImGui::Button("Cross Product", ImVec2(-1, 0)))
+        //         {
+        //             graph.createNode<CrossProductNode>();
+        //         }
+        //
+        //         if (ImGui::Button("Length", ImVec2(-1, 0)))
+        //         {
+        //             graph.createNode<LengthNode>();
+        //         }
+        //
+        //         ImGui::PopStyleColor(3);
+        //
+        //         ImGui::Spacing();
+        //         ImGui::Text("Object Nodes");
+        //         ImGui::Separator();
+        //
+        //         ImGui::PushStyleColor(ImGuiCol_Button, nodeButtonColor);
+        //         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, nodeButtonHovered);
+        //         ImGui::PushStyleColor(ImGuiCol_ButtonActive, nodeButtonActive);
+        //
+        //         if (ImGui::Button("Transform", ImVec2(-1, 0)))
+        //         {
+        //             graph.createNode<TransformNode>();
+        //         }
+        //
+        //         if (ImGui::Button("Line Renderer", ImVec2(-1, 0)))
+        //         {
+        //             graph.createNode<LineRendererNode>();
+        //         }
+        //
+        //         ImGui::PopStyleColor(3);
+        //
+        //         ImGui::EndTabItem();
+        //     }
+        // }
+
+        // UI Layout Tab
+        if (ImGui::BeginTabItem("UI Layout"))
+        {
+            UISettings& s = g_UISettings;
+
+            ImGui::Text("Create Toolbar");
+            ImGui::Separator();
+            ImGui::Spacing();
+
+            ImGui::SliderFloat("Create Top Margin", &s.createTopMargin, 0.0f, 800.0f);
+
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::Spacing();
+
+            ImGui::Text("Gizmo Toolbar");
+            ImGui::Separator();
+            ImGui::Spacing();
+
+            ImGui::SliderFloat("Left Margin",    &s.gizmoLeftMargin,   0.0f,  400.0f);
+            ImGui::SliderFloat("Top Margin",     &s.gizmoTopMargin,    0.0f,  800.0f);
+            ImGui::Spacing();
+            ImGui::SliderFloat("Frame Pad X",    &s.gizmoFramePadX,    0.0f,  30.0f);
+            ImGui::SliderFloat("Frame Pad Y",    &s.gizmoFramePadY,    0.0f,  30.0f);
+            ImGui::SliderFloat("Item Spacing X", &s.gizmoItemSpacingX, 0.0f,  30.0f);
+            ImGui::SliderFloat("Item Spacing Y", &s.gizmoItemSpacingY, 0.0f,  30.0f);
+            ImGui::Spacing();
+            ImGui::SliderFloat("Font Scale",     &s.gizmoFontScale,    0.5f,  4.0f);
+            ImGui::SliderFloat("Hover Alpha",    &s.gizmoHoverAlpha,   0.0f,  1.0f);
+            ImGui::SliderFloat("Active Alpha",   &s.gizmoActiveAlpha,  0.0f,  1.0f);
+
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::Spacing();
+
+            ImGui::Text("Icon + Text Centering");
+            ImGui::Separator();
+            ImGui::Spacing();
+
+            ImGui::SliderFloat("Icon Height",    &s.iconTextHeight,    10.0f, 60.0f);
+
+            ImGui::Spacing();
+            if (ImGui::Button("Reset Defaults", ImVec2(-1, 0)))
+                s = UISettings{};
+
+            ImGui::EndTabItem();
+        }
+
+
+        // Settings Tab
+        if (ImGui::BeginTabItem("Settings"))
+        {
+            // Background Color Picker
+            if (m_Application)
+            {
+                ImGui::Text("World Background Color");
+                ImGui::SameLine();
+                ImGui::TextDisabled("(?)");
+                if (ImGui::IsItemHovered())
+                {
+                    ImGui::SetTooltip("Secondary background - furthest back layer");
+                }
+
+                // Color picker with RGB sliders - directly modifies Application's clear color
+                ImGui::ColorEdit3("##BackgroundColor",
+                                m_Application->clearColorValue.float32,
+                                ImGuiColorEditFlags_NoAlpha);
+
+                // Also update the PsiWorldLayer backgroundColor to keep it in sync
+                if (m_WorldLayer)
+                {
+                    m_WorldLayer->backgroundColor = glm::vec3(
+                        m_Application->clearColorValue.float32[0],
+                        m_Application->clearColorValue.float32[1],
+                        m_Application->clearColorValue.float32[2]
+                    );
+                }
+            }
+
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::Spacing();
+
+            // Node Editor Appearance
+            if (m_NodeEditorLayer)
+            {
+                ImGui::Text("Node Editor Appearance");
+                ImGui::Spacing();
+
+            }
+
+            ImGui::EndTabItem();
+        }
+
+
 
         ImGui::EndTabBar();
     }

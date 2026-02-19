@@ -42,9 +42,14 @@ bool ProjectHub::Render()
     // ----------------------------------------------------------------
     // Scrollable project list (leaves 50 px for the footer bar)
     // ----------------------------------------------------------------
-    if (ImGui::BeginChild("ProjectList", ImVec2(0.0f, -50.0f)))
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(16.0f, 12.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding,  6.0f);
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.12f, 0.12f, 0.14f, 1.0f));
+    if (ImGui::BeginChild("ProjectList", ImVec2(0.0f, -50.0f), ImGuiChildFlags_FrameStyle))
         RenderProjectList(shouldClose);
     ImGui::EndChild();
+    ImGui::PopStyleColor();
+    ImGui::PopStyleVar(2);
 
     // Open popups AFTER EndChild so they share the correct ID-stack level
     // with their matching BeginPopupModal calls below.

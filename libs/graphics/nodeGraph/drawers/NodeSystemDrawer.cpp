@@ -71,6 +71,7 @@ void NodeSystemDrawer::DrawNodeGraph()
     auto& style = ed::GetStyle();
     style.Colors[ed::StyleColor_Bg] = ImVec4(0, 0, 0, 0);
     style.Colors[ed::StyleColor_Grid] = ImVec4(0, 0, 0, 0);
+    style.NodeBorderWidth = 0.0f;
 
     ed::Begin("My Editor");
 

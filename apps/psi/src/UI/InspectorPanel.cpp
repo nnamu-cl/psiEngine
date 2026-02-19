@@ -1,4 +1,8 @@
 #include "InspectorPanel.h"
+
+#include "IconsLucide.h"
+#include "ApplicationWindow.h"
+#include "utils/TextIcons.h"
 #include "layers/PsiWorldLayer.h"
 #include "layers/PsiNodeEditorLayer.h"
 #include "Components/Transform.h"
@@ -52,10 +56,8 @@ void InspectorPanel::Render()
     Transform* transform = selectedObject.components.get<Transform>();
     if (transform)
     {
-        ImGui::Spacing();
-        ImGui::Spacing();
-        ImGui::SeparatorText("Transform");
-        ImGui::Spacing();
+        UIUtils::IconText(ICON_LC_EXPAND, IconPosition::Left, "Transform");
+
 
         // Pass NodeGraph to Transform if available
         if (m_NodeEditorLayer)
