@@ -99,6 +99,9 @@ void PsiUILayer::OnUpdate(float ts)
 
 void PsiUILayer::OnUIRender()
 {
+    // Keep all auto-placed windows away from the screen edges
+    ImGui::GetStyle().DisplaySafeAreaPadding = ImVec2(8.0f, 8.0f);
+
     if (m_ShowProjectHub)
     {
         if (m_ProjectHub->Render())

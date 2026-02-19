@@ -55,11 +55,4 @@ namespace psi::Colors
     constexpr glm::vec3 AccentRed = HexToRGB(0xEF4444);
     constexpr glm::vec3 AccentYellow = HexToRGB(0xF59E0B);
 
-    // ========================================================================
-    // Text Colors
-    // ========================================================================
-
-    constexpr glm::vec3 TextPrimary = HexToRGB(0xF9FAFB);
-    constexpr glm::vec3 TextSecondary = HexToRGB(0x9CA3AF);
-    constexpr glm::vec3 TextDisabled = HexToRGB(0x6B7280);
 }

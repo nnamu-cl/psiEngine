@@ -13,9 +13,13 @@
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
 #include "imgui_impl_vulkan.h"
+#include "IconsLucide.h"
+#include "FontBinaries/lucide.h"
 
-// Define the static member
+// Define the static members
 ApplicationWindow* ApplicationWindow::instance = nullptr;
+ImFont* ApplicationWindow::iconFont = nullptr;
+float ApplicationWindow::iconFontSize = 0.0f;
 
 
 
@@ -102,7 +106,7 @@ bool ApplicationWindow::Init() {
     chk(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(data.physicalDevice, data.surface, &surfaceCaps));
 
     // Swapchain
-    data.swapchainImageFormat = VK_FORMAT_B8G8R8A8_SRGB;
+    data.swapchainImageFormat = VK_FORMAT_B8G8R8A8_UNORM;
     VkSwapchainCreateInfoKHR swapchainCI{
         .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
         .surface = data.surface,
@@ -191,8 +195,28 @@ bool ApplicationWindow::init_imgui() {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
+
+    // Quickly add fonts for icons
+
+    io.Fonts->AddFontDefault();
+    float baseFontSize = 16.0f;
+    float iconFontSize = baseFontSize * 1.1f;
+
+    // merge in icons from Font Awesome
+    static const ImWchar icons_ranges[] = { ICON_MIN_LC, ICON_MAX_16_LC, 0 };
+    ImFontConfig icons_config;
+    icons_config.MergeMode = true;
+    icons_config.PixelSnapH = true;
+    icons_config.FontDataOwnedByAtlas = false;
+    icons_config.GlyphMinAdvanceX = iconFontSize;
+    iconFont = io.Fonts->AddFontFromMemoryTTF(lucidIcons, lucidFontSize, iconFontSize, &icons_config);
+    ApplicationWindow::iconFontSize = iconFontSize;
+
+
+
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
     ImGui_ImplSDL3_InitForVulkan(data.sdlWindow);
 

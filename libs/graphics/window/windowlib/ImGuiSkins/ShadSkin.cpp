@@ -1,6 +1,5 @@
 #include "ShadSkin.h"
 #include "imgui.h"
-#include <iostream>
 
 // Font headers
 #include "../../assets/fonts/Geist-Regular.h"
@@ -15,16 +14,6 @@ namespace Application::Skins {
         auto &style = ImGui::GetStyle();
         auto &colors = ImGui::GetStyle().Colors;
 
-        //Add some rounding
-        style.TabRounding = 8.f;
-        style.FrameRounding = 16.f;
-        style.GrabRounding = 8.f;
-        style.WindowRounding = 16.f;
-        style.PopupRounding = 16.f;
-
-        //No window borders
-        style.WindowBorderSize = 0.0f;
-
         // DPI scale (defined here for use throughout the function)
         float x_scale = 1.0f;
 
@@ -34,8 +23,6 @@ namespace Application::Skins {
             fontConfig.FontDataOwnedByAtlas = false;
 
             float baseFontSize = 16.0f * x_scale;
-
-            std::cout << "Base font size: " << baseFontSize << std::endl;
 
             ImFont* geistFont = io.Fonts->AddFontFromMemoryTTF((void*)geistMedium, geistMediumSize, baseFontSize, &fontConfig);
             s_Fonts["Default"] = geistFont;
@@ -104,9 +91,9 @@ namespace Application::Skins {
         colors[ImGuiCol_SeparatorHovered] = ImColor(39, 185, 242, 150);
 
         // Window Background
-        colors[ImGuiCol_WindowBg] = ImColor(20, 24, 27, 255);  // #14181b
-        colors[ImGuiCol_ChildBg] = ImColor(20, 24, 27, 255);   // #14181b
-        colors[ImGuiCol_PopupBg] = ImColor(20, 24, 27, 255);   // #14181b
+        colors[ImGuiCol_WindowBg] = ImGui::ColorConvertU32ToFloat4(Colors::Theme::titlebar);
+        colors[ImGuiCol_ChildBg]  = ImGui::ColorConvertU32ToFloat4(Colors::Theme::background);
+        colors[ImGuiCol_PopupBg]  = ImGui::ColorConvertU32ToFloat4(Colors::Theme::backgroundPopup);
         colors[ImGuiCol_Border] = ImGui::ColorConvertU32ToFloat4(Colors::Theme::backgroundDark);
 
         // Tables
