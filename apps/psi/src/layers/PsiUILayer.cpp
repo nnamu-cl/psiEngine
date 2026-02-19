@@ -10,6 +10,7 @@
 #include "UI/ModeToolbar.h"
 #include "UI/CreateToolbar.h"
 #include "UI/BrandLabel.h"
+#include "UI/SaveToolbar.h"
 #include "Layers/DefaultGameWorld/Mesh.h"
 #include "Layers/DefaultGameWorld/Camera.h"
 #include "Components/Transform.h"
@@ -77,6 +78,7 @@ PsiUILayer::PsiUILayer(PsiWorldLayer* worldLayer, PsiNodeEditorLayer* nodeEditor
     m_ModeToolbar     = std::make_unique<ModeToolbar>(worldLayer, nodeEditorLayer);
     m_CreateToolbar   = std::make_unique<CreateToolbar>(worldLayer, nodeEditorLayer);
     m_BrandLabel      = std::make_unique<BrandLabel>();
+    m_SaveToolbar     = std::make_unique<SaveToolbar>();
 }
 
 PsiUILayer::~PsiUILayer()
@@ -117,6 +119,9 @@ void PsiUILayer::OnUIRender()
 
     // Brand label at top center
     m_BrandLabel->Render();
+
+    // Save button just below the brand label
+    m_SaveToolbar->Render();
 
     // Render the view orientation gizmo first (it calls ImGuizmo::BeginFrame internally)
     m_ViewManipulator->Render();
