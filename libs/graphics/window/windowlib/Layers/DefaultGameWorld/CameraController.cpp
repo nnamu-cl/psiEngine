@@ -3,6 +3,7 @@
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <imgui.h>
 
 #include <cmath>
 
@@ -33,6 +34,9 @@ void CameraController::onEvent(const SDL_Event& e)
     if (!dynamicMainCamera)
         return;
 
+    if (ImGui::GetIO().WantCaptureMouse)
+        return;
+
     if (e.type == SDL_EVENT_MOUSE_WHEEL)
         m_ScrollDelta += e.wheel.y;
 }
@@ -58,10 +62,14 @@ void CameraController::update(float ts)
     float                mx, my;
     SDL_MouseButtonFlags buttons = SDL_GetMouseState(&mx, &my);
 
-    const bool rmb     = (buttons & SDL_BUTTON_RMASK) != 0;
-    const bool lmb     = (buttons & SDL_BUTTON_LMASK) != 0;
-    const bool mmb     = (buttons & SDL_BUTTON_MMASK) != 0;
-    const bool altHeld = (mods & SDL_KMOD_ALT)        != 0;
+    const ImGuiIO& io             = ImGui::GetIO();
+    const bool     mouseBlocked   = io.WantCaptureMouse;
+    const bool     keyboardBlocked = io.WantCaptureKeyboard;
+
+    const bool rmb     = !mouseBlocked    && (buttons & SDL_BUTTON_RMASK) != 0;
+    const bool lmb     = !mouseBlocked    && (buttons & SDL_BUTTON_LMASK) != 0;
+    const bool mmb     = !mouseBlocked    && (buttons & SDL_BUTTON_MMASK) != 0;
+    const bool altHeld = !keyboardBlocked && (mods & SDL_KMOD_ALT)        != 0;
 
     // Determine which mode is active (priority: fly > orbit > alt-pan > mmb-pan)
     const bool wantFly    = rmb;

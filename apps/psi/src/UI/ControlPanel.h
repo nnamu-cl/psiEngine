@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Layers/Layer.h"
-#include "PsiMode.h"
 
 // Forward declarations
 class PsiWorldLayer;
@@ -29,5 +28,4 @@ private:
     PsiNodeEditorLayer* m_NodeEditorLayer;
     Application::Application* m_Application;
     bool m_Visible = true;
-    PsiMode m_CurrentMode = PsiMode::WorldViewport;
 };

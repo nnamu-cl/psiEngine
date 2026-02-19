@@ -53,9 +53,9 @@ namespace psi::Colors
     // Accent Colors
     // ========================================================================
 
-    constexpr glm::vec3 AccentBlue = HexToRGB(0x3B82F6);
-    constexpr glm::vec3 AccentGreen = HexToRGB(0x10B981);
-    constexpr glm::vec3 AccentRed = HexToRGB(0xEF4444);
+    constexpr glm::vec3 AccentBlue = HexToRGB(0x31BCFD);
+    constexpr glm::vec3 AccentGreen = HexToRGB(0x12FEAA);
+    constexpr glm::vec3 AccentRed = HexToRGB(0xFE1155);
     constexpr glm::vec3 AccentYellow = HexToRGB(0xF59E0B);
 
 }

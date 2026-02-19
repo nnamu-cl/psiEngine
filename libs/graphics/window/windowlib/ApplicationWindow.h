@@ -79,9 +79,15 @@ public:
     static ApplicationWindow *instance;
     static ImFont* iconFont;
     static float iconFontSize;
+    static ImFont* boldFont;
 
     static void PushIconFont() { if (iconFont) ImGui::PushFont(iconFont); }
     static void PopIconFont()  { if (iconFont) ImGui::PopFont(); }
+    static void PushBoldFont() { if (boldFont) ImGui::PushFont(boldFont); }
+    static void PopBoldFont()  { if (boldFont) ImGui::PopFont(); }
+
+    static ImTextureID brandIconTexture; // 0 = not loaded
+    static ImVec2 brandIconNativeSize;
 
     bool Init();
     void Start(Application::Application& app);

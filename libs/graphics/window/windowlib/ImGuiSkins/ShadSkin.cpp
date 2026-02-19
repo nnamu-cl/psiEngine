@@ -1,5 +1,6 @@
 #include "ShadSkin.h"
 #include "imgui.h"
+#include "ApplicationWindow.h"
 
 // Font headers
 #include "../../assets/fonts/Geist-Regular.h"
@@ -28,6 +29,7 @@ namespace Application::Skins {
             s_Fonts["Default"] = geistFont;
             s_Fonts["Regular"] = io.Fonts->AddFontFromMemoryTTF((void*)geistRegular, geistRegularSize, baseFontSize, &fontConfig);
             s_Fonts["Bold"] = io.Fonts->AddFontFromMemoryTTF((void*)geistBold, geistBoldSize, baseFontSize, &fontConfig);
+            ApplicationWindow::boldFont = s_Fonts["Bold"];
             io.FontDefault = geistFont;
         }
 

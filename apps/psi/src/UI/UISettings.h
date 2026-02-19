@@ -9,9 +9,12 @@
  */
 struct UISettings
 {
+    // --- CreateToolbar ---
+    float createTopMargin   = 140.0f;   // window Y offset from screen top
+
     // --- GizmoToolbar ---
     float gizmoLeftMargin   = 8.0f;    // window X offset from screen left
-    float gizmoTopMargin    = 148.0f;  // window Y offset from screen top
+    float gizmoTopMargin    = 220.0f;  // window Y offset from screen top
     float gizmoFramePadX    = 10.0f;   // ImGuiStyleVar_FramePadding X (button internal pad)
     float gizmoFramePadY    = 12.0f;   // ImGuiStyleVar_FramePadding Y
     float gizmoItemSpacingX = 4.0f;    // ImGuiStyleVar_ItemSpacing X (gap between buttons)
@@ -22,6 +25,9 @@ struct UISettings
 
     // --- TextIcons (IconText vertical centering) ---
     float iconTextHeight    = 30.0f;   // Assumed icon glyph height used to center icon+text pairs
+
+    // --- CreateToolbar popup ---
+    float popupFontScale    = 1.6f;    // Font scale applied to the create popup and all submenus
 };
 
 inline UISettings g_UISettings;
