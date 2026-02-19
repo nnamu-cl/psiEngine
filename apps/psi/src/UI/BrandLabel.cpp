@@ -38,7 +38,7 @@ void BrandLabel::Render()
     ImGui::SetWindowFontScale(2.0f);
     const float textH = ImGui::GetFontSize(); // already reflects the 2x scale
     ImGui::SetCursorPosY(ImGui::GetCursorPosY() + (iconH - textH));
-    ImGui::Text("psi");
+    ImGui::Text("Quantum");
     ApplicationWindow::PopBoldFont();
 
     ImGui::End();
