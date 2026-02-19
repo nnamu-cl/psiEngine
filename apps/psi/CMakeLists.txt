@@ -45,6 +45,7 @@ target_link_libraries(${NAME} PUBLIC
     project_management
     imgui_node_editor
     implot
+    ImGuizmo
     nfd
     ${SDL_LIBRARY}
     ${SLANG_LIBRARY}
@@ -154,4 +155,24 @@ target_compile_definitions(psi_node_save_tests PRIVATE
 
 if(WIN32)
     target_compile_definitions(psi_node_save_tests PRIVATE _CRT_SECURE_NO_WARNINGS)
+endif()
+
+# CameraController / ViewManipulatorPanel / GizmoToolbar tests (SDL required, no Vulkan)
+add_executable(psi_camera_tests tests/test_CameraController.cpp)
+target_link_libraries(psi_camera_tests PRIVATE WindowLib Catch2::Catch2WithMain ${SDL_LIBRARY})
+
+target_include_directories(psi_camera_tests PRIVATE
+    $ENV{VULKAN_SDK}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../libs/graphics/window/windowlib
+)
+
+target_compile_definitions(psi_camera_tests PRIVATE
+    VK_NO_PROTOTYPES
+    IMGUI_IMPL_VULKAN_USE_VOLK
+    "IMGUI_IMPL_VULKAN_VOLK_FILENAME=<volk/volk.h>"
+)
+
+if(WIN32)
+    target_compile_definitions(psi_camera_tests PRIVATE _CRT_SECURE_NO_WARNINGS)
 endif()

@@ -323,6 +323,8 @@ void ApplicationWindow::Start(Application::Application& app)
         while (SDL_PollEvent(&event))
         {
             ImGui_ImplSDL3_ProcessEvent(&event);
+            for (auto* layer : app.GetLayerStack())
+                layer->OnEvent(event);
             switch (event.type)
             {
                 case SDL_EVENT_QUIT:

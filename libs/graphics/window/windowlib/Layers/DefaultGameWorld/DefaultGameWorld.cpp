@@ -85,6 +85,9 @@ void DefaultGameWorld::OnAttach() {
         return;
     }
 
+    // Initialise camera controller against the window's camera and SDL window
+    data.cameraController.init(&data.camera, m_WindowData->sdlWindow);
+
     // Scene starts empty - meshes can be added via UI
     std::cout << "DefaultGameWorld layer attached successfully\n";
     std::cout << "  Scene ready - use UI to add objects\n";
@@ -344,10 +347,12 @@ void DefaultGameWorld::OnDetach() {
     data.linePipeline.destroy(m_WindowData->device);
 }
 
+void DefaultGameWorld::OnEvent(const SDL_Event& e) {
+    data.cameraController.onEvent(e);
+}
+
 void DefaultGameWorld::OnUpdate(float ts) {
-    // Game logic would update m_Scene here (e.g., rotate objects, move camera)
-    // For now, camera is static at default position
-    (void) ts;
+    data.cameraController.update(ts);
 
     // Check if any line renderers need GPU update
     bool needsLineUpdate = false;

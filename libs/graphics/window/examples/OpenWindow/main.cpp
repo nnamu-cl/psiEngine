@@ -21,7 +21,7 @@ public:
 
 int main()
 {
-    ApplicationWindowSpecifications windowSpecs{1920, 1080, "Main Demo Window",
+    ApplicationWindowSpecifications windowSpecs{1920, 1080, "Im3DDemo",
                                                 SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE};
 
     ApplicationWindow window(windowSpecs);
