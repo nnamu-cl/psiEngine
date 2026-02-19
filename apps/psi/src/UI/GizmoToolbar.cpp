@@ -28,6 +28,7 @@ void GizmoToolbar::Render()
     ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered,  ImVec4(1.0f, 1.0f, 1.0f, s.gizmoHoverAlpha));
     ImGui::PushStyleColor(ImGuiCol_ButtonActive,   ImVec4(1.0f, 1.0f, 1.0f, s.gizmoActiveAlpha));
+    ImGui::PushStyleColor(ImGuiCol_NavHighlight,   ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
 
     ImGui::Begin("##gizmo_toolbar", nullptr, flags);
 
@@ -45,6 +46,6 @@ void GizmoToolbar::Render()
 
     ImGui::End();
 
-    ImGui::PopStyleColor(3);
+    ImGui::PopStyleColor(4);
     ImGui::PopStyleVar(2);
 }

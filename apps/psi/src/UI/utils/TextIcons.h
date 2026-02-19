@@ -2,45 +2,41 @@
 #include "imgui.h"
 #include "ApplicationWindow.h"
 #include "../UISettings.h"
+#include <cstdio>
+
+#include "imgui_internal.h"
 
 enum class IconPosition { Left, Right };
 
 namespace UIUtils {
 
-    // Renders an icon with optional text, vertically centered on the same line.
-    // pos controls whether the icon sits to the Left or Right of the text.
-    // text is optional — pass nullptr or omit it to render only the icon.
+    // Renders an icon with optional text, both vertically centered.
+    // Uses DrawList so the two fonts never fight over cursor position.
     inline void IconText(const char* icon, IconPosition pos = IconPosition::Left, const char* text = nullptr) {
+        const bool  hasText = text && text[0] != '\0';
+        const float iconSz  = ImGui::GetFontSize();
+        const float textSz  = ImGui::GetFontSize();
+        const float lineH   = ImMax(iconSz, textSz);
+        const float spacing = hasText ? ImGui::GetStyle().ItemSpacing.x : 0.0f;
+        const float textW   = hasText ? ImGui::CalcTextSize(text).x : 0.0f;
+        const float totalW  = iconSz + (hasText ? spacing + textW : 0.0f);
 
-        const float textH  = ImGui::GetFontSize();
-        const float iconH  = g_UISettings.iconTextHeight;
-        const float offset = (iconH - textH) * -0.5f;
-        const float lineY  = ImGui::GetCursorPosY();
+        ImGui::Dummy(ImVec2(totalW, lineH));
+        ImVec2      origin = ImGui::GetItemRectMin();
+        ImDrawList* dl     = ImGui::GetWindowDrawList();
+        ImU32       col    = ImGui::GetColorU32(ImGuiCol_Text);
 
-        const bool hasText = text && text[0] != '\0';
+        const float iconX = (pos == IconPosition::Left) ? origin.x : origin.x + textW + spacing;
+        const float textX = (pos == IconPosition::Left) ? origin.x + iconSz + spacing : origin.x;
+        const float iconY = origin.y + (lineH - iconSz) * 0.5f;
+        const float textY = origin.y + (lineH - textSz) * 0.5f;
 
-        if (pos == IconPosition::Left) {
-            ApplicationWindow::PushIconFont();
-            ImGui::Text("%s", icon);
-            ApplicationWindow::PopIconFont();
+        ApplicationWindow::PushIconFont();
+        dl->AddText(ApplicationWindow::iconFont, iconSz, ImVec2(iconX, iconY), col, icon);
+        ApplicationWindow::PopIconFont();
 
-            if (hasText) {
-                ImGui::SameLine();
-                //ImGui::SetCursorPosY(lineY + offset);
-                ImGui::Text("%s", text);
-            }
-        } else {
-            if (hasText) {
-                //ImGui::SetCursorPosY(lineY + offset);
-                ImGui::Text("%s", text);
-                ImGui::SameLine();
-                //ImGui::SetCursorPosY(lineY);
-            }
-
-            ApplicationWindow::PushIconFont();
-            ImGui::Text("%s", icon);
-            ApplicationWindow::PopIconFont();
-        }
+        if (hasText)
+            dl->AddText(ImGui::GetFont(), textSz, ImVec2(textX, textY), col, text);
     }
 
     // Renders a clickable icon-only button using the icon font.
@@ -56,6 +52,52 @@ namespace UIUtils {
 
         if (active)
             ImGui::PopStyleColor();
+
+        return clicked;
+    }
+
+    // Renders a BeginMenu with an icon prefix. No merged font required —
+    // leading spaces reserve horizontal room and the icon is drawn via DrawList.
+    // Returns true when the menu is open (call ImGui::EndMenu() if true).
+    inline bool IconBeginMenu(const char* icon, const char* label, bool enabled = true) {
+        char buf[256];
+        snprintf(buf, sizeof(buf), "      %s", label);
+        bool open = ImGui::BeginMenu(buf, enabled);
+
+        ImVec2      pos   = ImGui::GetItemRectMin();
+        ImVec2      size  = ImGui::GetItemRectSize();
+        const float iSz   = ImGui::GetFontSize();
+        float       iconY = pos.y + (size.y - iSz) * 0.5f;
+
+        ApplicationWindow::PushIconFont();
+        ImGui::GetForegroundDrawList()->AddText(
+            ApplicationWindow::iconFont, iSz,
+            ImVec2(pos.x + 4.0f, iconY),
+            ImGui::GetColorU32(ImGuiCol_Text), icon);
+        ApplicationWindow::PopIconFont();
+
+        return open;
+    }
+
+    // Renders a MenuItem with an icon prefix. No merged font required —
+    // leading spaces reserve horizontal room and the icon is drawn via DrawList.
+    // Returns true when the item is clicked.
+    inline bool IconMenuItem(const char* icon, const char* label, bool selected = false, bool enabled = true) {
+        char buf[256];
+        snprintf(buf, sizeof(buf), "      %s", label);
+        bool clicked = ImGui::MenuItem(buf, nullptr, selected, enabled);
+
+        ImVec2      pos   = ImGui::GetItemRectMin();
+        ImVec2      size  = ImGui::GetItemRectSize();
+        const float iSz   = ImGui::GetFontSize();
+        float       iconY = pos.y + (size.y - iSz) * 0.5f;
+
+        ApplicationWindow::PushIconFont();
+        ImGui::GetForegroundDrawList()->AddText(
+            ApplicationWindow::iconFont, iSz,
+            ImVec2(pos.x + 4.0f, iconY),
+            ImGui::GetColorU32(ImGuiCol_Text), icon);
+        ApplicationWindow::PopIconFont();
 
         return clicked;
     }

@@ -7,6 +7,9 @@
 #include "UI/InspectorPanel.h"
 #include "UI/ViewManipulatorPanel.h"
 #include "UI/GizmoToolbar.h"
+#include "UI/ModeToolbar.h"
+#include "UI/CreateToolbar.h"
+#include "UI/BrandLabel.h"
 #include "Layers/DefaultGameWorld/Mesh.h"
 #include "Layers/DefaultGameWorld/Camera.h"
 #include "Components/Transform.h"
@@ -71,6 +74,9 @@ PsiUILayer::PsiUILayer(PsiWorldLayer* worldLayer, PsiNodeEditorLayer* nodeEditor
     m_ProjectHub    = std::make_unique<ProjectHub>();
     m_ViewManipulator = std::make_unique<ViewManipulatorPanel>();
     m_GizmoToolbar    = std::make_unique<GizmoToolbar>();
+    m_ModeToolbar     = std::make_unique<ModeToolbar>(worldLayer, nodeEditorLayer);
+    m_CreateToolbar   = std::make_unique<CreateToolbar>(worldLayer, nodeEditorLayer);
+    m_BrandLabel      = std::make_unique<BrandLabel>();
 }
 
 PsiUILayer::~PsiUILayer()
@@ -109,14 +115,27 @@ void PsiUILayer::OnUIRender()
         return;
     }
 
+    // Brand label at top center
+    m_BrandLabel->Render();
+
     // Render the view orientation gizmo first (it calls ImGuizmo::BeginFrame internally)
     m_ViewManipulator->Render();
 
-    // Render the transform gizmo for the selected object
-    RenderSceneGizmo();
+    const bool isGraphMode = m_ModeToolbar->GetMode() == PsiMode::GraphEditor;
 
-    // Toolbar for switching gizmo operation
-    m_GizmoToolbar->Render();
+    // Render the transform gizmo for the selected object (not in graph mode)
+    if (!isGraphMode)
+        RenderSceneGizmo();
+
+    // Toolbar for switching gizmo operation (not in graph mode)
+    if (!isGraphMode)
+        m_GizmoToolbar->Render();
+
+    // Floating "+" button for adding meshes and nodes
+    m_CreateToolbar->Render();
+
+    // Mode switcher toolbar at bottom center
+    m_ModeToolbar->Render();
 
     // Render panels (StatsPanel last so it appears on top)
     m_ControlPanel->Render();
