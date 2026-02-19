@@ -54,6 +54,12 @@ add_executable(OpenWindow ${OPENWINDOWFILES})
 target_link_libraries(OpenWindow PRIVATE WindowLib)
 
 
+# Im3DDemo example
+file(GLOB IM3DDEMO "examples/Im3DDemo/*.cpp" "examples/Im3DDemo/*.h")
+add_executable(Im3DDemo ${IM3DDEMO})
+target_link_libraries(Im3DDemo PRIVATE WindowLib im3d)
+
+
 
 # GraphicsDemo example
 file(GLOB GRAPHICSDEMOFILES "examples/GraphicsDemo/*.cpp" "examples/GraphicsDemo/*.h")

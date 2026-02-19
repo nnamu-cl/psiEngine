@@ -7,6 +7,7 @@
 #include "LinePipeline.h"
 #include "Resources.h"
 #include "Mesh.h"
+#include "CameraController.h"
 #include <volk/volk.h>
 #include <vma/vk_mem_alloc.h>
 
@@ -57,6 +58,8 @@ struct DefaultGameWorldData
     // Scene data (frequently accessed together)
     Camera camera;
     Scene  scene;
+
+    CameraController cameraController;
 };
 
 class DefaultGameWorld : public Application::Layer
@@ -69,6 +72,7 @@ public:
     void OnDetach()  override;
     void OnUpdate(float ts)  override;
     void OnRender(VkCommandBuffer cb, const glm::ivec2& windowSize, uint32_t frameIndex) override;
+    void OnEvent(const SDL_Event& e) override;
 
 
     // Add a mesh primitive to the scene

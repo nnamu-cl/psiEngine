@@ -5,6 +5,7 @@
 #include "UI/ControlPanel.h"
 #include "UI/StatsPanel.h"
 #include "UI/InspectorPanel.h"
+#include "UI/ViewManipulatorPanel.h"
 #include "Layers/DefaultGameWorld/Mesh.h"
 #include "imgui.h"
 #include <string>
@@ -63,6 +64,7 @@ PsiUILayer::PsiUILayer(PsiWorldLayer* worldLayer, PsiNodeEditorLayer* nodeEditor
     m_StatsPanel    = std::make_unique<StatsPanel>(worldLayer);
     m_InspectorPanel = std::make_unique<InspectorPanel>(worldLayer, nodeEditorLayer);
     m_ProjectHub    = std::make_unique<ProjectHub>();
+    m_ViewManipulator = std::make_unique<ViewManipulatorPanel>();
 }
 
 PsiUILayer::~PsiUILayer()
@@ -97,6 +99,9 @@ void PsiUILayer::OnUIRender()
             m_ShowProjectHub = false;
         return;
     }
+
+    // Render the view orientation gizmo first (it calls ImGuizmo::BeginFrame internally)
+    m_ViewManipulator->Render();
 
     // Render panels (StatsPanel last so it appears on top)
     m_ControlPanel->Render();

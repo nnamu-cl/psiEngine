@@ -45,6 +45,7 @@ target_link_libraries(${NAME} PUBLIC
     project_management
     imgui_node_editor
     implot
+    ImGuizmo
     nfd
     ${SDL_LIBRARY}
     ${SLANG_LIBRARY}
