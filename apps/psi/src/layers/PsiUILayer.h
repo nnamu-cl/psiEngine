@@ -10,6 +10,8 @@ class ControlPanel;
 class StatsPanel;
 class InspectorPanel;
 class ProjectHub;
+class ViewManipulatorPanel;
+class GizmoToolbar;
 namespace Application { class Application; }
 
 /**
@@ -42,6 +44,8 @@ private:
     std::unique_ptr<ControlPanel> m_ControlPanel;
     std::unique_ptr<StatsPanel> m_StatsPanel;
     std::unique_ptr<InspectorPanel> m_InspectorPanel;
+    std::unique_ptr<ViewManipulatorPanel> m_ViewManipulator;
+    std::unique_ptr<GizmoToolbar> m_GizmoToolbar;
 
     // UI state
     bool m_ShowDemoWindow = true;
@@ -56,4 +60,5 @@ private:
 
     // Render methods
     void RenderMenuBar();
+    void RenderSceneGizmo();
 };

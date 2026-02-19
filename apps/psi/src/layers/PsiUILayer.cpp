@@ -5,8 +5,14 @@
 #include "UI/ControlPanel.h"
 #include "UI/StatsPanel.h"
 #include "UI/InspectorPanel.h"
+#include "UI/ViewManipulatorPanel.h"
+#include "UI/GizmoToolbar.h"
 #include "Layers/DefaultGameWorld/Mesh.h"
+#include "Layers/DefaultGameWorld/Camera.h"
+#include "Components/Transform.h"
 #include "imgui.h"
+#include "ImGuizmo.h"
+#include <glm/gtc/type_ptr.hpp>
 #include <string>
 #include <generator/BoxMesh.hpp>
 #include <generator/TriangleMesh.hpp>
@@ -63,6 +69,8 @@ PsiUILayer::PsiUILayer(PsiWorldLayer* worldLayer, PsiNodeEditorLayer* nodeEditor
     m_StatsPanel    = std::make_unique<StatsPanel>(worldLayer);
     m_InspectorPanel = std::make_unique<InspectorPanel>(worldLayer, nodeEditorLayer);
     m_ProjectHub    = std::make_unique<ProjectHub>();
+    m_ViewManipulator = std::make_unique<ViewManipulatorPanel>();
+    m_GizmoToolbar    = std::make_unique<GizmoToolbar>();
 }
 
 PsiUILayer::~PsiUILayer()
@@ -98,6 +106,15 @@ void PsiUILayer::OnUIRender()
         return;
     }
 
+    // Render the view orientation gizmo first (it calls ImGuizmo::BeginFrame internally)
+    m_ViewManipulator->Render();
+
+    // Render the transform gizmo for the selected object
+    RenderSceneGizmo();
+
+    // Toolbar for switching gizmo operation
+    m_GizmoToolbar->Render();
+
     // Render panels (StatsPanel last so it appears on top)
     m_ControlPanel->Render();
     m_InspectorPanel->Render();
@@ -106,4 +123,54 @@ void PsiUILayer::OnUIRender()
     m_StatsPanel->Render();
 }
 
+
+void PsiUILayer::RenderSceneGizmo()
+{
+    if (m_WorldLayer->selectedObjectIndex < 0)
+        return;
+
+    auto& objects = m_WorldLayer->data.scene.objects;
+    if (m_WorldLayer->selectedObjectIndex >= static_cast<int>(objects.size()))
+        return;
+
+    Transform* transform = objects[m_WorldLayer->selectedObjectIndex].components.get<Transform>();
+    if (!transform)
+        return;
+
+    Camera* camera = Camera::GetMain();
+    if (!camera)
+        return;
+
+    ImGuiIO& io = ImGui::GetIO();
+    const float aspect = io.DisplaySize.x / io.DisplaySize.y;
+
+    glm::mat4 view = camera->viewMatrix();
+
+    // projectionMatrix() applies the Vulkan Y-flip; ImGuizmo expects OpenGL convention so undo it.
+    glm::mat4 proj = camera->projectionMatrix(aspect);
+    proj[1][1] *= -1.0f;
+
+    glm::mat4 model = transform->toMatrix();
+
+    // Draw into the background drawlist so the gizmo is not clipped to any panel window.
+    ImGuizmo::SetDrawlist(ImGui::GetBackgroundDrawList());
+    ImGuizmo::SetRect(0, 0, io.DisplaySize.x, io.DisplaySize.y);
+
+    ImGuizmo::Manipulate(
+        glm::value_ptr(view),
+        glm::value_ptr(proj),
+        static_cast<ImGuizmo::OPERATION>(m_GizmoToolbar->GetOperation()),
+        ImGuizmo::LOCAL,
+        glm::value_ptr(model)
+    );
+
+    if (ImGuizmo::IsUsing())
+    {
+        float t[3], r[3], s[3];
+        ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(model), t, r, s);
+        transform->position = { t[0], t[1], t[2] };
+        transform->rotation = glm::quat(glm::vec3(glm::radians(r[0]), glm::radians(r[1]), glm::radians(r[2])));
+        transform->scale    = { s[0], s[1], s[2] };
+    }
+}
 
