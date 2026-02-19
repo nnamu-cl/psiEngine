@@ -2,6 +2,7 @@
 #include "imgui.h"
 #include "IconsLucide.h"
 #include "utils/TextIcons.h"
+#include "UISettings.h"
 
 void GizmoToolbar::Render()
 {
@@ -9,11 +10,9 @@ void GizmoToolbar::Render()
     constexpr int opRotate    = 120; // ImGuizmo::ROTATE
     constexpr int opScale     = 896; // ImGuizmo::SCALE
 
-    // ViewManipulatorPanel occupies (0,0)→(128,128); start below it with a gap.
-    const float leftMargin = 8.0f;
-    const float topMargin  = 148.0f;
+    const UISettings& s = g_UISettings;
 
-    ImGui::SetNextWindowPos(ImVec2(leftMargin, topMargin), ImGuiCond_Always);
+    ImGui::SetNextWindowPos(ImVec2(s.gizmoLeftMargin, s.gizmoTopMargin), ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(0.0f, 0.0f), ImGuiCond_Always);
     ImGui::SetNextWindowBgAlpha(0.0f);
 
@@ -21,21 +20,18 @@ void GizmoToolbar::Render()
         ImGuiWindowFlags_NoDecoration        |
         ImGuiWindowFlags_NoMove              |
         ImGuiWindowFlags_NoSavedSettings     |
-        ImGuiWindowFlags_NoBringToFrontOnFocus;
+        ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoBackground;
 
-    // Larger buttons and more breathing room between them
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10.0f, 10.0f));
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,  ImVec2(4.0f, 8.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(s.gizmoFramePadX, s.gizmoFramePadY));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,  ImVec2(s.gizmoItemSpacingX, s.gizmoItemSpacingY));
 
-    // Transparent button backgrounds; hover/active provide the only visual feedback
     ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered,  ImVec4(1.0f, 1.0f, 1.0f, 0.12f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive,   ImVec4(1.0f, 1.0f, 1.0f, 0.22f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered,  ImVec4(1.0f, 1.0f, 1.0f, s.gizmoHoverAlpha));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive,   ImVec4(1.0f, 1.0f, 1.0f, s.gizmoActiveAlpha));
 
     ImGui::Begin("##gizmo_toolbar", nullptr, flags);
 
-    // Scale up the icon glyphs inside this window
-    ImGui::SetWindowFontScale(1.6f);
+    ImGui::SetWindowFontScale(s.gizmoFontScale);
 
     auto toolButton = [&](const char* icon, int op)
     {
@@ -43,8 +39,8 @@ void GizmoToolbar::Render()
             m_Operation = op;
     };
 
-    toolButton(ICON_LC_MOVE,       opTranslate);
-    toolButton(ICON_LC_ROTATE_CCW, opRotate);
+    toolButton(ICON_LC_MOVE_3D,       opTranslate);
+    toolButton(ICON_LC_ROTATE_3D, opRotate);
     toolButton(ICON_LC_SCALE_3D,   opScale);
 
     ImGui::End();

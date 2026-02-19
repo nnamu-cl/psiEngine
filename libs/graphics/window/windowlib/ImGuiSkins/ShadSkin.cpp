@@ -108,9 +108,13 @@ namespace Application::Skins {
         style.WindowPadding = ImVec2(10.0f, 10.0f);
         style.FramePadding = ImVec2(8.0f, 6.0f);
         style.ItemSpacing = ImVec2(6.0f, 6.0f);
-        style.ChildRounding = 6.0f;
-        style.PopupRounding = 6.0f;
-        style.FrameRounding = 6.0f;
+        style.WindowRounding = 18.0f;
+        style.ChildRounding = 18.0f;
+        style.PopupRounding = 18.0f;
+        style.FrameRounding = 15.0f;
+        style.ScrollbarRounding = 12.0f;
+        style.GrabRounding = 9.0f;
+        style.TabRounding = 12.0f;
         style.FrameBorderSize = 1.0f;
         style.IndentSpacing = 11.0f;
         style.WindowTitleAlign = ImVec2(0.5f, 0.5f);

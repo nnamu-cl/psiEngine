@@ -200,7 +200,7 @@ bool ApplicationWindow::init_imgui() {
 
     io.Fonts->AddFontDefault();
     float baseFontSize = 16.0f;
-    float iconFontSize = baseFontSize * 1.1f;
+    float iconFontSize = baseFontSize * 1.f;
 
     // merge in icons from Font Awesome
     static const ImWchar icons_ranges[] = { ICON_MIN_LC, ICON_MAX_16_LC, 0 };
@@ -209,6 +209,7 @@ bool ApplicationWindow::init_imgui() {
     icons_config.PixelSnapH = true;
     icons_config.FontDataOwnedByAtlas = false;
     icons_config.GlyphMinAdvanceX = iconFontSize;
+    icons_config.GlyphOffset.y = 5.0f;
     iconFont = io.Fonts->AddFontFromMemoryTTF(lucidIcons, lucidFontSize, iconFontSize, &icons_config);
     ApplicationWindow::iconFontSize = iconFontSize;
 
