@@ -1,9 +1,15 @@
 #include "NodeSystemDrawer.h"
+
+#include <iostream>
+
+#include "ApplicationWindow.h"
 #include "NodeEditorIcons.h"
 #include "NodeEditorPinTypes.h"
 #include "NodeEditorPinDrawing.h"
 #include "imgui.h"
+#include "imgui_internal.h"
 #include "imgui_node_editor.h"
+#include "IconsLucide.h"
 
 namespace ed = ax::NodeEditor;
 
@@ -68,10 +74,11 @@ void NodeSystemDrawer::DrawNodeGraph()
     ed::SetCurrentEditor(m_NodeEditorContext);
 
     // Set background and grid to fully transparent
-    auto& style = ed::GetStyle();
+    ax::NodeEditor::Style &style = ed::GetStyle();
     style.Colors[ed::StyleColor_Bg] = ImVec4(0, 0, 0, 0);
     style.Colors[ed::StyleColor_Grid] = ImVec4(0, 0, 0, 0);
     style.NodeBorderWidth = 0.0f;
+    style.NodeRounding = 2.5f;
 
     ed::Begin("My Editor");
 
@@ -112,13 +119,49 @@ uint64_t NodeSystemDrawer::GetPinId(uint64_t nodeId, const std::string& socketNa
     return (nodeId << 32) | (socketHash << 8) | inputFlag;
 }
 
+
+enum class IconPosition { Left, Right };
+
+
+// Renders an icon with optional text, both vertically centered.
+// Uses DrawList so the two fonts never fight over cursor position.
+static void IconText(const char* icon, IconPosition pos = IconPosition::Left, const char* text = nullptr) {
+    const bool  hasText = text && text[0] != '\0';
+    const float iconSz  = ImGui::GetFontSize();
+    const float textSz  = ImGui::GetFontSize();
+    const float lineH   = ImMax(iconSz, textSz);
+    const float spacing = hasText ? ImGui::GetStyle().ItemSpacing.x : 0.0f;
+    const float textW   = hasText ? ImGui::CalcTextSize(text).x : 0.0f;
+    const float totalW  = iconSz + (hasText ? spacing + textW : 0.0f);
+
+    ImGui::Dummy(ImVec2(totalW, lineH));
+    ImVec2      origin = ImGui::GetItemRectMin();
+    ImDrawList* dl     = ImGui::GetWindowDrawList();
+    ImU32       col    = ImGui::GetColorU32(ImGuiCol_Text);
+
+    const float iconX = (pos == IconPosition::Left) ? origin.x : origin.x + textW + spacing;
+    const float textX = (pos == IconPosition::Left) ? origin.x + iconSz + spacing : origin.x;
+    const float iconY = origin.y + (lineH - iconSz) * 0.5f;
+    const float textY = origin.y + (lineH - textSz) * 0.5f;
+
+    ApplicationWindow::PushIconFont();
+    dl->AddText(ApplicationWindow::iconFont, iconSz, ImVec2(iconX, iconY), col, icon);
+    ApplicationWindow::PopIconFont();
+
+    if (hasText)
+        dl->AddText(ImGui::GetFont(), textSz, ImVec2(textX, textY), col, text);
+}
+
+
+
+
 void NodeSystemDrawer::DrawNodeInternal(Node* node, int arrayIndex)
 {
     if (!node) return;
 
     uint64_t nodeId = node->getId();
 
-    // Set initial position for this node if not already positioned
+    // // Set initial position for this node if not already positioned
     if (m_PositionedNodes.find(nodeId) == m_PositionedNodes.end())
     {
         // Arrange nodes in a grid: 3 columns, spacing 300x200
@@ -136,12 +179,11 @@ void NodeSystemDrawer::DrawNodeInternal(Node* node, int arrayIndex)
     ImGui::BeginGroup();
 
     {
-        // Node header with type name (smaller text)
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.3f, 0.7f, 1.0f, 0.6f));  // Cyan with reduced opacity
-        ImGui::SetWindowFontScale(0.8f);  // 80% of normal size
-        ImGui::TextUnformatted(node->getTypeName());
-        ImGui::SetWindowFontScale(1.0f);  // Reset to normal size
-        ImGui::PopStyleColor();
+
+
+        ImGui::PushFont(nullptr, 24.0f);
+        IconText(toIconGlyph(node->getIcon()), IconPosition::Left);
+        ImGui::PopFont();
 
         // Node name input field
         ImGui::PushID(node);
@@ -309,11 +351,18 @@ void NodeSystemDrawer::Load(const std::string& filePath)
     // Recreate context pointing at the project settings file.
     // The first Begin() call will trigger LoadSettings() internally.
     ed::DestroyEditor(m_NodeEditorContext);
+    std::cout << "Loading in file path for node system: " << filePath << std::endl;
     m_SettingsFilePath = filePath;
     m_Config.SettingsFile = m_SettingsFilePath.c_str();
     m_NodeEditorContext = ed::CreateEditor(&m_Config);
 
     m_PositionedNodes.clear();
+    //Mark all loaded nodes as already positioned to avoid position loss
+    if (m_NodeGraph) {
+        for (const std::unique_ptr<Node> &node: m_NodeGraph->getNodes()) {
+            m_PositionedNodes[node->getId()] = true;
+        }
+    }
     m_NeedsRestore = true;
 }
 

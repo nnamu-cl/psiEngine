@@ -9,11 +9,13 @@ struct LineRendererData;
 // Object Node - represents a 3D object with position, rotation, and scale
 class TransformNode : public Node {
 public:
+    static constexpr NodeIcon kIcon = NodeIcon::Move3D;
     TransformNode();
 
     void evaluate() override;
     void OnDrawNodeUI() override;
     const char* getTypeName() const override { return "Transform"; }
+    NodeIcon getIcon() const override { return kIcon; }
 };
 
 // Line Renderer Node - generates line geometry based on position input
@@ -36,12 +38,14 @@ public:
     //Does the line renderer need a gpu update
     bool needsGPUUpdate = false;
 
+    static constexpr NodeIcon kIcon = NodeIcon::Spline;
     LineRendererNode();
 
 
     void evaluate() override;
     void OnDrawNodeUI() override;
     const char* getTypeName() const override { return "Line Renderer"; }
+    NodeIcon getIcon() const override { return kIcon; }
     void SaveProperties(std::unordered_map<std::string, std::string>& props) override;
     void LoadProperties(const std::unordered_map<std::string, std::string>& props) override;
 

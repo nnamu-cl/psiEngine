@@ -7,13 +7,15 @@ ImColor GetIconColor(SocketType type)
     switch (type)
     {
         default:
-        case SocketType::Any:   return ImColor( 51, 150, 215);
-        case SocketType::Int:   return ImColor( 68, 201, 156);
-        case SocketType::Float: return ImColor(147, 226,  74);
-        case SocketType::Vec2:  return ImColor(159, 214, 102);
-        case SocketType::Vec3:  return ImColor(124, 252, 0);
-        case SocketType::Vec4:  return ImColor( 85, 255,  85);
-        case SocketType::Mat4:  return ImColor(180, 130, 255);
+        case SocketType::Any:   return ImColor( 18, 254, 170);   // AccentGreen  — "good to go"
+        case SocketType::Int:   return ImColor(255, 255, 255);   // White        — plain scalar
+        case SocketType::Float: return ImColor(220, 220, 220);   // Off-white    — plain scalar, slightly softer
+
+        case SocketType::Vec2:  return ImColor(150, 210, 253);   // AccentBlue light
+        case SocketType::Vec3:  return ImColor( 49, 188, 253);   // AccentBlue         #31BCFD
+        case SocketType::Vec4:  return ImColor( 30, 130, 200);   // AccentBlue deep
+
+        case SocketType::Mat4:  return ImColor(254,  17,  85);   // AccentRed          #FE1155
     }
 }
 
