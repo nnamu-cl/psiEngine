@@ -124,6 +124,16 @@ const NodeValue& OutputSocket::getValue() const {
 InputSocket::InputSocket(Node* owner, const std::string& name, SocketType type, const NodeValue& defaultValue)
     : owner(owner), name(name), type(type), defaultValue(defaultValue)
 {
+    switch (type)
+    {
+        case SocketType::Any: editMode = SocketEditMode::Float; break;
+        case SocketType::Float: editMode = SocketEditMode::Float; break;
+        case SocketType::Int:   editMode = SocketEditMode::Int;   break;
+        case SocketType::Vec2:  editMode = SocketEditMode::Vec2;  break;
+        case SocketType::Vec3:  editMode = SocketEditMode::Vec3;  break;
+        case SocketType::Vec4:  editMode = SocketEditMode::Vec4;  break;
+        default:                editMode = SocketEditMode::None;  break; // Mat4, Any
+    }
 }
 
 NodeValue InputSocket::getValue() {

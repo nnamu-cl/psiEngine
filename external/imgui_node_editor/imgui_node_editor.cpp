@@ -469,21 +469,64 @@ static void ImDrawList_PolyFillScanFlood(ImDrawList *draw, std::vector<ImVec2>* 
 }
 */
 
-static void ImDrawList_AddBezierWithArrows(ImDrawList* drawList, const ImCubicBezierPoints& curve, float thickness,
-    float startArrowSize, float startArrowWidth, float endArrowSize, float endArrowWidth,
-    bool fill, ImU32 color, float strokeThickness, const ImVec2* startDirHint = nullptr, const ImVec2* endDirHint = nullptr)
+static ImU32 ImLerpColor(ImU32 c1, ImU32 c2, float t)
+{
+    // Convert to float4, interpolate, back to U32
+    ImVec4 a = ImGui::ColorConvertU32ToFloat4(c1);
+    ImVec4 b = ImGui::ColorConvertU32ToFloat4(c2);
+    ImVec4 res = a * (1.0f - t) + b * t;
+    return ImGui::ColorConvertFloat4ToU32(res);
+}
+
+static void ImDrawList_AddBezierWithArrows(
+    ImDrawList* drawList,
+    const ImCubicBezierPoints& curve,
+    float thickness,
+    float startArrowSize, float startArrowWidth,
+    float endArrowSize, float endArrowWidth,
+    bool fill,
+    ImU32 color,
+    float strokeThickness,
+    const ImVec2* startDirHint = nullptr,
+    const ImVec2* endDirHint   = nullptr,
+    // --- New parameters ---
+    ImU32 fromColor = 0,
+    ImU32 toColor   = 0
+)
 {
     using namespace ax;
 
-    if ((color >> 24) == 0)
+    // If gradient is requested AND valid
+    bool gradient = ((fromColor >> 24) > 0) && ((toColor >> 24) > 0);
+
+    // Don't draw invisible!
+    if (!gradient && ((color >> 24) == 0))
+        return;
+    if (gradient && ((fromColor >> 24) == 0 || (toColor >> 24) == 0))
         return;
 
     const auto half_thickness = thickness * 0.5f;
 
+    // ---- DRAW MAIN LINE SECTION ----
     if (fill)
     {
-        drawList->AddBezierCubic(curve.P0, curve.P1, curve.P2, curve.P3, color, thickness);
+        // MAIN BEZIER
+        if (gradient)
+        {
+            // Discretize curve & draw as individual segments with interpolated color
+            const int SEGMENTS = 36;
+            ImVec2 points[SEGMENTS+1];
+            for (int i = 0; i <= SEGMENTS; ++i)
+                points[i] = ImCubicBezierSample(curve.P0, curve.P1, curve.P2, curve.P3, (float)i / SEGMENTS);
+            for (int i = 0; i < SEGMENTS; ++i)
+                drawList->AddLine(points[i], points[i+1], ImLerpColor(fromColor, toColor, (float)i / SEGMENTS), thickness);
+        }
+        else
+        {
+            drawList->AddBezierCubic(curve.P0, curve.P1, curve.P2, curve.P3, color, thickness);
+        }
 
+        // ---- ARROWS (filled) ----
         if (startArrowSize > 0.0f)
         {
             const auto start_dir  = ImNormalized(startDirHint ? *startDirHint : ImCubicBezierTangent(curve.P0, curve.P1, curve.P2, curve.P3, 0.0f));
@@ -491,10 +534,11 @@ static void ImDrawList_AddBezierWithArrows(ImDrawList* drawList, const ImCubicBe
             const auto half_width = startArrowWidth * 0.5f;
             const auto tip        = curve.P0 - start_dir * startArrowSize;
 
+            ImU32 arrowColor = gradient ? fromColor : color;
             drawList->PathLineTo(curve.P0 - start_n * ImMax(half_width, half_thickness));
             drawList->PathLineTo(curve.P0 + start_n * ImMax(half_width, half_thickness));
             drawList->PathLineTo(tip);
-            drawList->PathFillConvex(color);
+            drawList->PathFillConvex(arrowColor);
         }
 
         if (endArrowSize > 0.0f)
@@ -504,14 +548,16 @@ static void ImDrawList_AddBezierWithArrows(ImDrawList* drawList, const ImCubicBe
             const auto half_width = endArrowWidth * 0.5f;
             const auto tip        = curve.P3 + end_dir * endArrowSize;
 
+            ImU32 arrowColor = gradient ? toColor : color;
             drawList->PathLineTo(curve.P3 + end_n * ImMax(half_width, half_thickness));
             drawList->PathLineTo(curve.P3 - end_n * ImMax(half_width, half_thickness));
             drawList->PathLineTo(tip);
-            drawList->PathFillConvex(color);
+            drawList->PathFillConvex(arrowColor);
         }
     }
     else
     {
+        // ---- ARROWS (outlined) ----
         if (startArrowSize > 0.0f)
         {
             const auto start_dir  = ImNormalized(ImCubicBezierTangent(curve.P0, curve.P1, curve.P2, curve.P3, 0.0f));
@@ -524,9 +570,23 @@ static void ImDrawList_AddBezierWithArrows(ImDrawList* drawList, const ImCubicBe
             drawList->PathLineTo(tip);
             if (half_width > half_thickness)
                 drawList->PathLineTo(curve.P0 + start_n * half_width);
+
+            // Optionally PathStroke here if you want
         }
 
-        ImDrawList_PathBezierOffset(drawList, half_thickness, curve.P0, curve.P1, curve.P2, curve.P3);
+        if (gradient)
+        {
+            const int SEGMENTS = 36;
+            ImVec2 centerPoints[SEGMENTS+1];
+            for (int i = 0; i <= SEGMENTS; ++i)
+                centerPoints[i] = ImCubicBezierSample(curve.P0, curve.P1, curve.P2, curve.P3, (float)i / SEGMENTS);
+            for (int i = 0; i < SEGMENTS; ++i)
+                drawList->AddLine(centerPoints[i], centerPoints[i+1], ImLerpColor(fromColor, toColor, (float)i / SEGMENTS), thickness);
+        }
+        else
+        {
+            ImDrawList_PathBezierOffset(drawList, half_thickness, curve.P0, curve.P1, curve.P2, curve.P3);
+        }
 
         if (endArrowSize > 0.0f)
         {
@@ -542,13 +602,14 @@ static void ImDrawList_AddBezierWithArrows(ImDrawList* drawList, const ImCubicBe
                 drawList->PathLineTo(curve.P3 - end_n * half_width);
         }
 
-        ImDrawList_PathBezierOffset(drawList, half_thickness, curve.P3, curve.P2, curve.P1, curve.P0);
-
-        drawList->PathStroke(color, true, strokeThickness);
+        // (gradient already stroked above)
+        if (!gradient)
+        {
+            ImDrawList_PathBezierOffset(drawList, half_thickness, curve.P3, curve.P2, curve.P1, curve.P0);
+            drawList->PathStroke(color, true, strokeThickness);
+        }
     }
 }
-
-
 
 
 //------------------------------------------------------------------------------
@@ -919,14 +980,19 @@ void ed::Link::Draw(ImDrawList* drawList, ImU32 color, float extraThickness) con
 
     const auto curve = GetCurve();
 
+    // Only use gradient for the main pass (extraThickness == 0); selection/hover borders use solid color
+    const ImU32 fromColor = (extraThickness == 0.0f) ? m_FromColor : 0;
+    const ImU32 toColor   = (extraThickness == 0.0f) ? m_ToColor   : 0;
+
     ImDrawList_AddBezierWithArrows(drawList, curve, m_Thickness + extraThickness,
         m_StartPin && m_StartPin->m_ArrowSize  > 0.0f ? m_StartPin->m_ArrowSize  + extraThickness : 0.0f,
         m_StartPin && m_StartPin->m_ArrowWidth > 0.0f ? m_StartPin->m_ArrowWidth + extraThickness : 0.0f,
           m_EndPin &&   m_EndPin->m_ArrowSize  > 0.0f ?   m_EndPin->m_ArrowSize  + extraThickness : 0.0f,
           m_EndPin &&   m_EndPin->m_ArrowWidth > 0.0f ?   m_EndPin->m_ArrowWidth + extraThickness : 0.0f,
-        true, color, 1.0f,
+        true, color, 1.5f,
         m_StartPin && m_StartPin->m_SnapLinkToDir ? &m_StartPin->m_Dir : nullptr,
-        m_EndPin   &&   m_EndPin->m_SnapLinkToDir ?   &m_EndPin->m_Dir : nullptr);
+        m_EndPin   &&   m_EndPin->m_SnapLinkToDir ?   &m_EndPin->m_Dir : nullptr,
+        fromColor, toColor);
 }
 
 void ed::Link::UpdateEndpoints()
@@ -1614,7 +1680,7 @@ void ed::EditorContext::End()
     m_IsFirstFrame = false;
 }
 
-bool ed::EditorContext::DoLink(LinkId id, PinId startPinId, PinId endPinId, ImU32 color, float thickness)
+bool ed::EditorContext::DoLink(LinkId id, PinId startPinId, PinId endPinId, ImU32 color, float thickness, ImU32 fromColor, ImU32 toColor)
 {
     //auto& editorStyle = GetStyle();
 
@@ -1627,13 +1693,15 @@ bool ed::EditorContext::DoLink(LinkId id, PinId startPinId, PinId endPinId, ImU3
     startPin->m_HasConnection = true;
       endPin->m_HasConnection = true;
 
-    auto link           = GetLink(id);
-    link->m_StartPin      = startPin;
-    link->m_EndPin        = endPin;
-    link->m_Color         = color;
-    link->m_HighlightColor= GetColor(StyleColor_HighlightLinkBorder);
-    link->m_Thickness     = thickness;
-    link->m_IsLive        = true;
+    auto link              = GetLink(id);
+    link->m_StartPin       = startPin;
+    link->m_EndPin         = endPin;
+    link->m_Color          = color;
+    link->m_HighlightColor = GetColor(StyleColor_HighlightLinkBorder);
+    link->m_FromColor      = fromColor;
+    link->m_ToColor        = toColor;
+    link->m_Thickness      = thickness;
+    link->m_IsLive         = true;
 
     link->UpdateEndpoints();
 

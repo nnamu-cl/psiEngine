@@ -458,9 +458,12 @@ struct Link final: Object
     Pin*   m_EndPin;
     ImU32  m_Color;
     ImU32  m_HighlightColor;
+    ImU32  m_FromColor;
+    ImU32  m_ToColor;
     float  m_Thickness;
     ImVec2 m_Start;
     ImVec2 m_End;
+
 
     Link(EditorContext* editor, LinkId id)
         : Object(editor)
@@ -468,6 +471,8 @@ struct Link final: Object
         , m_StartPin(nullptr)
         , m_EndPin(nullptr)
         , m_Color(IM_COL32_WHITE)
+        , m_FromColor(0)
+        , m_ToColor(0)
         , m_Thickness(1.0f)
     {
     }
@@ -1301,7 +1306,7 @@ struct EditorContext
     void Begin(const char* id, const ImVec2& size = ImVec2(0, 0));
     void End();
 
-    bool DoLink(LinkId id, PinId startPinId, PinId endPinId, ImU32 color, float thickness);
+    bool DoLink(LinkId id, PinId startPinId, PinId endPinId, ImU32 color, float thickness, ImU32 fromColor = 0, ImU32 toColor = 0);
 
 
     NodeBuilder& GetNodeBuilder() { return m_NodeBuilder; }

@@ -89,8 +89,10 @@ private:
     // Helper to draw a single node
     void DrawNodeInternal(Node* node, int arrayIndex);
 
+    void DrawInlineEditor(InputSocket* socket);
+
     // Helper to draw node inputs and outputs
-    void DrawInputSockets(Node* node);
+    void    DrawInputSockets(Node* node);
     void DrawOutputSockets(Node* node);
 
     // Helper to generate unique pin IDs
@@ -100,6 +102,8 @@ private:
     struct ConnectionInfo {
         uint64_t inputPinId;
         uint64_t outputPinId;
+        ImU32 fromColor;
+        ImU32 toColor;
     };
     std::vector<ConnectionInfo> m_Connections;
 };
