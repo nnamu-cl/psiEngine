@@ -31,7 +31,6 @@ void SaveToolbar::Render()
     ImGui::PushStyleColor(ImGuiCol_NavHighlight,  ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
 
     ImGui::Begin("##save_toolbar", nullptr, flags);
-    ImGui::SetWindowFontScale(s.gizmoFontScale);
 
     const bool hasProject = PsiProjectManager::GetCurrentProject() != nullptr;
     if (!hasProject)

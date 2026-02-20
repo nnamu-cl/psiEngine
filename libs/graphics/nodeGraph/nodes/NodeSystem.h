@@ -54,13 +54,25 @@ enum class NodeIcon {
 };
 
 enum class SocketType {
-Float,
+    Float,
     Int,
     Vec2,
     Vec3,
     Vec4,
     Mat4,
     Any  // Can accept any type
+};
+
+
+enum class SocketEditMode {
+    None,       // No inline editor (pure connection point)
+    Float,
+    Vec2,
+    Vec3,
+    Vec4,
+    Int,
+    Bool,
+    Color,
 };
 
 // Helper to get SocketType from variant index
@@ -99,6 +111,7 @@ struct InputSocket {
     SocketType type;
     NodeValue defaultValue;
     OutputSocket* connectedOutput = nullptr;
+    SocketEditMode editMode;
 
     InputSocket(Node* owner, const std::string& name, SocketType type, const NodeValue& defaultValue);
 
