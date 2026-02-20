@@ -1,10 +1,13 @@
 #pragma once
 
+#define IMGUI_DEFINE_MATH_OPERATORS
+
 #include "INodeDrawer.h"
 #include "../nodes/NodeSystem.h"
 #include <unordered_map>
 #include <string>
 
+#include "IconsLucide.h"
 #include "imgui_node_editor.h"
 
 /**
@@ -13,6 +16,45 @@
  * Visualizes computational nodes with their inputs and outputs, allowing
  * visual programming through connections.
  */
+
+
+
+
+
+// Maps a semantic NodeIcon enum value to the corresponding Lucide icon glyph.
+// This is the only place in the codebase that couples NodeIcon to a specific icon font.
+static const char* toIconGlyph(NodeIcon icon)
+{
+    switch (icon)
+    {
+        case NodeIcon::Network:        return ICON_LC_NETWORK;
+        case NodeIcon::Variable:       return ICON_LC_VARIABLE;
+        case NodeIcon::VectorSquare:   return ICON_LC_VECTOR_SQUARE;
+        case NodeIcon::Wave:           return ICON_LC_WAVES;
+        case NodeIcon::Trig:           return ICON_LC_TRIANGLE_RIGHT;
+        case NodeIcon::Time:           return ICON_LC_CLOCK_8;
+        case NodeIcon::Atom:           return ICON_LC_ATOM;
+        case NodeIcon::Plus:           return ICON_LC_PLUS;
+        case NodeIcon::Minus:          return ICON_LC_MINUS;
+        case NodeIcon::Asterisk:       return ICON_LC_ASTERISK;
+        case NodeIcon::Divide:         return ICON_LC_DIVIDE;
+        case NodeIcon::SquareFunction: return ICON_LC_SQUARE_FUNCTION;
+        case NodeIcon::Radical:        return ICON_LC_RADICAL;
+        case NodeIcon::Pi:             return ICON_LC_PI;
+        case NodeIcon::Layers:         return ICON_LC_LAYERS;
+        case NodeIcon::Layers2:        return ICON_LC_LAYERS_2;
+        case NodeIcon::Dot:            return ICON_LC_DOT;
+        case NodeIcon::X:              return ICON_LC_X;
+        case NodeIcon::Ruler:          return ICON_LC_RULER;
+        case NodeIcon::Move3D:         return ICON_LC_MOVE_3D;
+        case NodeIcon::Spline:         return ICON_LC_SPLINE;
+        case NodeIcon::Generic:
+        default:                       return ICON_LC_CIRCLE_DOT;
+    }
+}
+
+
+
 class NodeSystemDrawer : public INodeDrawer {
 public:
     explicit NodeSystemDrawer(NodeGraph* nodeGraph);

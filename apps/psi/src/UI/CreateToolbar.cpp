@@ -22,8 +22,12 @@
 #include "nodes/VectorNodes.h"
 #include "nodes/ObjectNodes.h"
 #include "PsiColors.h"
+#include "drawers/NodeSystemDrawer.h"
 
 namespace {
+
+
+
     template<typename GeneratorMesh>
     Mesh convertFromGenerator(GeneratorMesh&& genMesh)
     {
@@ -194,7 +198,7 @@ void CreateToolbar::RenderNodeMenu()
     if (UIUtils::IconBeginMenu(ICON_LC_CHART_LINE, "Graph Nodes"))
     {
         ImGui::SetWindowFontScale(g_UISettings.popupFontScale);
-        if (UIUtils::IconMenuItem(ICON_LC_NETWORK, "Graph Node"))
+        if (UIUtils::IconMenuItem(toIconGlyph(LineGraphNode::kIcon), "Graph Node"))
             graph.createNode<LineGraphNode>();
         ImGui::EndMenu();
     }
@@ -202,15 +206,15 @@ void CreateToolbar::RenderNodeMenu()
     if (UIUtils::IconBeginMenu(ICON_LC_VARIABLE, "Value Nodes"))
     {
         ImGui::SetWindowFontScale(g_UISettings.popupFontScale);
-        if (UIUtils::IconMenuItem(ICON_LC_VARIABLE,     "Float Constant"))
+        if (UIUtils::IconMenuItem(toIconGlyph(FloatConstantNode::kIcon),    "Float Constant"))
             graph.createNode<FloatConstantNode>(0.0f);
-        if (UIUtils::IconMenuItem(ICON_LC_VARIABLE,     "Int Constant"))
+        if (UIUtils::IconMenuItem(toIconGlyph(IntConstantNode::kIcon),      "Int Constant"))
             graph.createNode<IntConstantNode>(0);
-        if (UIUtils::IconMenuItem(ICON_LC_VECTOR_SQUARE,"Vec3 Constant"))
+        if (UIUtils::IconMenuItem(toIconGlyph(Vec3ConstantNode::kIcon),     "Vec3 Constant"))
             graph.createNode<Vec3ConstantNode>(glm::vec3(0.0f));
-        if (UIUtils::IconMenuItem(ICON_LC_WAVES,        "Time"))
+        if (UIUtils::IconMenuItem(toIconGlyph(TimeNode::kIcon),             "Time"))
             graph.createNode<TimeNode>();
-        if (UIUtils::IconMenuItem(ICON_LC_ATOM,         "Physics Constant"))
+        if (UIUtils::IconMenuItem(toIconGlyph(PhysicsConstantNode::kIcon),  "Physics Constant"))
             graph.createNode<PhysicsConstantNode>();
         ImGui::EndMenu();
     }
@@ -218,38 +222,38 @@ void CreateToolbar::RenderNodeMenu()
     if (UIUtils::IconBeginMenu(ICON_LC_SIGMA, "Math Nodes"))
     {
         ImGui::SetWindowFontScale(g_UISettings.popupFontScale);
-        if (UIUtils::IconMenuItem(ICON_LC_PLUS,            "Add"))       graph.createNode<AddNode>();
-        if (UIUtils::IconMenuItem(ICON_LC_MINUS,           "Subtract"))  graph.createNode<SubtractNode>();
-        if (UIUtils::IconMenuItem(ICON_LC_ASTERISK,        "Multiply"))  graph.createNode<MultiplyNode>();
-        if (UIUtils::IconMenuItem(ICON_LC_DIVIDE,          "Divide"))    graph.createNode<DivideNode>();
-        if (UIUtils::IconMenuItem(ICON_LC_WAVES,           "Sin"))       graph.createNode<SinNode>();
-        if (UIUtils::IconMenuItem(ICON_LC_WAVES,           "Cos"))       graph.createNode<CosNode>();
-        if (UIUtils::IconMenuItem(ICON_LC_WAVES,           "Tan"))       graph.createNode<TanNode>();
-        if (UIUtils::IconMenuItem(ICON_LC_WAVES,           "Arcsin"))    graph.createNode<ArcsinNode>();
-        if (UIUtils::IconMenuItem(ICON_LC_WAVES,           "Arccos"))    graph.createNode<ArccosNode>();
-        if (UIUtils::IconMenuItem(ICON_LC_WAVES,           "Arctan"))    graph.createNode<ArctanNode>();
-        if (UIUtils::IconMenuItem(ICON_LC_SQUARE_FUNCTION, "Pow"))       graph.createNode<PowNode>();
-        if (UIUtils::IconMenuItem(ICON_LC_RADICAL,         "Root"))      graph.createNode<RootNode>();
-        if (UIUtils::IconMenuItem(ICON_LC_PI,              "PI"))        graph.createNode<PINode>();
+        if (UIUtils::IconMenuItem(toIconGlyph(AddNode::kIcon),       "Add"))       graph.createNode<AddNode>();
+        if (UIUtils::IconMenuItem(toIconGlyph(SubtractNode::kIcon),  "Subtract"))  graph.createNode<SubtractNode>();
+        if (UIUtils::IconMenuItem(toIconGlyph(MultiplyNode::kIcon),  "Multiply"))  graph.createNode<MultiplyNode>();
+        if (UIUtils::IconMenuItem(toIconGlyph(DivideNode::kIcon),    "Divide"))    graph.createNode<DivideNode>();
+        if (UIUtils::IconMenuItem(toIconGlyph(SinNode::kIcon),       "Sin"))       graph.createNode<SinNode>();
+        if (UIUtils::IconMenuItem(toIconGlyph(CosNode::kIcon),       "Cos"))       graph.createNode<CosNode>();
+        if (UIUtils::IconMenuItem(toIconGlyph(TanNode::kIcon),       "Tan"))       graph.createNode<TanNode>();
+        if (UIUtils::IconMenuItem(toIconGlyph(ArcsinNode::kIcon),    "Arcsin"))    graph.createNode<ArcsinNode>();
+        if (UIUtils::IconMenuItem(toIconGlyph(ArccosNode::kIcon),    "Arccos"))    graph.createNode<ArccosNode>();
+        if (UIUtils::IconMenuItem(toIconGlyph(ArctanNode::kIcon),    "Arctan"))    graph.createNode<ArctanNode>();
+        if (UIUtils::IconMenuItem(toIconGlyph(PowNode::kIcon),       "Pow"))       graph.createNode<PowNode>();
+        if (UIUtils::IconMenuItem(toIconGlyph(RootNode::kIcon),      "Root"))      graph.createNode<RootNode>();
+        if (UIUtils::IconMenuItem(toIconGlyph(PINode::kIcon),        "PI"))        graph.createNode<PINode>();
         ImGui::EndMenu();
     }
 
     if (UIUtils::IconBeginMenu(ICON_LC_VECTOR_SQUARE, "Vector Nodes"))
     {
         ImGui::SetWindowFontScale(g_UISettings.popupFontScale);
-        if (UIUtils::IconMenuItem(ICON_LC_LAYERS,   "Combine Vec3"))   graph.createNode<CombineVec3Node>();
-        if (UIUtils::IconMenuItem(ICON_LC_LAYERS_2, "Separate Vec3"))  graph.createNode<SeparateVec3Node>();
-        if (UIUtils::IconMenuItem(ICON_LC_DOT,      "Dot Product"))    graph.createNode<DotProductNode>();
-        if (UIUtils::IconMenuItem(ICON_LC_X,        "Cross Product"))  graph.createNode<CrossProductNode>();
-        if (UIUtils::IconMenuItem(ICON_LC_RULER,    "Length"))         graph.createNode<LengthNode>();
+        if (UIUtils::IconMenuItem(toIconGlyph(CombineVec3Node::kIcon),  "Combine Vec3"))   graph.createNode<CombineVec3Node>();
+        if (UIUtils::IconMenuItem(toIconGlyph(SeparateVec3Node::kIcon), "Separate Vec3"))  graph.createNode<SeparateVec3Node>();
+        if (UIUtils::IconMenuItem(toIconGlyph(DotProductNode::kIcon),   "Dot Product"))    graph.createNode<DotProductNode>();
+        if (UIUtils::IconMenuItem(toIconGlyph(CrossProductNode::kIcon), "Cross Product"))  graph.createNode<CrossProductNode>();
+        if (UIUtils::IconMenuItem(toIconGlyph(LengthNode::kIcon),       "Length"))         graph.createNode<LengthNode>();
         ImGui::EndMenu();
     }
 
     if (UIUtils::IconBeginMenu(ICON_LC_LAYERS, "Object Nodes"))
     {
         ImGui::SetWindowFontScale(g_UISettings.popupFontScale);
-        if (UIUtils::IconMenuItem(ICON_LC_MOVE_3D, "Transform"))      graph.createNode<TransformNode>();
-        if (UIUtils::IconMenuItem(ICON_LC_SPLINE,  "Line Renderer"))  graph.createNode<LineRendererNode>();
+        if (UIUtils::IconMenuItem(toIconGlyph(TransformNode::kIcon),    "Transform"))      graph.createNode<TransformNode>();
+        if (UIUtils::IconMenuItem(toIconGlyph(LineRendererNode::kIcon), "Line Renderer"))  graph.createNode<LineRendererNode>();
         ImGui::EndMenu();
     }
 }

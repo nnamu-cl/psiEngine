@@ -26,6 +26,33 @@ using NodeValue = std::variant<
     glm::mat4
 >;
 
+// Semantic icon identifier — maps to an actual icon glyph in the UI layer.
+// Nodes declare their icon here; the UI layer owns the mapping to icon strings.
+enum class NodeIcon {
+    Generic,        // fallback / unknown
+    Network,        // graph / network topology
+    Variable,       // scalar constant (float, int)
+    VectorSquare,   // vector constant
+    Wave,           // generic waveform
+    Trig,           // trigonometric functions (sin, cos, tan, ...)
+    Time,           // time / clock
+    Atom,           // physics constant
+    Plus,           // addition
+    Minus,          // subtraction
+    Asterisk,       // multiplication
+    Divide,         // division
+    SquareFunction, // power / exponent
+    Radical,        // square root
+    Pi,             // mathematical constant PI
+    Layers,         // combine / stack
+    Layers2,        // separate / split
+    Dot,            // dot product
+    X,              // cross product
+    Ruler,          // length / measure
+    Move3D,         // transform / spatial
+    Spline,         // curve / line renderer
+};
+
 enum class SocketType {
 Float,
     Int,
@@ -119,6 +146,10 @@ public:
 
     // Node name/type
     virtual const char* getTypeName() const = 0;
+
+    // Icon to display for this node in menus and the node editor.
+    // Override in derived classes using kIcon to avoid runtime instantiation.
+    virtual NodeIcon getIcon() const { return NodeIcon::Generic; }
 
     // Node display name
     const std::string& getName() const { return m_Name; }

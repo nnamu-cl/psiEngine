@@ -7,6 +7,7 @@
 
 class LineGraphNode : public Node {
 public:
+    static constexpr NodeIcon kIcon = NodeIcon::Network;
     enum class Axis { X = 0, Y = 1, Z = 2 };
 
     size_t maxCount = 100;
@@ -19,6 +20,7 @@ public:
 
     void evaluate() override;
     const char* getTypeName() const override { return "Line Graph"; }
+    NodeIcon getIcon() const override { return kIcon; }
     void OnDrawNodeUI() override;
     void SaveProperties(std::unordered_map<std::string, std::string>& props) override;
     void LoadProperties(const std::unordered_map<std::string, std::string>& props) override;
