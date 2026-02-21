@@ -6,7 +6,19 @@
       "Bash(findstr:*)",
       "WebSearch",
       "WebFetch(domain:github.com)",
-      "WebFetch(domain:shader-slang.org)"
+      "WebFetch(domain:shader-slang.org)",
+      "Bash(cmd /c \"echo %VULKAN_SDK% && dir %VULKAN_SDK%\\\\\")",
+      "Bash(cmd /c \"set VULKAN_SDK\")",
+      "Bash(cmd /c \"powershell -Command \"\"[System.Environment]::GetEnvironmentVariable\\(''VULKAN_SDK'', ''User''\\)\"\"\")",
+      "Bash(cmd /c \"powershell -Command \"\"[System.Environment]::GetEnvironmentVariable\\(''VULKAN_SDK'', ''Machine''\\)\"\"\")",
+      "Bash(cmd /c \"powershell -NoProfile -Command \"\"Write-Host \\([System.Environment]::GetEnvironmentVariable\\(''VULKAN_SDK'', ''Machine''\\)\\); Write-Host \\([System.Environment]::GetEnvironmentVariable\\(''VULKAN_SDK'', ''User''\\)\\)\"\"\")",
+      "Bash(powershell -NoProfile -Command \"Get-ChildItem ''C:\\\\VulkanSDK'' -Recurse -Filter ''SDL3.dll'' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName; Get-ChildItem ''C:\\\\VulkanSDK'' -Recurse -Filter ''slang.dll'' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName\")",
+      "Bash(powershell -NoProfile -Command:*)",
+      "Bash(cmd /c \"\"\"C:\\\\Program Files \\(x86\\)\\\\Microsoft Visual Studio\\\\2022\\\\BuildTools\\\\VC\\\\Tools\\\\MSVC\\\\14.44.35207\\\\bin\\\\Hostx64\\\\x64\\\\dumpbin.exe\"\" /dependents \"\"C:\\\\Users\\\\namus\\\\Documents\\\\CPP_Projects\\\\psiEngine\\\\cmake-build-release-visual-studio\\\\bin\\\\psiQuantum.exe\"\" 2>nul\")",
+      "Bash(cmd /c \"dir C:\\\\Users\\\\namus\\\\Documents\\\\CPP_Projects\\\\psiEngine\\\\cmake-build-release-visual-studio\\\\bin\\\\ /b 2>nul\")",
+      "Bash(cmd /c \"dir C:\\\\Users\\\\namus\\\\Documents\\\\CPP_Projects\\\\psiEngine\\\\cmake-build-release-visual-studio\\\\ /b /s 2>nul | findstr /i \"\".exe\"\"\")",
+      "Bash(cmd /c \"dir C:\\\\Users\\\\namus\\\\Documents\\\\CPP_Projects\\\\psiEngine\\\\cmake-build-release-visual-studio\\\\bin\\\\ /b /s 2>nul | findstr /i \"\".exe\"\"\")",
+      "Bash(cmd /c \"\"\"C:\\\\Program Files \\(x86\\)\\\\Microsoft Visual Studio\\\\2022\\\\BuildTools\\\\VC\\\\Tools\\\\MSVC\\\\14.44.35207\\\\bin\\\\Hostx64\\\\x64\\\\dumpbin.exe\"\" /dependents \"\"C:\\\\Users\\\\namus\\\\Documents\\\\CPP_Projects\\\\psiEngine\\\\cmake-build-release-visual-studio\\\\bin\\\\psiQuantum.exe\"\"\")"
     ]
   }
 }

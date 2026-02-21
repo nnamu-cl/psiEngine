@@ -1,6 +1,7 @@
 #pragma once
 
 #include "NodeSystem.h"
+#include <array>
 
 
 

@@ -11,7 +11,6 @@ namespace fs = std::filesystem;
 // ---------------------------------------------------------------------------
 // Serialization data structures (used only by NodeGraph::Save / Load)
 // ---------------------------------------------------------------------------
-namespace {
 
 struct NodeSaveData {
     uint64_t id = 0;
@@ -31,6 +30,8 @@ struct GraphSaveData {
     std::vector<NodeSaveData>       nodes;
     std::vector<ConnectionSaveData> connections;
 };
+
+namespace {
 
 // Meyers-singleton factory map — guaranteed to be initialised before first use,
 // regardless of static initialisation order across translation units.
