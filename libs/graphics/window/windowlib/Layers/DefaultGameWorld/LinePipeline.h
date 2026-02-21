@@ -10,6 +10,9 @@ namespace Slang { template<typename T> class ComPtr; }
 // Forward declare
 enum class LineStyle;
 struct LineProperties;
+struct DefaultGameWorldData;
+struct VmaAllocator_T;
+typedef VmaAllocator_T* VmaAllocator;
 
 // Describes shaders for line pipeline
 struct LinePipelineDesc
@@ -35,6 +38,9 @@ public:
 
     VkPipeline       pipeline{ VK_NULL_HANDLE };
     VkPipelineLayout layout{   VK_NULL_HANDLE };
+
+    void DoRender(VkCommandBuffer cb, uint32_t frameIndex, float aspectRatio, DefaultGameWorldData& data);
+    bool UploadLinesToGPU(DefaultGameWorldData& data, VmaAllocator allocator);
 
 private:
     // Compiles shader to SPIR-V via Slang and wraps it in a VkShaderModule

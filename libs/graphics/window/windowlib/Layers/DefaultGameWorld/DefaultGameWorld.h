@@ -94,6 +94,5 @@ private:
     // Helper: Upload all meshes in MeshTable to GPU
     bool uploadMeshesToGPU();
 
-    // Helper: Upload all lines to GPU
-    bool uploadLinesToGPU();
+
 };

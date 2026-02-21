@@ -68,6 +68,7 @@ bool ApplicationWindow::Init() {
     vkGetPhysicalDeviceProperties2(data.physicalDevice, &data.physicalDeviceProperties);
     std::cout << "Selected device: " << data.physicalDeviceProperties.properties.deviceName << "\n";
 
+
     // Find a queue family for graphics
     uint32_t queueFamilyCount{ 0 };
     vkGetPhysicalDeviceQueueFamilyProperties(data.physicalDevice, &queueFamilyCount, nullptr);
