@@ -8,6 +8,7 @@
 #include <iostream>
 #include <cstring>
 
+#include "ApplicationWindow.h"
 #include "Components/LineRenderer.h"
 #include "Components/Transform.h"
 #include "slang/slang.h"
@@ -27,6 +28,22 @@ Slang::ComPtr<slang::IGlobalSession>& LinePipeline::getSlangSession()
         }
     }
     return globalSession;
+}
+
+
+
+std::vector<std::vector<LineVertex>> collectLineVertexBatches(const DefaultGameWorldData& data)
+{
+    std::vector<std::vector<LineVertex>> allLineData;
+    for (const auto& obj : data.scene.objects) {
+        const LineRenderer* lineRenderer = obj.components.get<LineRenderer>();
+        if (!lineRenderer || !lineRenderer->data)
+            continue;
+        std::cout << "Found LineRenderer on object: " << obj.name << "\n";
+        allLineData.push_back(lineRenderer->buildVertexData());
+    }
+    std::cout << "Found " << allLineData.size() << " lines to upload\n";
+    return allLineData;
 }
 
 void LinePipeline::DoRender(VkCommandBuffer cb, uint32_t frameIndex, float aspectRatio, DefaultGameWorldData &data) {
@@ -121,6 +138,7 @@ void LinePipeline::DoRender(VkCommandBuffer cb, uint32_t frameIndex, float aspec
         // to the wrong scene object. This is a common source of subtle rendering bugs.
         size_t lineIndex = 0;
 
+        uint32_t objectCount = 0;
         for (const auto &obj: data.scene.objects) {
 
             // --------------------------------------------------------
@@ -155,6 +173,8 @@ void LinePipeline::DoRender(VkCommandBuffer cb, uint32_t frameIndex, float aspec
             // the upload pass and this render pass — they must use identical filtering.
             if (lineIndex >= data.lineGPUInfo.size())
                 break;
+
+            objectCount ++; //Make sure this can be used to count the objects
 
             // --------------------------------------------------------
             // LINE GPU INFO
@@ -246,7 +266,7 @@ void LinePipeline::DoRender(VkCommandBuffer cb, uint32_t frameIndex, float aspec
             linePushData.lineStyle       = static_cast<uint32_t>(lineRenderer->data->properties.style);
             linePushData.antiAlias       = lineRenderer->data->properties.antiAlias ? 1u : 0u;
             linePushData.smoothness      = lineRenderer->data->properties.smoothness;
-            std::memset(linePushData.padding, 0, sizeof(linePushData.padding));
+            std::memset(linePushData.padding, 0, sizeof(linePushData.padding)); //Write a copy of zero's to finish off the data
 
             // Upload push constants into the command buffer.
             // VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_GEOMETRY_BIT means BOTH
@@ -257,7 +277,7 @@ void LinePipeline::DoRender(VkCommandBuffer cb, uint32_t frameIndex, float aspec
             vkCmdPushConstants(cb,
                 data.linePipeline.layout,
                 VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_GEOMETRY_BIT,
-                0,                   // offset into push constant range
+                0,                          // offset into push constant range
                 sizeof(linePushData),
                 &linePushData);
 
@@ -275,12 +295,12 @@ void LinePipeline::DoRender(VkCommandBuffer cb, uint32_t frameIndex, float aspec
             // The vertex attribute layout (stride, format, offset within vertex)
             // is defined at pipeline creation time in VkVertexInputAttributeDescription.
             // --------------------------------------------------------
-            VkDeviceSize offsets[] = {lineInfo.vertexOffset};
+            VkDeviceSize offsets[] = {lineInfo.vertexOffset}; // a single array of just hte offset for this line
             vkCmdBindVertexBuffers(cb,
-                0,                   // first binding slot
-                1,                   // number of buffers
-                &data.lineBuffer,
-                offsets);
+                0,                   // first binding slot - where to start running the command from on the buffer (the line buffer)
+                1,                   // number of vertices we shall work on
+                &data.lineBuffer, // buffer to load data from
+                offsets); //the offsets to jump per full vertex operation - the vertices are going to be processes in parallel
 
             // --------------------------------------------------------
             // DRAW CALL
@@ -303,53 +323,111 @@ void LinePipeline::DoRender(VkCommandBuffer cb, uint32_t frameIndex, float aspec
             //
             // firstInstance = 0: irrelevant since instanceCount = 1.
             // --------------------------------------------------------
+
+
+
             vkCmdDraw(cb,
                 lineInfo.vertexCount,  // vertices to process
                 1,                     // instance count
                 0,                     // firstVertex
                 0);                    // firstInstance
         }
+
+
+
+
+
+        //1. Create the indirect command buffer, make sure to allocate it
+#define MAX_OBJECTS 1000
+        VkBuffer indirectDrawBuffer{VK_NULL_HANDLE};
+        VmaAllocation indirectAllocation;
+
+        VkBufferCreateInfo bufferCreateInfo{};
+        bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+        bufferCreateInfo.size = sizeof(VkDrawIndexedIndirectCommand) * MAX_OBJECTS;
+        bufferCreateInfo.usage = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT  //used for indirect rendering buffers
+                            | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT //allows the gpu to write to it
+                            | VK_BUFFER_USAGE_TRANSFER_DST_BIT; //allows the cpu to write initial data
+
+        VmaAllocationCreateInfo allocactionCreateInfo{};
+        allocactionCreateInfo.usage  = VMA_MEMORY_USAGE_GPU_ONLY; //lives on the GPU, compute writes here
+
+        // This is used to store the allocation
+        VmaAllocation lineIndirectAllocation{VK_NULL_HANDLE};
+        VmaAllocationInfo lineIndirectAllocationInfo;
+        if (vmaCreateBuffer(data.windowData->allocator, &bufferCreateInfo, &allocactionCreateInfo, &indirectDrawBuffer, &lineIndirectAllocation, &lineIndirectAllocationInfo ) != VK_SUCCESS) {
+
+            std::cerr << "Failed to create indirect line buffer\n";
+            return;
+
+        };
+
+
+        //2. Create a staging buffer that will be used to populate the final buffer later on
+        std::vector <VkDrawIndexedIndirectCommand> indirectLineDrawCommands (objectCount);
+        std::vector<std::vector<LineVertex>> lineObjects = collectLineVertexBatches(data);
+        VkDeviceSize offset = 0;
+        for (uint32_t i = 0; i < objectCount; i++) {
+
+
+
+            indirectLineDrawCommands[i].indexCount = lineObjects[i].size() * 2;
+            indirectLineDrawCommands[i].instanceCount = 1;
+            indirectLineDrawCommands[i].firstIndex    = offset;
+
+
+
+
+            //Increment the offset for use with the next object
+            offset += (lineObjects[i].size() * sizeof(LineVertex));
+
+        }
+        //3. Copy the stating command buffer into the in memory indirect command buffer
+        //4. Do the draw call
+        //5. Make sure we have a descriptor set that works well for the objects we are storing
+
+
+
+
+
+        // vkCmdDrawIndirect(cb, data.lineBuffer, 0, 1, sizeof(LineVertex));
+
+
+
+
     }
-    
+
+
+
+
 }
+
+
 
 bool LinePipeline::UploadLinesToGPU(DefaultGameWorldData& data, VmaAllocator allocator)
 {
     std::cout << "uploadLinesToGPU called\n";
 
     // Collect vertex data from all LineRenderer components in the scene
-    std::vector<std::vector<LineVertex>> allLineData;
-    data.lineGPUInfo.clear();
-
-    for (const auto& obj : data.scene.objects) {
-        const LineRenderer* lineRenderer = obj.components.get<LineRenderer>();
-        if (!lineRenderer || !lineRenderer->data)
-            continue;
-
-        std::cout << "Found LineRenderer on object: " << obj.name << "\n";
-        allLineData.push_back(lineRenderer->buildVertexData());
-    }
-
-    std::cout << "Found " << allLineData.size() << " lines to upload\n";
-
+    std::vector<std::vector<LineVertex>> allLineData = collectLineVertexBatches(data);
     if (allLineData.empty())
         return true;
 
     // Calculate total buffer size
     VkDeviceSize totalSize = 0;
-    for (const auto& lineData : allLineData)
+    for (const std::vector<LineVertex> &lineData: allLineData) // loop through all line objects
         totalSize += lineData.size() * sizeof(LineVertex);
 
     if (totalSize == 0)
         return true;
 
-    VkBufferCreateInfo bufferCI{
+    VkBufferCreateInfo bufferCI{ //prepare to create a vertex buffer of the size we need
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
         .size  = totalSize,
         .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
     };
 
-    VmaAllocationCreateInfo allocCI{
+    VmaAllocationCreateInfo allocCI{ //prepare the allocation for buffer
         .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
                  VMA_ALLOCATION_CREATE_MAPPED_BIT,
         .usage = VMA_MEMORY_USAGE_AUTO
@@ -357,21 +435,22 @@ bool LinePipeline::UploadLinesToGPU(DefaultGameWorldData& data, VmaAllocator all
 
     VmaAllocationInfo allocInfo;
     if (vmaCreateBuffer(allocator, &bufferCI, &allocCI,
-                        &data.lineBuffer, &data.lineBufferAllocation, &allocInfo) != VK_SUCCESS) {
+                        &data.lineBuffer, &data.lineBufferAllocation, &allocInfo) != VK_SUCCESS) //allocate memory to store the buffer
+        {
         std::cerr << "Failed to create line buffer\n";
         return false;
     }
 
-    char* bufferPtr = static_cast<char*>(allocInfo.pMappedData);
-    VkDeviceSize offset = 0;
+    char* bufferPtr = static_cast<char*>(allocInfo.pMappedData); //get a pointer to the start of the memory
+    VkDeviceSize offset = 0; // this the offset per line data
 
-    for (const auto& lineData : allLineData) {
-        VkDeviceSize dataSize = lineData.size() * sizeof(LineVertex);
-        if (dataSize > 0)
+    for (const std::vector<LineVertex> &lineData: allLineData) {
+        VkDeviceSize dataSize = lineData.size() * sizeof(LineVertex); // fine out how much we need for this specific line
+        if (dataSize > 0) // copy this data, starting at the next available location, into the memory
             std::memcpy(bufferPtr + offset, lineData.data(), dataSize);
 
-        data.lineGPUInfo.push_back({
-            .vertexOffset = offset,
+        data.lineGPUInfo.push_back({ //save this line data for use later on when rendering
+            .vertexOffset = offset, // this offset shows where in the line data buffer this line starts from
             .vertexCount  = static_cast<uint32_t>(lineData.size())
         });
 

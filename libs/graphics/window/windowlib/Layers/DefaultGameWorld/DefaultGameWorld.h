@@ -60,6 +60,10 @@ struct DefaultGameWorldData
     Scene  scene;
 
     CameraController cameraController;
+
+    ApplicationWindowData* windowData{ nullptr };
+
+
 };
 
 class DefaultGameWorld : public Application::Layer
@@ -88,8 +92,10 @@ public:
     // Public data for easy access and testing
     DefaultGameWorldData data;
 
+    ApplicationWindowData* windowData{ nullptr };
+
+
 private:
-    ApplicationWindowData* m_WindowData{ nullptr };
 
     // Helper: Upload all meshes in MeshTable to GPU
     bool uploadMeshesToGPU();
