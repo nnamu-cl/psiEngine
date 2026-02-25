@@ -18,7 +18,8 @@
       "Bash(cmd /c \"dir C:\\\\Users\\\\namus\\\\Documents\\\\CPP_Projects\\\\psiEngine\\\\cmake-build-release-visual-studio\\\\bin\\\\ /b 2>nul\")",
       "Bash(cmd /c \"dir C:\\\\Users\\\\namus\\\\Documents\\\\CPP_Projects\\\\psiEngine\\\\cmake-build-release-visual-studio\\\\ /b /s 2>nul | findstr /i \"\".exe\"\"\")",
       "Bash(cmd /c \"dir C:\\\\Users\\\\namus\\\\Documents\\\\CPP_Projects\\\\psiEngine\\\\cmake-build-release-visual-studio\\\\bin\\\\ /b /s 2>nul | findstr /i \"\".exe\"\"\")",
-      "Bash(cmd /c \"\"\"C:\\\\Program Files \\(x86\\)\\\\Microsoft Visual Studio\\\\2022\\\\BuildTools\\\\VC\\\\Tools\\\\MSVC\\\\14.44.35207\\\\bin\\\\Hostx64\\\\x64\\\\dumpbin.exe\"\" /dependents \"\"C:\\\\Users\\\\namus\\\\Documents\\\\CPP_Projects\\\\psiEngine\\\\cmake-build-release-visual-studio\\\\bin\\\\psiQuantum.exe\"\"\")"
+      "Bash(cmd /c \"\"\"C:\\\\Program Files \\(x86\\)\\\\Microsoft Visual Studio\\\\2022\\\\BuildTools\\\\VC\\\\Tools\\\\MSVC\\\\14.44.35207\\\\bin\\\\Hostx64\\\\x64\\\\dumpbin.exe\"\" /dependents \"\"C:\\\\Users\\\\namus\\\\Documents\\\\CPP_Projects\\\\psiEngine\\\\cmake-build-release-visual-studio\\\\bin\\\\psiQuantum.exe\"\"\")",
+      "Bash(git:*)"
     ]
   }
 }

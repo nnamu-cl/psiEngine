@@ -1,756 +1,1 @@
-#include "LinePipeline.h"
-#include "DefaultGameWorld.h"
-#include "../../Data/LineProperties.h"
-#include <vma/vk_mem_alloc.h>
-
-#include <fstream>
-#include <stdexcept>
-#include <iostream>
-#include <cstring>
-
-#include "ApplicationWindow.h"
-#include "Components/LineRenderer.h"
-#include "Components/Transform.h"
-#include "slang/slang.h"
-#include "slang/slang-com-ptr.h"
-
-// Reuse the Slang session from Pipeline
-extern Slang::ComPtr<slang::IGlobalSession>& getGlobalSlangSession();
-
-Slang::ComPtr<slang::IGlobalSession>& LinePipeline::getSlangSession()
-{
-    static Slang::ComPtr<slang::IGlobalSession> globalSession;
-    if (!globalSession)
-    {
-        if (slang::createGlobalSession(globalSession.writeRef()) != SLANG_OK)
-        {
-            std::cerr << "Failed to create Slang global session for LinePipeline\n";
-        }
-    }
-    return globalSession;
-}
-
-
-
-std::vector<std::vector<LineVertex>> collectLineVertexBatches(const DefaultGameWorldData& data)
-{
-    std::vector<std::vector<LineVertex>> allLineData;
-    for (const auto& obj : data.scene.objects) {
-        const LineRenderer* lineRenderer = obj.components.get<LineRenderer>();
-        if (!lineRenderer || !lineRenderer->data)
-            continue;
-        std::cout << "Found LineRenderer on object: " << obj.name << "\n";
-        allLineData.push_back(lineRenderer->buildVertexData());
-    }
-    std::cout << "Found " << allLineData.size() << " lines to upload\n";
-    return allLineData;
-}
-
-void LinePipeline::DoRender(VkCommandBuffer cb, uint32_t frameIndex, float aspectRatio, DefaultGameWorldData &data) {
-
-
-
-
-
-
-    // ============================================================
-    // LINE RENDERING PASS
-    // ============================================================
-    // This block handles rendering all "LineRenderer" components in the scene.
-    // The pipeline here is a 3-stage pipeline: Vertex → Geometry → Fragment.
-    //
-    // The overall flow is:
-    //   1. CPU uploads line point data to a shared GPU vertex buffer (lineBuffer)
-    //      This happens earlier in the frame (e.g. in an "upload" or "prepare" pass).
-    //      lineGPUInfo stores per-object metadata: which byte offset in lineBuffer
-    //      their vertices start at, and how many vertices they have.
-    //
-    //   2. We bind the pipeline and global descriptor set once for ALL line objects.
-    //
-    //   3. For each object we push per-object constants (color, style, transform etc.)
-    //      and issue a draw call pointing into the correct region of lineBuffer.
-    //
-    // The geometry shader is key here: it receives LINE_STRIP segments (2 verts each)
-    // and expands them into screen-aligned quads (2 triangles) so lines can have
-    // configurable thickness. Without a geom shader, Vulkan lines are always 1px.
-    // ============================================================
-
-    if (data.lineBuffer != VK_NULL_HANDLE && !data.lineGPUInfo.empty()) {
-
-        // Debug: log how many line objects exist on the very first frame only.
-        // lineGPUInfo.size() == number of LineRenderer components that had valid
-        // data when the upload pass ran. If this is 0, nothing was uploaded.
-        static bool firstFrame = true;
-        if (firstFrame) {
-            std::cout << "Rendering lines: " << data.lineGPUInfo.size() << " line objects\n";
-            firstFrame = false;
-        }
-
-        // --------------------------------------------------------
-        // PIPELINE BIND
-        // --------------------------------------------------------
-        // Switching pipelines is one of the more expensive state changes in Vulkan.
-        // We do it once here before looping over all line objects — all lines share
-        // the same shader combination (line.vert → line.geom → line.frag).
-        //
-        // linePipeline.pipeline was created with:
-        //   - VK_PRIMITIVE_TOPOLOGY_LINE_STRIP  (input assembly)
-        //   - A geometry shader stage           (quad expansion)
-        //   - Depth test enabled                (lines respect scene depth)
-        //   - Likely alpha blending enabled     (for anti-aliased edges)
-        // --------------------------------------------------------
-        vkCmdBindPipeline(cb,
-            VK_PIPELINE_BIND_POINT_GRAPHICS,
-            data.linePipeline.pipeline);
-
-        // --------------------------------------------------------
-        // DESCRIPTOR SET BIND  (set = 0, the "global" set)
-        // --------------------------------------------------------
-        // Descriptor sets are how shaders access resources that aren't push constants:
-        // textures, UBOs, SSBOs, samplers, etc.
-        //
-        // Set 0 is the "global" set — shared by ALL objects rendered this frame.
-        // It typically contains things like:
-        //   - Camera UBO (view/proj matrices, camera position)
-        //   - Lighting data
-        //   - Time / frame index
-        //
-        // globalSets[frameIndex] — because we double/triple-buffer descriptor sets
-        // in flight to avoid CPU/GPU race conditions. Each in-flight frame has its
-        // own copy of the global UBO so the CPU can update frame N+1 while the GPU
-        // is still reading frame N.
-        //
-        // Note: we pass no dynamic offsets (last 2 args are 0, nullptr) meaning
-        // all bindings in this set use static offsets baked at set-write time.
-        // --------------------------------------------------------
-        vkCmdBindDescriptorSets(cb,
-            VK_PIPELINE_BIND_POINT_GRAPHICS,
-            data.linePipeline.layout,
-            0,                                          // firstSet = 0 (the global set slot)
-            1,                                          // bind 1 set
-            &data.resources.globalSets[frameIndex],     // the actual VkDescriptorSet handle
-            0,
-            nullptr);
-
-        // lineIndex tracks our position in lineGPUInfo[].
-        // lineGPUInfo is populated in the upload pass — it must be in the SAME ORDER
-        // as we iterate scene.objects here, otherwise we'll match the wrong GPU data
-        // to the wrong scene object. This is a common source of subtle rendering bugs.
-        size_t lineIndex = 0;
-
-        uint32_t objectCount = 0;
-        for (const auto &obj: data.scene.objects) {
-
-            // --------------------------------------------------------
-            // COMPONENT FETCH
-            // --------------------------------------------------------
-            // This engine uses an ECS-style component system. Each scene object
-            // can have optional components attached. We need two:
-            //   - LineRenderer: holds the point data and visual properties
-            //   - Transform:    holds world-space position/rotation/scale
-            //
-            // get<T>() returns nullptr if the component isn't present.
-            // --------------------------------------------------------
-            const LineRenderer *lineRenderer = obj.components.get<LineRenderer>();
-
-            // Skip objects that:
-            //   - Have no LineRenderer component at all
-            //   - Have a LineRenderer but it hasn't been given a data pointer yet
-            //   - Have data but no actual points to draw (degenerate or cleared lines)
-            // It's important NOT to increment lineIndex here because the upload pass
-            // would have also skipped these — so there's no matching entry in lineGPUInfo.
-            if (!lineRenderer || !lineRenderer->data || lineRenderer->data->points.empty()) {
-                std::cout << "Skipping empty line renderer" << std::endl;
-                continue;
-            }
-
-            const Transform *transform = obj.components.get<Transform>();
-            if (!transform)
-                continue;
-
-            // Safety guard: if somehow more objects passed the filter than we uploaded,
-            // don't run off the end of lineGPUInfo. This indicates a sync bug between
-            // the upload pass and this render pass — they must use identical filtering.
-            if (lineIndex >= data.lineGPUInfo.size())
-                break;
-
-            objectCount ++; //Make sure this can be used to count the objects
-
-            // --------------------------------------------------------
-            // LINE GPU INFO
-            // --------------------------------------------------------
-            // LineGPUInfo was populated during the upload pass and contains:
-            //   - vertexOffset: byte offset into lineBuffer where this object's
-            //                   vertices begin (since all objects share one buffer)
-            //   - vertexCount:  number of vertices uploaded for this object
-            //
-            // We consume one entry per valid line object, in lock-step with the
-            // upload pass. The post-increment (lineIndex++) advances for next iteration.
-            // --------------------------------------------------------
-            const LineGPUInfo &lineInfo = data.lineGPUInfo[lineIndex++];
-
-            // A line strip needs at least 2 points to form a single segment.
-            // 1 point = nothing to draw. 0 should have been caught above, but
-            // this is a safe secondary guard.
-            if (lineInfo.vertexCount < 2)
-                continue;
-
-            // --------------------------------------------------------
-            // PUSH CONSTANTS
-            // --------------------------------------------------------
-            // Push constants are the fastest way to pass small per-draw data to
-            // shaders — they live directly in the command buffer, no descriptor
-            // set or buffer binding needed. They're ideal for per-object data that
-            // changes every draw call.
-            //
-            // The layout here must EXACTLY match the push_constant block declared
-            // in both line.vert and line.geom (same offsets, same types, same size).
-            // Vulkan is very strict about this — a mismatch causes undefined behavior
-            // or validation errors.
-            //
-            // Total size here: 64+16+4+4+4+4+4+4+24 = 128 bytes.
-            // Max guaranteed push constant size in Vulkan spec is only 128 bytes —
-            // so this is right at the limit! Check maxPushConstantsSize at init time.
-            // --------------------------------------------------------
-            struct {
-                glm::mat4 viewProj;      // 64 bytes — combined View*Projection matrix.
-                                         // Applied in the vertex shader to transform
-                                         // world-space points → clip space.
-                                         // Note: no model matrix here — either lines are
-                                         // in world space already, or it's baked into vertices.
-
-                glm::vec4 globalColor;   // 16 bytes — RGBA base color for this line object.
-                                         // The frag shader may multiply this with per-vertex
-                                         // color if vertex colors are also in the buffer.
-
-                float globalThickness;   // 4 bytes — set to 1.0f here (per-vertex thickness
-                                         // takes precedence). The geometry shader uses this
-                                         // to know how wide to expand each line segment into
-                                         // a screen-space quad.
-
-                float dashLength;        // 4 bytes — for dashed/dotted line styles.
-                                         // Length (in some unit, likely world or screen space)
-                                         // of the "on" portion of a dash pattern.
-
-                float gapLength;         // 4 bytes — length of the "off" (gap) portion.
-                                         // The frag shader uses dashLength + gapLength to
-                                         // compute a repeating pattern along the line.
-
-                uint32_t lineStyle;      // 4 bytes — enum: solid, dashed, dotted, etc.
-                                         // Frag shader switches behaviour based on this value.
-
-                uint32_t antiAlias;      // 4 bytes — 0 or 1. When enabled, the frag shader
-                                         // fades alpha near the edges of the quad to create
-                                         // soft anti-aliased line edges (requires blending).
-
-                float smoothness;        // 4 bytes — controls the width of the AA feather
-                                         // region. Higher = softer edges. Used in the
-                                         // frag shader's smoothstep() call.
-
-                uint32_t padding[6];     // 24 bytes — explicit padding to reach 128 bytes
-                                         // (or to satisfy std430 alignment rules).
-                                         // Must match padding in the shader's push_constant block.
-            } linePushData;
-
-            // Build the View-Projection matrix for this frame.
-            // projectionMatrix(aspectRatio): builds a perspective or ortho matrix
-            //   using the viewport's current aspect ratio to avoid stretching.
-            // viewMatrix(): builds the camera's look-at / inverse-transform matrix.
-            // Combined as Proj * View (NOT View * Proj) — standard column-major convention.
-            linePushData.viewProj = data.camera.projectionMatrix(aspectRatio) * data.camera.viewMatrix();
-
-            linePushData.globalColor     = lineRenderer->data->properties.color;
-            linePushData.globalThickness = 1.0f; // Override: thickness driven per-vertex in buffer
-            linePushData.dashLength      = lineRenderer->data->properties.dashLength;
-            linePushData.gapLength       = lineRenderer->data->properties.gapLength;
-            linePushData.lineStyle       = static_cast<uint32_t>(lineRenderer->data->properties.style);
-            linePushData.antiAlias       = lineRenderer->data->properties.antiAlias ? 1u : 0u;
-            linePushData.smoothness      = lineRenderer->data->properties.smoothness;
-            std::memset(linePushData.padding, 0, sizeof(linePushData.padding)); //Write a copy of zero's to finish off the data
-
-            // Upload push constants into the command buffer.
-            // VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_GEOMETRY_BIT means BOTH
-            // stages can read from offset 0 with this same block.
-            // The frag shader doesn't appear in this mask — if it needs color/style
-            // data, either it gets it via the geom shader's output varyings, or a
-            // separate push constant range was declared for it at pipeline layout creation.
-            vkCmdPushConstants(cb,
-                data.linePipeline.layout,
-                VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_GEOMETRY_BIT,
-                0,                          // offset into push constant range
-                sizeof(linePushData),
-                &linePushData);
-
-            // --------------------------------------------------------
-            // VERTEX BUFFER BIND
-            // --------------------------------------------------------
-            // All line objects share ONE large VkBuffer (lineBuffer), allocated
-            // during the upload pass. Each object occupies a sub-range of it.
-            //
-            // lineInfo.vertexOffset is the BYTE offset where this object's
-            // vertex data begins inside lineBuffer.
-            //
-            // Binding at binding slot 0 tells Vulkan: "when the vertex shader
-            // reads from location=0 attributes, fetch from this buffer+offset."
-            // The vertex attribute layout (stride, format, offset within vertex)
-            // is defined at pipeline creation time in VkVertexInputAttributeDescription.
-            // --------------------------------------------------------
-            VkDeviceSize offsets[] = {lineInfo.vertexOffset}; // a single array of just hte offset for this line
-            vkCmdBindVertexBuffers(cb,
-                0,                   // first binding slot - where to start running the command from on the buffer (the line buffer)
-                1,                   // number of vertices we shall work on
-                &data.lineBuffer, // buffer to load data from
-                offsets); //the offsets to jump per full vertex operation - the vertices are going to be processes in parallel
-
-            // --------------------------------------------------------
-            // DRAW CALL
-            // --------------------------------------------------------
-            // Non-indexed draw: vertices are read sequentially from the bound
-            // vertex buffer starting at the offset we just set.
-            //
-            // vertexCount: how many vertices to consume (lineInfo.vertexCount).
-            //   With LINE_STRIP topology, the GPU emits (vertexCount - 1) line
-            //   segments. Each segment = 2 adjacent vertices (v[i], v[i+1]).
-            //   The geometry shader receives each segment and expands it into
-            //   a quad (triangle strip of 4 verts, or 2 triangles = 6 verts).
-            //
-            // instanceCount = 1: no instancing — we draw one copy.
-            //   (Could use instancing to draw the same line path multiple times
-            //   with different transforms, but we're using push constants instead.)
-            //
-            // firstVertex = 0: start reading from the beginning of the bound
-            //   buffer region (the offset already accounts for where we start).
-            //
-            // firstInstance = 0: irrelevant since instanceCount = 1.
-            // --------------------------------------------------------
-
-
-
-            vkCmdDraw(cb,
-                lineInfo.vertexCount,  // vertices to process
-                1,                     // instance count
-                0,                     // firstVertex
-                0);                    // firstInstance
-        }
-
-
-
-
-
-        //1. Create the indirect command buffer, make sure to allocate it
-#define MAX_OBJECTS 1000
-        VkBuffer indirectDrawBuffer{VK_NULL_HANDLE};
-        VmaAllocation indirectAllocation;
-
-        VkBufferCreateInfo bufferCreateInfo{};
-        bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-        bufferCreateInfo.size = sizeof(VkDrawIndexedIndirectCommand) * MAX_OBJECTS;
-        bufferCreateInfo.usage = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT  //used for indirect rendering buffers
-                            | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT //allows the gpu to write to it
-                            | VK_BUFFER_USAGE_TRANSFER_DST_BIT; //allows the cpu to write initial data
-
-        VmaAllocationCreateInfo allocactionCreateInfo{};
-        allocactionCreateInfo.usage  = VMA_MEMORY_USAGE_GPU_ONLY; //lives on the GPU, compute writes here
-
-        // This is used to store the allocation
-        VmaAllocation lineIndirectAllocation{VK_NULL_HANDLE};
-        VmaAllocationInfo lineIndirectAllocationInfo;
-        if (vmaCreateBuffer(data.windowData->allocator, &bufferCreateInfo, &allocactionCreateInfo, &indirectDrawBuffer, &lineIndirectAllocation, &lineIndirectAllocationInfo ) != VK_SUCCESS) {
-
-            std::cerr << "Failed to create indirect line buffer\n";
-            return;
-
-        };
-
-
-        //2. Create a staging buffer that will be used to populate the final buffer later on
-        std::vector <VkDrawIndexedIndirectCommand> indirectLineDrawCommands (objectCount);
-        std::vector<std::vector<LineVertex>> lineObjects = collectLineVertexBatches(data);
-        VkDeviceSize offset = 0;
-        for (uint32_t i = 0; i < objectCount; i++) {
-
-
-
-            indirectLineDrawCommands[i].indexCount = lineObjects[i].size() * 2;
-            indirectLineDrawCommands[i].instanceCount = 1;
-            indirectLineDrawCommands[i].firstIndex    = offset;
-
-
-
-
-            //Increment the offset for use with the next object
-            offset += (lineObjects[i].size() * sizeof(LineVertex));
-
-        }
-        //3. Copy the stating command buffer into the in memory indirect command buffer
-        //4. Do the draw call
-        //5. Make sure we have a descriptor set that works well for the objects we are storing
-
-
-
-
-
-        // vkCmdDrawIndirect(cb, data.lineBuffer, 0, 1, sizeof(LineVertex));
-
-
-
-
-    }
-
-
-
-
-}
-
-
-
-bool LinePipeline::UploadLinesToGPU(DefaultGameWorldData& data, VmaAllocator allocator)
-{
-    std::cout << "uploadLinesToGPU called\n";
-
-    // Collect vertex data from all LineRenderer components in the scene
-    std::vector<std::vector<LineVertex>> allLineData = collectLineVertexBatches(data);
-    if (allLineData.empty())
-        return true;
-
-    // Calculate total buffer size
-    VkDeviceSize totalSize = 0;
-    for (const std::vector<LineVertex> &lineData: allLineData) // loop through all line objects
-        totalSize += lineData.size() * sizeof(LineVertex);
-
-    if (totalSize == 0)
-        return true;
-
-    VkBufferCreateInfo bufferCI{ //prepare to create a vertex buffer of the size we need
-        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-        .size  = totalSize,
-        .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
-    };
-
-    VmaAllocationCreateInfo allocCI{ //prepare the allocation for buffer
-        .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
-                 VMA_ALLOCATION_CREATE_MAPPED_BIT,
-        .usage = VMA_MEMORY_USAGE_AUTO
-    };
-
-    VmaAllocationInfo allocInfo;
-    if (vmaCreateBuffer(allocator, &bufferCI, &allocCI,
-                        &data.lineBuffer, &data.lineBufferAllocation, &allocInfo) != VK_SUCCESS) //allocate memory to store the buffer
-        {
-        std::cerr << "Failed to create line buffer\n";
-        return false;
-    }
-
-    char* bufferPtr = static_cast<char*>(allocInfo.pMappedData); //get a pointer to the start of the memory
-    VkDeviceSize offset = 0; // this the offset per line data
-
-    for (const std::vector<LineVertex> &lineData: allLineData) {
-        VkDeviceSize dataSize = lineData.size() * sizeof(LineVertex); // fine out how much we need for this specific line
-        if (dataSize > 0) // copy this data, starting at the next available location, into the memory
-            std::memcpy(bufferPtr + offset, lineData.data(), dataSize);
-
-        data.lineGPUInfo.push_back({ //save this line data for use later on when rendering
-            .vertexOffset = offset, // this offset shows where in the line data buffer this line starts from
-            .vertexCount  = static_cast<uint32_t>(lineData.size())
-        });
-
-        offset += dataSize;
-    }
-
-    std::cout << "Uploaded " << allLineData.size() << " lines to GPU ("
-              << totalSize << " bytes)\n";
-
-    return true;
-}
-
-VkShaderModule LinePipeline::loadShaderModule(VkDevice device, const std::string& path)
-{
-    std::cout << "Loading shader: " << path << std::endl;
-
-    auto& globalSession = getSlangSession();
-    if (!globalSession)
-    {
-        std::cerr << "No global session available\n";
-        return VK_NULL_HANDLE;
-    }
-
-    // Configure target (SPIR-V 1.4)
-    slang::TargetDesc targetDesc{
-        .format = SLANG_SPIRV,
-        .profile = globalSession->findProfile("spirv_1_4")
-    };
-
-    // Configure compiler options
-    slang::CompilerOptionEntry options[] = {
-        { slang::CompilerOptionName::EmitSpirvDirectly, {slang::CompilerOptionValueKind::Int, 1} }
-    };
-
-    // Create session descriptor
-    slang::SessionDesc sessionDesc{
-        .targets = &targetDesc,
-        .targetCount = 1,
-        .defaultMatrixLayoutMode = SLANG_MATRIX_LAYOUT_COLUMN_MAJOR,
-        .compilerOptionEntries = options,
-        .compilerOptionEntryCount = 1
-    };
-
-    Slang::ComPtr<slang::ISession> session;
-    if (globalSession->createSession(sessionDesc, session.writeRef()) != SLANG_OK)
-    {
-        std::cerr << "Failed to create Slang session\n";
-        return VK_NULL_HANDLE;
-    }
-
-    // Load shader module from source file
-    Slang::ComPtr<slang::IBlob> diagnostics;
-    Slang::ComPtr<slang::IModule> module{ session->loadModuleFromSource(
-        "shader_module",
-        path.c_str(),
-        nullptr,
-        diagnostics.writeRef()
-    ) };
-
-    // Print diagnostics if any
-    if (diagnostics && diagnostics->getBufferSize() > 0)
-    {
-        std::cout << "Slang diagnostics for " << path << ":\n"
-                  << (const char*)diagnostics->getBufferPointer() << std::endl;
-    }
-
-    if (!module)
-    {
-        std::cerr << "Failed to load shader module: " << path << "\n";
-        return VK_NULL_HANDLE;
-    }
-
-    // Get SPIR-V code from module
-    Slang::ComPtr<slang::IBlob> spirvCode;
-    if (module->getTargetCode(0, spirvCode.writeRef()) != SLANG_OK || !spirvCode)
-    {
-        std::cerr << "Failed to get SPIR-V from module: " << path << "\n";
-        return VK_NULL_HANDLE;
-    }
-
-    // Create VkShaderModule from SPIR-V binary
-    VkShaderModuleCreateInfo moduleCI{
-        .sType    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-        .codeSize = spirvCode->getBufferSize(),
-        .pCode    = static_cast<const uint32_t*>(spirvCode->getBufferPointer())
-    };
-
-    VkShaderModule shaderModule = VK_NULL_HANDLE;
-    if (vkCreateShaderModule(device, &moduleCI, nullptr, &shaderModule) != VK_SUCCESS)
-    {
-        std::cerr << "Failed to create VkShaderModule for: " << path << "\n";
-        return VK_NULL_HANDLE;
-    }
-
-    return shaderModule;
-}
-
-bool LinePipeline::create(VkDevice device,
-                          const LinePipelineDesc& desc,
-                          const std::vector<VkDescriptorSetLayout>& setLayouts,
-                          VkFormat colorFormat,
-                          VkFormat depthFormat)
-{
-    // Load shader modules
-    VkShaderModule vertModule = loadShaderModule(device, desc.vertexShaderPath);
-    VkShaderModule geomModule = loadShaderModule(device, desc.geometryShaderPath);
-    VkShaderModule fragModule = loadShaderModule(device, desc.fragmentShaderPath);
-
-    if (vertModule == VK_NULL_HANDLE || geomModule == VK_NULL_HANDLE || fragModule == VK_NULL_HANDLE)
-    {
-        if (vertModule != VK_NULL_HANDLE) vkDestroyShaderModule(device, vertModule, nullptr);
-        if (geomModule != VK_NULL_HANDLE) vkDestroyShaderModule(device, geomModule, nullptr);
-        if (fragModule != VK_NULL_HANDLE) vkDestroyShaderModule(device, fragModule, nullptr);
-        return false;
-    }
-
-    // Push constant range for line data
-    // Layout: mat4 viewProj (64) + vec4 globalColor (16) + float globalThickness (4) +
-    //         float dashLength (4) + float gapLength (4) + uint lineStyle (4) +
-    //         uint antiAlias (4) + float smoothness (4) + padding (24) = 128 bytes
-    VkPushConstantRange pushConstantRange{
-        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_GEOMETRY_BIT,
-        .offset     = 0,
-        .size       = 128
-    };
-
-    // Create pipeline layout
-    VkPipelineLayoutCreateInfo layoutCI{
-        .sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-        .setLayoutCount         = static_cast<uint32_t>(setLayouts.size()),
-        .pSetLayouts            = setLayouts.data(),
-        .pushConstantRangeCount = 1,
-        .pPushConstantRanges    = &pushConstantRange
-    };
-
-    if (vkCreatePipelineLayout(device, &layoutCI, nullptr, &layout) != VK_SUCCESS)
-    {
-        vkDestroyShaderModule(device, vertModule, nullptr);
-        vkDestroyShaderModule(device, geomModule, nullptr);
-        vkDestroyShaderModule(device, fragModule, nullptr);
-        return false;
-    }
-
-    // Shader stages (vertex, geometry, fragment)
-    VkPipelineShaderStageCreateInfo shaderStages[] = {
-        {
-            .sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-            .stage  = VK_SHADER_STAGE_VERTEX_BIT,
-            .module = vertModule,
-            .pName  = "main"
-        },
-        {
-            .sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-            .stage  = VK_SHADER_STAGE_GEOMETRY_BIT,
-            .module = geomModule,
-            .pName  = "main"
-        },
-        {
-            .sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-            .stage  = VK_SHADER_STAGE_FRAGMENT_BIT,
-            .module = fragModule,
-            .pName  = "main"
-        }
-    };
-
-    // Vertex input: LineVertex (vec3 pos, vec4 color, float thickness, float distance)
-    VkVertexInputBindingDescription vertexBinding{
-        .binding   = 0,
-        .stride    = 32,  // 12 + 16 + 4 + 4 bytes
-        .inputRate = VK_VERTEX_INPUT_RATE_VERTEX
-    };
-
-    VkVertexInputAttributeDescription vertexAttributes[] = {
-        { .location = 0, .binding = 0, .format = VK_FORMAT_R32G32B32_SFLOAT,    .offset = 0 },   // position
-        { .location = 1, .binding = 0, .format = VK_FORMAT_R32G32B32A32_SFLOAT, .offset = 12 },  // color
-        { .location = 2, .binding = 0, .format = VK_FORMAT_R32_SFLOAT,          .offset = 28 },  // thickness
-        { .location = 3, .binding = 0, .format = VK_FORMAT_R32_SFLOAT,          .offset = 32 }   // distance (actually offset 28+4=32, but size is 32 total, this is wrong)
-    };
-
-    // Fix: recalculate offsets
-    // position: 3 floats = 12 bytes, offset 0
-    // color: 4 floats = 16 bytes, offset 12
-    // thickness: 1 float = 4 bytes, offset 28
-    // distance: 1 float = 4 bytes, offset 32
-    // Total: 36 bytes (not 32!)
-
-    vertexBinding.stride = 36;
-    vertexAttributes[3].offset = 32;
-
-    VkPipelineVertexInputStateCreateInfo vertexInputState{
-        .sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-        .vertexBindingDescriptionCount   = 1,
-        .pVertexBindingDescriptions      = &vertexBinding,
-        .vertexAttributeDescriptionCount = 4,
-        .pVertexAttributeDescriptions    = vertexAttributes
-    };
-
-    // Input assembly (line topology)
-    VkPipelineInputAssemblyStateCreateInfo inputAssembly{
-        .sType    = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-        .topology = desc.topology
-    };
-
-    // Dynamic state
-    VkDynamicState dynamicStates[] = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
-    VkPipelineDynamicStateCreateInfo dynamicState{
-        .sType             = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
-        .dynamicStateCount = 2,
-        .pDynamicStates    = dynamicStates
-    };
-
-    VkPipelineViewportStateCreateInfo viewportState{
-        .sType         = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
-        .viewportCount = 1,
-        .scissorCount  = 1
-    };
-
-    // Rasterization (no culling for lines)
-    VkPipelineRasterizationStateCreateInfo rasterization{
-        .sType       = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-        .polygonMode = VK_POLYGON_MODE_FILL,
-        .cullMode    = VK_CULL_MODE_NONE,
-        .frontFace   = VK_FRONT_FACE_COUNTER_CLOCKWISE,
-        .lineWidth   = 1.0f
-    };
-
-    // Multisampling (none)
-    VkPipelineMultisampleStateCreateInfo multisampling{
-        .sType                = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-        .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT
-    };
-
-    // Depth/stencil
-    VkPipelineDepthStencilStateCreateInfo depthStencil{
-        .sType            = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-        .depthTestEnable  = desc.depthTest ? VK_TRUE : VK_FALSE,
-        .depthWriteEnable = desc.depthTest ? VK_TRUE : VK_FALSE,
-        .depthCompareOp   = VK_COMPARE_OP_LESS_OR_EQUAL
-    };
-
-    // Color blending (alpha blending for smooth lines)
-    VkPipelineColorBlendAttachmentState colorBlendAttachment{};
-    colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
-                                          VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    colorBlendAttachment.blendEnable = VK_TRUE;
-    colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-    colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-    colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
-    colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-    colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-    colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
-
-    VkPipelineColorBlendStateCreateInfo colorBlending{
-        .sType           = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
-        .attachmentCount = 1,
-        .pAttachments    = &colorBlendAttachment
-    };
-
-    // Dynamic rendering
-    VkPipelineRenderingCreateInfo renderingCI{
-        .sType                   = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
-        .colorAttachmentCount    = 1,
-        .pColorAttachmentFormats = &colorFormat,
-        .depthAttachmentFormat   = depthFormat
-    };
-
-    // Create graphics pipeline
-    VkGraphicsPipelineCreateInfo pipelineCI{
-        .sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-        .pNext               = &renderingCI,
-        .stageCount          = 3,  // vertex, geometry, fragment
-        .pStages             = shaderStages,
-        .pVertexInputState   = &vertexInputState,
-        .pInputAssemblyState = &inputAssembly,
-        .pViewportState      = &viewportState,
-        .pRasterizationState = &rasterization,
-        .pMultisampleState   = &multisampling,
-        .pDepthStencilState  = &depthStencil,
-        .pColorBlendState    = &colorBlending,
-        .pDynamicState       = &dynamicState,
-        .layout              = layout
-    };
-
-    VkResult result = vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &pipeline);
-
-    // Destroy shader modules
-    vkDestroyShaderModule(device, vertModule, nullptr);
-    vkDestroyShaderModule(device, geomModule, nullptr);
-    vkDestroyShaderModule(device, fragModule, nullptr);
-
-    return result == VK_SUCCESS;
-}
-
-void LinePipeline::destroy(VkDevice device)
-{
-    if (pipeline != VK_NULL_HANDLE)
-        vkDestroyPipeline(device, pipeline, nullptr);
-    if (layout != VK_NULL_HANDLE)
-        vkDestroyPipelineLayout(device, layout, nullptr);
-
-    pipeline = VK_NULL_HANDLE;
-    layout   = VK_NULL_HANDLE;
-}
+#include "LinePipeline.h"#include "DefaultGameWorld.h"#include "../../Data/LineProperties.h"#include <vma/vk_mem_alloc.h>#include <fstream>#include <stdexcept>#include <iostream>#include <cstring>#include "ApplicationWindow.h"#include "Components/LineRenderer.h"#include "Components/Transform.h"#include "slang/slang.h"#include "slang/slang-com-ptr.h"// Reuse the Slang session from Pipelineextern Slang::ComPtr<slang::IGlobalSession> &getGlobalSlangSession();Slang::ComPtr<slang::IGlobalSession> &LinePipeline::getSlangSession() {    static Slang::ComPtr<slang::IGlobalSession> globalSession;    if (!globalSession) {        if (slang::createGlobalSession(globalSession.writeRef()) != SLANG_OK) {            std::cerr << "Failed to create Slang global session for LinePipeline\n";        }    }    return globalSession;}bool LinePipeline::createSSBODescriptorInfrastructure(VkDevice device) {    // One binding, the SSBO at binding 0 of set 1    // Visible to vertex and geometry stages (both need per object data)    VkDescriptorSetLayoutBinding ssboBinding{        .binding = 0,        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,        .descriptorCount = 1,        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_GEOMETRY_BIT    };    VkDescriptorSetLayoutCreateInfo layoutCI{        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,        .bindingCount = 1,        .pBindings = &ssboBinding    };    if (vkCreateDescriptorSetLayout(device, &layoutCI, nullptr, &ssboSetLayout) != VK_SUCCESS)        return false;    //Pool only needs to hold one storage buffer descriptor    VkDescriptorPoolSize poolSize{        .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,        .descriptorCount = 1    };    VkDescriptorPoolCreateInfo poolCI{        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,        .maxSets = 1,        .poolSizeCount = 1,        .pPoolSizes = &poolSize    };    if (vkCreateDescriptorPool(device, &poolCI, nullptr, &ssboPool) != VK_SUCCESS)        return false;    //Allocate the single descriptor set    VkDescriptorSetAllocateInfo allocInfo{        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,        .descriptorPool = ssboPool,        .descriptorSetCount = 1,        .pSetLayouts = &ssboSetLayout    };    if (vkAllocateDescriptorSets(device, &allocInfo, &ssboSet) != VK_SUCCESS)        return false;    return true;}std::vector<std::vector<LineVertex> > collectLineVertexBatches(const DefaultGameWorldData &data) {    std::vector<std::vector<LineVertex> > allLineData;    for (const auto &obj: data.scene.objects) {        const LineRenderer *lineRenderer = obj.components.get<LineRenderer>();        if (!lineRenderer || !lineRenderer->data)            continue;        std::cout << "Found LineRenderer on object: " << obj.name << "\n";        allLineData.push_back(lineRenderer->buildVertexData());    }    std::cout << "Found " << allLineData.size() << " lines to upload\n";    return allLineData;}void LinePipeline::DoRender(VkCommandBuffer cb, uint32_t frameIndex, float aspectRatio, DefaultGameWorldData &data) {    // ============================================================    // LINE RENDERING PASS    // ============================================================    // This block handles rendering all "LineRenderer" components in the scene.    // The pipeline here is a 3-stage pipeline: Vertex → Geometry → Fragment.    //    // The overall flow is:    //   1. CPU uploads line point data to a shared GPU vertex buffer (lineBuffer)    //      This happens earlier in the frame (e.g. in an "upload" or "prepare" pass).    //      lineGPUInfo stores per-object metadata: which byte offset in lineBuffer    //      their vertices start at, and how many vertices they have.    //    //   2. We bind the pipeline and global descriptor set once for ALL line objects.    //    //   3. For each object we push per-object constants (color, style, transform etc.)    //      and issue a draw call pointing into the correct region of lineBuffer.    //    // The geometry shader is key here: it receives LINE_STRIP segments (2 verts each)    // and expands them into screen-aligned quads (2 triangles) so lines can have    // configurable thickness. Without a geom shader, Vulkan lines are always 1px.    // ============================================================    if (data.lineBuffer != VK_NULL_HANDLE && !data.lineGPUInfo.empty()) {        // Debug: log how many line objects exist on the very first frame only.        // lineGPUInfo.size() == number of LineRenderer components that had valid        // data when the upload pass ran. If this is 0, nothing was uploaded.        static bool firstFrame = true;        if (firstFrame) {            std::cout << "Rendering lines: " << data.lineGPUInfo.size() << " line objects\n";            firstFrame = false;        }        // --------------------------------------------------------        // PIPELINE BIND        // --------------------------------------------------------        // Switching pipelines is one of the more expensive state changes in Vulkan.        // We do it once here before looping over all line objects — all lines share        // the same shader combination (line.vert → line.geom → line.frag).        //        // linePipeline.pipeline was created with:        //   - VK_PRIMITIVE_TOPOLOGY_LINE_STRIP  (input assembly)        //   - A geometry shader stage           (quad expansion)        //   - Depth test enabled                (lines respect scene depth)        //   - Likely alpha blending enabled     (for anti-aliased edges)        // --------------------------------------------------------        vkCmdBindPipeline(cb,                          VK_PIPELINE_BIND_POINT_GRAPHICS,                          data.linePipeline.pipeline);        // --------------------------------------------------------        // DESCRIPTOR SET BIND  (set = 0, the "global" set)        // --------------------------------------------------------        // Descriptor sets are how shaders access resources that aren't push constants:        // textures, UBOs, SSBOs, samplers, etc.        //        // Set 0 is the "global" set — shared by ALL objects rendered this frame.        // It typically contains things like:        //   - Camera UBO (view/proj matrices, camera position)        //   - Lighting data        //   - Time / frame index        //        // globalSets[frameIndex] — because we double/triple-buffer descriptor sets        // in flight to avoid CPU/GPU race conditions. Each in-flight frame has its        // own copy of the global UBO so the CPU can update frame N+1 while the GPU        // is still reading frame N.        //        // Note: we pass no dynamic offsets (last 2 args are 0, nullptr) meaning        // all bindings in this set use static offsets baked at set-write time.        // --------------------------------------------------------        vkCmdBindDescriptorSets(cb,                                VK_PIPELINE_BIND_POINT_GRAPHICS,                                data.linePipeline.layout,                                0, // firstSet = 0 (the global set slot)                                1, // bind 1 set                                &data.resources.globalSets[frameIndex], // the actual VkDescriptorSet handle                                0,                                nullptr);        // Bind set 1 — the line SSBO (per-object color, style, thickness etc.)        vkCmdBindDescriptorSets(cb,            VK_PIPELINE_BIND_POINT_GRAPHICS,            data.linePipeline.layout,            1,          // firstSet = 1            1,            &ssboSet,            0, nullptr);        /* ============================================================         * LEGACY: DIRECT (CPU-DRIVEN) DRAW LOOP — kept for reference         * ============================================================         * This was the original per-object draw loop. For each scene object it:         *   1. Re-bound the vertex buffer with a per-object byte offset (vertexOffset)         *   2. Pushed per-object constants (color, style, thickness etc.)         *   3. Issued a vkCmdDraw call         *         * Problems with this approach:         *   - N vertex buffer binds for N objects (expensive state change per draw)         *   - N push constant uploads per frame         *   - N separate vkCmdDraw calls — all CPU-side work per frame         *         * What replaced it (see below):         *   - Vertex buffer bound ONCE at offset 0         *   - firstVertex inside each VkDrawIndirectCommand handles per-object offset         *   - vkCmdDrawIndirect used per object (loop still exists for push constants)         *         * FUTURE: Move per-object data (color/style/thickness) into an SSBO,         *   index with gl_DrawID in the shader → loop disappears entirely →         *   single vkCmdDrawIndirect(drawCount = N) replaces everything below.         * ============================================================        // lineIndex tracks our position in lineGPUInfo[].        // lineGPUInfo is populated in the upload pass — it must be in the SAME ORDER        // as we iterate scene.objects here, otherwise we'll match the wrong GPU data        // to the wrong scene object. This is a common source of subtle rendering bugs.        size_t lineIndex = 0;        uint32_t objectCount = 0;        for (const auto &obj: data.scene.objects) {            // --------------------------------------------------------            // COMPONENT FETCH            // --------------------------------------------------------            // This engine uses an ECS-style component system. Each scene object            // can have optional components attached. We need two:            //   - LineRenderer: holds the point data and visual properties            //   - Transform:    holds world-space position/rotation/scale            //            // get<T>() returns nullptr if the component isn't present.            // --------------------------------------------------------            const LineRenderer *lineRenderer = obj.components.get<LineRenderer>();            // Skip objects that:            //   - Have no LineRenderer component at all            //   - Have a LineRenderer but it hasn't been given a data pointer yet            //   - Have data but no actual points to draw (degenerate or cleared lines)            // It's important NOT to increment lineIndex here because the upload pass            // would have also skipped these — so there's no matching entry in lineGPUInfo.            if (!lineRenderer || !lineRenderer->data || lineRenderer->data->points.empty()) {                std::cout << "Skipping empty line renderer" << std::endl;                continue;            }            const Transform *transform = obj.components.get<Transform>();            if (!transform)                continue;            // Safety guard: if somehow more objects passed the filter than we uploaded,            // don't run off the end of lineGPUInfo. This indicates a sync bug between            // the upload pass and this render pass — they must use identical filtering.            if (lineIndex >= data.lineGPUInfo.size())                break;            objectCount ++; //Make sure this can be used to count the objects            // --------------------------------------------------------            // LINE GPU INFO            // --------------------------------------------------------            // LineGPUInfo was populated during the upload pass and contains:            //   - vertexOffset: byte offset into lineBuffer where this object's            //                   vertices begin (since all objects share one buffer)            //   - vertexCount:  number of vertices uploaded for this object            //            // We consume one entry per valid line object, in lock-step with the            // upload pass. The post-increment (lineIndex++) advances for next iteration.            // --------------------------------------------------------            const LineGPUInfo &lineInfo = data.lineGPUInfo[lineIndex++];            // A line strip needs at least 2 points to form a single segment.            // 1 point = nothing to draw. 0 should have been caught above, but            // this is a safe secondary guard.            if (lineInfo.vertexCount < 2)                continue;            // --------------------------------------------------------            // PUSH CONSTANTS            // --------------------------------------------------------            // Push constants are the fastest way to pass small per-draw data to            // shaders — they live directly in the command buffer, no descriptor            // set or buffer binding needed. They're ideal for per-object data that            // changes every draw call.            //            // The layout here must EXACTLY match the push_constant block declared            // in both line.vert and line.geom (same offsets, same types, same size).            // Vulkan is very strict about this — a mismatch causes undefined behavior            // or validation errors.            //            // Total size here: 64+16+4+4+4+4+4+4+24 = 128 bytes.            // Max guaranteed push constant size in Vulkan spec is only 128 bytes —            // so this is right at the limit! Check maxPushConstantsSize at init time.            // --------------------------------------------------------            struct {                glm::mat4 viewProj;      // 64 bytes — combined View*Projection matrix.                                         // Applied in the vertex shader to transform                                         // world-space points → clip space.                                         // Note: no model matrix here — either lines are                                         // in world space already, or it's baked into vertices.                glm::vec4 globalColor;   // 16 bytes — RGBA base color for this line object.                                         // The frag shader may multiply this with per-vertex                                         // color if vertex colors are also in the buffer.                float globalThickness;   // 4 bytes — set to 1.0f here (per-vertex thickness                                         // takes precedence). The geometry shader uses this                                         // to know how wide to expand each line segment into                                         // a screen-space quad.                float dashLength;        // 4 bytes — for dashed/dotted line styles.                                         // Length (in some unit, likely world or screen space)                                         // of the "on" portion of a dash pattern.                float gapLength;         // 4 bytes — length of the "off" (gap) portion.                                         // The frag shader uses dashLength + gapLength to                                         // compute a repeating pattern along the line.                uint32_t lineStyle;      // 4 bytes — enum: solid, dashed, dotted, etc.                                         // Frag shader switches behaviour based on this value.                uint32_t antiAlias;      // 4 bytes — 0 or 1. When enabled, the frag shader                                         // fades alpha near the edges of the quad to create                                         // soft anti-aliased line edges (requires blending).                float smoothness;        // 4 bytes — controls the width of the AA feather                                         // region. Higher = softer edges. Used in the                                         // frag shader's smoothstep() call.                uint32_t padding[6];     // 24 bytes — explicit padding to reach 128 bytes                                         // (or to satisfy std430 alignment rules).                                         // Must match padding in the shader's push_constant block.            } linePushData;            // Build the View-Projection matrix for this frame.            // projectionMatrix(aspectRatio): builds a perspective or ortho matrix            //   using the viewport's current aspect ratio to avoid stretching.            // viewMatrix(): builds the camera's look-at / inverse-transform matrix.            // Combined as Proj * View (NOT View * Proj) — standard column-major convention.            linePushData.viewProj = data.camera.projectionMatrix(aspectRatio) * data.camera.viewMatrix();            linePushData.globalColor     = lineRenderer->data->properties.color;            linePushData.globalThickness = 1.0f; // Override: thickness driven per-vertex in buffer            linePushData.dashLength      = lineRenderer->data->properties.dashLength;            linePushData.gapLength       = lineRenderer->data->properties.gapLength;            linePushData.lineStyle       = static_cast<uint32_t>(lineRenderer->data->properties.style);            linePushData.antiAlias       = lineRenderer->data->properties.antiAlias ? 1u : 0u;            linePushData.smoothness      = lineRenderer->data->properties.smoothness;            std::memset(linePushData.padding, 0, sizeof(linePushData.padding)); //Write a copy of zero's to finish off the data            // Upload push constants into the command buffer.            // VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_GEOMETRY_BIT means BOTH            // stages can read from offset 0 with this same block.            // The frag shader doesn't appear in this mask — if it needs color/style            // data, either it gets it via the geom shader's output varyings, or a            // separate push constant range was declared for it at pipeline layout creation.            vkCmdPushConstants(cb,                data.linePipeline.layout,                VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_GEOMETRY_BIT,                0,                          // offset into push constant range                sizeof(linePushData),                &linePushData);            // --------------------------------------------------------            // VERTEX BUFFER BIND            // --------------------------------------------------------            // All line objects share ONE large VkBuffer (lineBuffer), allocated            // during the upload pass. Each object occupies a sub-range of it.            //            // lineInfo.vertexOffset is the BYTE offset where this object's            // vertex data begins inside lineBuffer.            //            // Binding at binding slot 0 tells Vulkan: "when the vertex shader            // reads from location=0 attributes, fetch from this buffer+offset."            // The vertex attribute layout (stride, format, offset within vertex)            // is defined at pipeline creation time in VkVertexInputAttributeDescription.            // --------------------------------------------------------            VkDeviceSize offsets[] = {lineInfo.vertexOffset}; // a single array of just hte offset for this line            vkCmdBindVertexBuffers(cb,                0,                   // first binding slot - where to start running the command from on the buffer (the line buffer)                1,                   // number of vertices we shall work on                &data.lineBuffer, // buffer to load data from                offsets); //the offsets to jump per full vertex operation - the vertices are going to be processes in parallel            // --------------------------------------------------------            // DRAW CALL            // --------------------------------------------------------            // Non-indexed draw: vertices are read sequentially from the bound            // vertex buffer starting at the offset we just set.            //            // vertexCount: how many vertices to consume (lineInfo.vertexCount).            //   With LINE_STRIP topology, the GPU emits (vertexCount - 1) line            //   segments. Each segment = 2 adjacent vertices (v[i], v[i+1]).            //   The geometry shader receives each segment and expands it into            //   a quad (triangle strip of 4 verts, or 2 triangles = 6 verts).            //            // instanceCount = 1: no instancing — we draw one copy.            //   (Could use instancing to draw the same line path multiple times            //   with different transforms, but we're using push constants instead.)            //            // firstVertex = 0: start reading from the beginning of the bound            //   buffer region (the offset already accounts for where we start).            //            // firstInstance = 0: irrelevant since instanceCount = 1.            // --------------------------------------------------------            vkCmdDraw(cb,                lineInfo.vertexCount,  // vertices to process                1,                     // instance count                0,                     // firstVertex                0);                    // firstInstance        }        * ============================================================ END LEGACY */        //Get the memory allocated to store the lines earlier through the UploadLinesToGPUStage        //We can use this preallocated memory to make things faster        VmaAllocationInfo indirectAllocationInfo;        vmaGetAllocationInfo(data.windowData->allocator, indirectBufferAllocation, &indirectAllocationInfo);        //2. Collect line vertex batches and build the indirect command list.        // collectLineVertexBatches uses the same filtering logic as UploadLinesToGPU,        // so lineObjects[i] always corresponds to the same object as the GPU vertex data        // that was uploaded at index i. Order must stay consistent or draws will be mismatched.        std::vector<std::vector<LineVertex> > lineObjects = collectLineVertexBatches(data);        // objectCount is now derived directly from the collected batches rather than        // from the old loop counter — the old loop's objectCount is inside the commented block above.        uint32_t objectCount = static_cast<uint32_t>(lineObjects.size());        std::vector<VkDrawIndirectCommand> indirectLineDrawCommands(objectCount);        VkDeviceSize offset = 0;        for (uint32_t i = 0; i < objectCount; i++) {            indirectLineDrawCommands[i].vertexCount = static_cast<uint32_t>(lineObjects[i].size());            indirectLineDrawCommands[i].instanceCount = 1;            indirectLineDrawCommands[i].firstVertex = static_cast<uint32_t>(offset / sizeof(LineVertex));            indirectLineDrawCommands[i].firstInstance = 0;            //Increment the offset for use with the next object            offset += lineObjects[i].size() * sizeof(LineVertex);        }        //3. Copy the staging command buffer into the in memory indirect command buffer        memcpy(indirectAllocationInfo.pMappedData, indirectLineDrawCommands.data(),               sizeof(VkDrawIndirectCommand) * objectCount); // Use the pointer to copy our data into that memory        // ============================================================        // STEP 4: BIND VERTEX BUFFER ONCE + INDIRECT DRAW LOOP        // ============================================================        // OLD approach: vkCmdBindVertexBuffers called per-object with a byte offset,        //   meaning the GPU saw the buffer starting at that object's data each time.        //        // NEW approach: bind the shared vertex buffer ONCE at offset 0.        //   The firstVertex field inside each VkDrawIndirectCommand tells the GPU        //   which vertex INDEX to start reading from inside that single binding.        //   firstVertex = byte_offset / sizeof(LineVertex) -- set when we populated        //   indirectLineDrawCommands above.        //        // This is already a meaningful improvement: N vertex buffer binds -> 1.        // ============================================================        VkDeviceSize zero = 0;        vkCmdBindVertexBuffers(cb, 0, 1, &data.lineBuffer, &zero);        // Loop still exists because push constants are per-object (color, style, thickness).        // The GPU cannot see different push constants for different draws within a single        // multi-draw indirect call -- it uses whatever was last pushed before the call.        // So we still push constants per object and call vkCmdDrawIndirect(drawCount=1) each time.        //        // TODO: FUTURE: Replace per-object push constants with an SSBO indexed by gl_DrawID        //   in the vertex shader. Then this entire loop collapses into one call:        //   vkCmdDrawIndirect(cb, indirectDrawBuffer, 0, objectCount, sizeof(VkDrawIndirectCommand))        size_t lineIndex2 = 0;        uint32_t drawIndex = 0;        for (const GameObject &obj: data.scene.objects) {            const LineRenderer *lineRenderer = obj.components.get<LineRenderer>();            if (!lineRenderer || !lineRenderer->data || lineRenderer->data->points.empty()) continue;            const Transform *transform = obj.components.get<Transform>();            if (!transform) continue;            if (lineIndex2 >= data.lineGPUInfo.size()) break;            lineIndex2++;            struct {                glm::mat4 viewProj;                glm::vec4 globalColor;                float globalThickness;                float dashLength;                float gapLength;                uint32_t lineStyle;                uint32_t antiAlias;                float smoothness;                uint32_t padding[6];            } linePushData;            linePushData.viewProj = data.camera.projectionMatrix(aspectRatio) * data.camera.viewMatrix();            linePushData.globalColor = lineRenderer->data->properties.color;            linePushData.globalThickness = 1.0f;            linePushData.dashLength = lineRenderer->data->properties.dashLength;            linePushData.gapLength = lineRenderer->data->properties.gapLength;            linePushData.lineStyle = static_cast<uint32_t>(lineRenderer->data->properties.style);            linePushData.antiAlias = lineRenderer->data->properties.antiAlias ? 1u : 0u;            linePushData.smoothness = lineRenderer->data->properties.smoothness;            std::memset(linePushData.padding, 0, sizeof(linePushData.padding));            vkCmdPushConstants(cb,                               data.linePipeline.layout,                               VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_GEOMETRY_BIT,                               0, sizeof(linePushData), &linePushData);            // offset = drawIndex * stride points to this object's VkDrawIndirectCommand            // in indirectDrawBuffer (vertexCount, instanceCount=1, firstVertex, firstInstance=0).            // stride = sizeof(VkDrawIndirectCommand) kept correct for future drawCount=N upgrade.            vkCmdDrawIndirect(cb,                              indirectBuffer,                              drawIndex * sizeof(VkDrawIndirectCommand),                              1,                              sizeof(VkDrawIndirectCommand));            drawIndex++;        }    }}bool LinePipeline::UploadLinesToGPU(DefaultGameWorldData &data, VmaAllocator allocator) {    // Collect vertex data from all LineRenderer components in the scene    std::vector<std::vector<LineVertex> > allLineData = collectLineVertexBatches(data);    if (allLineData.empty())        return true;    // Calculate total buffer size    VkDeviceSize totalSize = 0;    for (const std::vector<LineVertex> &lineData: allLineData) // loop through all line objects        totalSize += lineData.size() * sizeof(LineVertex);    if (totalSize == 0)        return true;    // INDIRECT LINE BUFFER =====================================================    VkBufferCreateInfo bufferCI{        //prepare to create a vertex buffer of the size we need        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,        .size = totalSize,        .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT    };    VmaAllocationCreateInfo allocCI{        //prepare the allocation for buffer        .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |                 VMA_ALLOCATION_CREATE_MAPPED_BIT,        .usage = VMA_MEMORY_USAGE_AUTO    };    VmaAllocationInfo allocInfo;    if (vmaCreateBuffer(allocator, &bufferCI, &allocCI,                        &data.lineBuffer, &data.lineBufferAllocation,                        &allocInfo) != VK_SUCCESS) //allocate memory to store the buffer    {        std::cerr << "Failed to create line buffer\n";        return false;    }    // Destroy old indirect buffer if it exists from a previous upload    if (indirectBuffer != VK_NULL_HANDLE) {        vmaDestroyBuffer(allocator, indirectBuffer, indirectBufferAllocation);        indirectBuffer = VK_NULL_HANDLE;        indirectBufferAllocation = VK_NULL_HANDLE;    }    //Size the indirect buffer for the exact objects as we are planning to render    VkBufferCreateInfo indirectCI{        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,        .size = sizeof(VkDrawIndirectCommand) * allLineData.size(),        .usage = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT    };    VmaAllocationCreateInfo indirectAllocCI{        .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |                 VMA_ALLOCATION_CREATE_MAPPED_BIT,        .usage = VMA_MEMORY_USAGE_AUTO    };    if (vmaCreateBuffer(allocator, &indirectCI, &indirectAllocCI, &indirectBuffer, &indirectBufferAllocation, nullptr)        != VK_SUCCESS) {        std::cerr << "Failed to create indirect allocation \n";        return false;    }    char *bufferPtr = static_cast<char *>(allocInfo.pMappedData); //get a pointer to the start of the memory    VkDeviceSize offset = 0; // this the offset per line data    for (const std::vector<LineVertex> &lineData: allLineData) {        VkDeviceSize dataSize = lineData.size() * sizeof(LineVertex);        // fine out how much we need for this specific line        if (dataSize > 0) // copy this data, starting at the next available location, into the memory            std::memcpy(bufferPtr + offset, lineData.data(), dataSize);        data.lineGPUInfo.push_back({            //save this line data for use later on when rendering            .vertexOffset = offset, // this offset shows where in the line data buffer this line starts from            .vertexCount = static_cast<uint32_t>(lineData.size())        });        offset += dataSize;    }    // INDIRECT LINE SSBO =====================================================    //Clean up any prior ssbo    if (lineSSBO != VK_NULL_HANDLE) {        vmaDestroyBuffer(allocator, lineSSBO, lineSSBOAllocation);        lineSSBO = VK_NULL_HANDLE;        lineSSBOAllocation = VK_NULL_HANDLE;    }    //One LineObjectData per line object    VkBufferCreateInfo ssboCI{        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,        .size = sizeof(LineObjectData) * allLineData.size(),        .usage = VMA_MEMORY_USAGE_AUTO    };    VmaAllocationCreateInfo ssboAllocCI{        .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,        .usage = VMA_MEMORY_USAGE_AUTO    };    VmaAllocationInfo ssboAllocInfo;    if (vmaCreateBuffer(allocator, &ssboCI, &ssboAllocCI, &lineSSBO, &lineSSBOAllocation, &ssboAllocInfo) != VK_SUCCESS)        return false;    // Populate — one entry per line object, same iteration order as vertex upload    // so index i here matches gl_DrawID == i in the shader    LineObjectData* ssboPtr = static_cast<LineObjectData*>(ssboAllocInfo.pMappedData);    uint32_t ssboIndex = 0;    for (const auto& obj : data.scene.objects)    {        const LineRenderer* lr = obj.components.get<LineRenderer>();        if (!lr || !lr->data || lr->data->points.empty()) continue;        ssboPtr[ssboIndex++] = LineObjectData{            .color      = lr->data->properties.color,            .thickness  = 1.0f,            .dashLength = lr->data->properties.dashLength,            .gapLength  = lr->data->properties.gapLength,            .lineStyle  = static_cast<uint32_t>(lr->data->properties.style),            .antiAlias  = lr->data->properties.antiAlias ? 1u : 0u,            .smoothness = lr->data->properties.smoothness        };    }    // Point the descriptor set at the new SSBO buffer    VkDescriptorBufferInfo ssboBufferInfo{        .buffer = lineSSBO,        .offset = 0,        .range  = sizeof(LineObjectData) * allLineData.size()    };    VkWriteDescriptorSet ssboWrite{        .sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,        .dstSet          = ssboSet,        .dstBinding      = 0,        .descriptorCount = 1,        .descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,        .pBufferInfo     = &ssboBufferInfo    };    vkUpdateDescriptorSets(data.windowData->device, 1, &ssboWrite, 0, nullptr);    return true;}VkShaderModule LinePipeline::loadShaderModule(VkDevice device, const std::string &path) {    std::cout << "Loading shader: " << path << std::endl;    auto &globalSession = getSlangSession();    if (!globalSession) {        std::cerr << "No global session available\n";        return VK_NULL_HANDLE;    }    // Configure target (SPIR-V 1.4)    slang::TargetDesc targetDesc{        .format = SLANG_SPIRV,        .profile = globalSession->findProfile("spirv_1_4")    };    // Configure compiler options    slang::CompilerOptionEntry options[] = {        {slang::CompilerOptionName::EmitSpirvDirectly, {slang::CompilerOptionValueKind::Int, 1}}    };    // Create session descriptor    slang::SessionDesc sessionDesc{        .targets = &targetDesc,        .targetCount = 1,        .defaultMatrixLayoutMode = SLANG_MATRIX_LAYOUT_COLUMN_MAJOR,        .compilerOptionEntries = options,        .compilerOptionEntryCount = 1    };    Slang::ComPtr<slang::ISession> session;    if (globalSession->createSession(sessionDesc, session.writeRef()) != SLANG_OK) {        std::cerr << "Failed to create Slang session\n";        return VK_NULL_HANDLE;    }    // Load shader module from source file    Slang::ComPtr<slang::IBlob> diagnostics;    Slang::ComPtr<slang::IModule> module{        session->loadModuleFromSource(            "shader_module",            path.c_str(),            nullptr,            diagnostics.writeRef()        )    };    // Print diagnostics if any    if (diagnostics && diagnostics->getBufferSize() > 0) {        std::cout << "Slang diagnostics for " << path << ":\n"                << (const char *) diagnostics->getBufferPointer() << std::endl;    }    if (!module) {        std::cerr << "Failed to load shader module: " << path << "\n";        return VK_NULL_HANDLE;    }    // Get SPIR-V code from module    Slang::ComPtr<slang::IBlob> spirvCode;    if (module->getTargetCode(0, spirvCode.writeRef()) != SLANG_OK || !spirvCode) {        std::cerr << "Failed to get SPIR-V from module: " << path << "\n";        return VK_NULL_HANDLE;    }    // Create VkShaderModule from SPIR-V binary    VkShaderModuleCreateInfo moduleCI{        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,        .codeSize = spirvCode->getBufferSize(),        .pCode = static_cast<const uint32_t *>(spirvCode->getBufferPointer())    };    VkShaderModule shaderModule = VK_NULL_HANDLE;    if (vkCreateShaderModule(device, &moduleCI, nullptr, &shaderModule) != VK_SUCCESS) {        std::cerr << "Failed to create VkShaderModule for: " << path << "\n";        return VK_NULL_HANDLE;    }    return shaderModule;}bool LinePipeline::create(VkDevice device,                          const LinePipelineDesc &desc,                          const std::vector<VkDescriptorSetLayout> &setLayouts,                          VkFormat colorFormat,                          VkFormat depthFormat) {    // Load shader modules    VkShaderModule vertModule = loadShaderModule(device, desc.vertexShaderPath);    VkShaderModule geomModule = loadShaderModule(device, desc.geometryShaderPath);    VkShaderModule fragModule = loadShaderModule(device, desc.fragmentShaderPath);    if (vertModule == VK_NULL_HANDLE || geomModule == VK_NULL_HANDLE || fragModule == VK_NULL_HANDLE) {        if (vertModule != VK_NULL_HANDLE) vkDestroyShaderModule(device, vertModule, nullptr);        if (geomModule != VK_NULL_HANDLE) vkDestroyShaderModule(device, geomModule, nullptr);        if (fragModule != VK_NULL_HANDLE) vkDestroyShaderModule(device, fragModule, nullptr);        return false;    }    // Push constant range for line data    // Layout: mat4 viewProj (64) + vec4 globalColor (16) + float globalThickness (4) +    //         float dashLength (4) + float gapLength (4) + uint lineStyle (4) +    //         uint antiAlias (4) + float smoothness (4) + padding (24) = 128 bytes    VkPushConstantRange pushConstantRange{        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_GEOMETRY_BIT,        .offset = 0,        .size = 128    };    //Make sure we include our own line pipeline set    if (!createSSBODescriptorInfrastructure(device))        return false;    //Build the full layout list: set 0 =  global (camera), set 1  = line SSBO    std::vector<VkDescriptorSetLayout> fullLayouts = setLayouts;    fullLayouts.push_back(ssboSetLayout);    // Create pipeline layout    VkPipelineLayoutCreateInfo layoutCI{        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,        .setLayoutCount = static_cast<uint32_t>(fullLayouts.size()),        .pSetLayouts = fullLayouts.data(),        .pushConstantRangeCount = 1,        .pPushConstantRanges = &pushConstantRange    };    if (vkCreatePipelineLayout(device, &layoutCI, nullptr, &layout) != VK_SUCCESS) {        vkDestroyShaderModule(device, vertModule, nullptr);        vkDestroyShaderModule(device, geomModule, nullptr);        vkDestroyShaderModule(device, fragModule, nullptr);        return false;    }    // Shader stages (vertex, geometry, fragment)    VkPipelineShaderStageCreateInfo shaderStages[] = {        {            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,            .stage = VK_SHADER_STAGE_VERTEX_BIT,            .module = vertModule,            .pName = "main"        },        {            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,            .stage = VK_SHADER_STAGE_GEOMETRY_BIT,            .module = geomModule,            .pName = "main"        },        {            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,            .stage = VK_SHADER_STAGE_FRAGMENT_BIT,            .module = fragModule,            .pName = "main"        }    };    // Vertex input: LineVertex (vec3 pos, vec4 color, float thickness, float distance)    VkVertexInputBindingDescription vertexBinding{        .binding = 0,        .stride = 32, // 12 + 16 + 4 + 4 bytes        .inputRate = VK_VERTEX_INPUT_RATE_VERTEX    };    VkVertexInputAttributeDescription vertexAttributes[] = {        {.location = 0, .binding = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = 0}, // position        {.location = 1, .binding = 0, .format = VK_FORMAT_R32G32B32A32_SFLOAT, .offset = 12}, // color        {.location = 2, .binding = 0, .format = VK_FORMAT_R32_SFLOAT, .offset = 28}, // thickness        {.location = 3, .binding = 0, .format = VK_FORMAT_R32_SFLOAT, .offset = 32}        // distance (actually offset 28+4=32, but size is 32 total, this is wrong)    };    vertexBinding.stride = 36;    vertexAttributes[3].offset = 32;    VkPipelineVertexInputStateCreateInfo vertexInputState{        .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,        .vertexBindingDescriptionCount = 1,        .pVertexBindingDescriptions = &vertexBinding,        .vertexAttributeDescriptionCount = 4,        .pVertexAttributeDescriptions = vertexAttributes    };    // Input assembly (line topology)    VkPipelineInputAssemblyStateCreateInfo inputAssembly{        .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,        .topology = desc.topology    };    // Dynamic state    VkDynamicState dynamicStates[] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};    VkPipelineDynamicStateCreateInfo dynamicState{        .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,        .dynamicStateCount = 2,        .pDynamicStates = dynamicStates    };    VkPipelineViewportStateCreateInfo viewportState{        .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,        .viewportCount = 1,        .scissorCount = 1    };    // Rasterization (no culling for lines)    VkPipelineRasterizationStateCreateInfo rasterization{        .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,        .polygonMode = VK_POLYGON_MODE_FILL,        .cullMode = VK_CULL_MODE_NONE,        .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,        .lineWidth = 1.0f    };    // Multisampling (none)    VkPipelineMultisampleStateCreateInfo multisampling{        .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,        .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT    };    // Depth/stencil    VkPipelineDepthStencilStateCreateInfo depthStencil{        .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,        .depthTestEnable = desc.depthTest ? VK_TRUE : VK_FALSE,        .depthWriteEnable = desc.depthTest ? VK_TRUE : VK_FALSE,        .depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL    };    // Color blending (alpha blending for smooth lines)    VkPipelineColorBlendAttachmentState colorBlendAttachment{};    colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |                                          VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;    colorBlendAttachment.blendEnable = VK_TRUE;    colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;    colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;    colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;    colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;    colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;    colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;    VkPipelineColorBlendStateCreateInfo colorBlending{        .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,        .attachmentCount = 1,        .pAttachments = &colorBlendAttachment    };    // Dynamic rendering    VkPipelineRenderingCreateInfo renderingCI{        .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,        .colorAttachmentCount = 1,        .pColorAttachmentFormats = &colorFormat,        .depthAttachmentFormat = depthFormat    };    // Create graphics pipeline    VkGraphicsPipelineCreateInfo pipelineCI{        .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,        .pNext = &renderingCI,        .stageCount = 3, // vertex, geometry, fragment        .pStages = shaderStages,        .pVertexInputState = &vertexInputState,        .pInputAssemblyState = &inputAssembly,        .pViewportState = &viewportState,        .pRasterizationState = &rasterization,        .pMultisampleState = &multisampling,        .pDepthStencilState = &depthStencil,        .pColorBlendState = &colorBlending,        .pDynamicState = &dynamicState,        .layout = layout    };    VkResult result = vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &pipeline);    // Destroy shader modules    vkDestroyShaderModule(device, vertModule, nullptr);    vkDestroyShaderModule(device, geomModule, nullptr);    vkDestroyShaderModule(device, fragModule, nullptr);    return result == VK_SUCCESS;}void LinePipeline::destroy(VkDevice device, VmaAllocator allocator) {    if (indirectBuffer != VK_NULL_HANDLE) {        vmaDestroyBuffer(allocator, indirectBuffer, indirectBufferAllocation);        indirectBuffer = VK_NULL_HANDLE;        indirectBufferAllocation = VK_NULL_HANDLE;    }    if (pipeline != VK_NULL_HANDLE)        vkDestroyPipeline(device, pipeline, nullptr);    if (layout != VK_NULL_HANDLE)        vkDestroyPipelineLayout(device, layout, nullptr);    if (ssboPool != VK_NULL_HANDLE)        vkDestroyDescriptorPool(device, ssboPool, nullptr);  // also frees ssboSet    pipeline = VK_NULL_HANDLE;    layout = VK_NULL_HANDLE;}
