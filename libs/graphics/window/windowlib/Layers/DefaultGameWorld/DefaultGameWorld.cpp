@@ -273,7 +273,7 @@ void DefaultGameWorld::OnDetach() {
 
     data.resources.destroy(windowData->device, windowData->allocator);
     data.pipelineManager.destroy(windowData->device);
-    data.linePipeline.destroy(windowData->device);
+    data.linePipeline.destroy(windowData->device, windowData->allocator);
 }
 
 void DefaultGameWorld::OnEvent(const SDL_Event& e) {
@@ -294,7 +294,7 @@ void DefaultGameWorld::OnUpdate(float ts) {
     }
 
     if (needsLineUpdate) {
-        data.linePipeline.UploadLinesToGPU(data, windowData->allocator);
+        data.linePipeline.UploadLinesToGPU(data, windowData->allocator, );
     }
 }
 

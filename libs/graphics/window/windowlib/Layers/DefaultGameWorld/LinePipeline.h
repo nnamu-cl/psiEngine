@@ -3,6 +3,9 @@
 #include <volk/volk.h>
 #include <string>
 #include <vector>
+#include <glm/vec4.hpp>
+
+#include "ApplicationWindow.h"
 
 namespace slang { struct IGlobalSession; }
 namespace Slang { template<typename T> class ComPtr; }
@@ -24,6 +27,19 @@ struct LinePipelineDesc
     bool depthTest = true;
 };
 
+
+struct LineObjectData
+{
+    glm::vec4  color;
+    float      thickness;
+    float      dashLength;
+    float      gapLength;
+    uint32_t   lineStyle;
+    uint32_t   antiAlias;
+    float      smoothness;
+    uint32_t   padding[2];  // bring to 48 bytes, std430 aligned
+};
+
 class LinePipeline
 {
 public:
@@ -34,13 +50,29 @@ public:
                 VkFormat colorFormat,
                 VkFormat depthFormat);
 
-    void destroy(VkDevice device);
+    void destroy(VkDevice device, VmaAllocator allocator);
 
     VkPipeline       pipeline{ VK_NULL_HANDLE };
     VkPipelineLayout layout{   VK_NULL_HANDLE };
 
+    // New indirect buffer for gpu driven rendering
+    VkBuffer      indirectBuffer{ VK_NULL_HANDLE };
+    VmaAllocation indirectBufferAllocation{ VK_NULL_HANDLE };
+
+
+    //Set for line SSBO
+    VkDescriptorSetLayout ssboSetLayout {VK_NULL_HANDLE};
+    VkDescriptorPool ssboPool {VK_NULL_HANDLE};
+    VkDescriptorSet ssboSet {VK_NULL_HANDLE};
+
+    //Line SSBO itself
+    VkBuffer  lineSSBO{VK_NULL_HANDLE};
+    VmaAllocation lineSSBOAllocation{VK_NULL_HANDLE};
+
+
     void DoRender(VkCommandBuffer cb, uint32_t frameIndex, float aspectRatio, DefaultGameWorldData& data);
     bool UploadLinesToGPU(DefaultGameWorldData& data, VmaAllocator allocator);
+
 
 private:
     // Compiles shader to SPIR-V via Slang and wraps it in a VkShaderModule
@@ -48,4 +80,8 @@ private:
 
     // Shared Slang global session (reuses from Pipeline)
     static Slang::ComPtr<slang::IGlobalSession>& getSlangSession();
+
+    //Use this for creating the SSBO
+    bool createSSBODescriptorInfrastructure(VkDevice device);
+
 };
