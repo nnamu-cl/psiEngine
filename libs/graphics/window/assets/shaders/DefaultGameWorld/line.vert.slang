@@ -7,6 +7,7 @@ struct VertexInput
     float4 color : COLOR;
     float thickness : THICKNESS;
     float distance : DISTANCE;
+    uint   drawID    : SV_DrawIndex;  // gl_DrawID equivalent in Slang/HLSL
 };
 
 struct VertexOutput
@@ -20,14 +21,23 @@ struct VertexOutput
 struct LinePushConstants
 {
     float4x4 viewProj;
-    float4 globalColor;
-    float globalThickness;
-    float dashLength;
-    float gapLength;
-    uint lineStyle;        // 0=solid, 1=dashed, 2=dotted
-    uint antiAlias;
-    float smoothness;
 };
+
+
+struct LineObjectData
+{
+    float4   color;
+    float    thickness;
+    float    dashLength;
+    float    gapLength;
+    uint     lineStyle;
+    uint     antiAlias;
+    float    smoothness;
+    uint     padding[2];
+};
+
+[[vk::binding(0, 1)]]
+StructuredBuffer<LineObjectData> lineObjects;
 
 [shader("vertex")]
 VertexOutput main(
@@ -36,13 +46,12 @@ VertexOutput main(
 {
     VertexOutput output;
 
-    // Transform position to clip space
-    output.position = mul(pushConstants.viewProj, float4(input.position, 1.0));
+    LineObjectData objData = lineObjects[input.drawID];
 
-    // Pass through color and thickness
-    output.color = input.color * pushConstants.globalColor;
-    output.thickness = input.thickness * pushConstants.globalThickness;
-    output.distance = input.distance;
+    output.position  = mul(pushConstants.viewProj, float4(input.position, 1.0));
+    output.color     = input.color * objData.color;
+    output.thickness = input.thickness * objData.thickness;
+    output.distance  = input.distance;
 
     return output;
 }
