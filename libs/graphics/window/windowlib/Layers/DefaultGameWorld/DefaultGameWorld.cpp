@@ -92,7 +92,17 @@ void DefaultGameWorld::OnAttach() {
     // Initialise camera controller against the window's camera and SDL window
     data.cameraController.init(&data.camera, windowData->sdlWindow);
 
-    // Scene starts empty - meshes can be added via UI
+    // Upload any line objects that were added before OnAttach ran
+    bool hasLines = false;
+    for (const auto &obj : data.scene.objects) {
+        if (obj.components.get<LineRenderer>()) { hasLines = true; break; }
+    }
+    if (hasLines) {
+        std::cout << "Uploading pre-attached line objects to GPU...\n";
+        if (!data.linePipeline.UploadLinesToGPU(data, windowData->allocator))
+            std::cerr << "Failed to upload pre-attached lines\n";
+    }
+
     std::cout << "DefaultGameWorld layer attached successfully\n";
     std::cout << "  Scene ready - use UI to add objects\n";
 }
@@ -294,7 +304,7 @@ void DefaultGameWorld::OnUpdate(float ts) {
     }
 
     if (needsLineUpdate) {
-        data.linePipeline.UploadLinesToGPU(data, windowData->allocator, );
+        data.linePipeline.UploadLinesToGPU(data, windowData->allocator);
     }
 }
 
