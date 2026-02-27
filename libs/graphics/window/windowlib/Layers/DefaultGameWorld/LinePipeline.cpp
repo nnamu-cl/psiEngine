@@ -186,26 +186,25 @@ void LinePipeline::DoRender(VkCommandBuffer cb, uint32_t frameIndex, float aspec
         // collectLineVertexBatches uses the same filtering logic as UploadLinesToGPU,
         // so lineObjects[i] always corresponds to the same object as the GPU vertex data
         // that was uploaded at index i. Order must stay consistent or draws will be mismatched.
-        std::vector<std::vector<LineVertex> > lineObjects = collectLineVertexBatches(data);
+        //std::vector<std::vector<LineVertex> > lineObjects = collectLineVertexBatches(data);
 
-        // objectCount is now derived directly from the collected batches rather than
-        // from the old loop counter — the old loop's objectCount is inside the commented block above.
-        uint32_t objectCount = static_cast<uint32_t>(lineObjects.size());
-        std::vector<VkDrawIndirectCommand> indirectLineDrawCommands(objectCount);
+        // data.lineGPUInfo.size() is now derived directly from the collected batches rather than
+        // from the old loop counter — the old loop's data.lineGPUInfo.size() is inside the commented block above.
+        std::vector<VkDrawIndirectCommand> indirectLineDrawCommands(data.lineGPUInfo.size());
 
         VkDeviceSize offset = 0;
-        for (uint32_t i = 0; i < objectCount; i++) {
-            indirectLineDrawCommands[i].vertexCount = static_cast<uint32_t>(lineObjects[i].size());
+        for (uint32_t i = 0; i < data.lineGPUInfo.size(); i++) {
+            indirectLineDrawCommands[i].vertexCount = data.lineGPUInfo[i].vertexCount;
             indirectLineDrawCommands[i].instanceCount = 1;
             indirectLineDrawCommands[i].firstVertex = static_cast<uint32_t>(offset / sizeof(LineVertex));
             indirectLineDrawCommands[i].firstInstance = 0;
 
             //Increment the offset for use with the next object
-            offset += lineObjects[i].size() * sizeof(LineVertex);
+            offset += data.lineGPUInfo[i].vertexCount * sizeof(LineVertex);
         }
         //3. Copy the staging command buffer into the in memory indirect command buffer
         memcpy(indirectAllocationInfo.pMappedData, indirectLineDrawCommands.data(),
-               sizeof(VkDrawIndirectCommand) * objectCount); // Use the pointer to copy our data into that memory
+               sizeof(VkDrawIndirectCommand) * data.lineGPUInfo.size()); // Use the pointer to copy our data into that memory
 
 
         // Push viewProj once — the only remaining push constant
@@ -241,7 +240,7 @@ void LinePipeline::DoRender(VkCommandBuffer cb, uint32_t frameIndex, float aspec
         vkCmdDrawIndirect(cb,
                           indirectBuffer,
                           0, // start from the beginning
-                          objectCount, // all objects in one call
+                          data.lineGPUInfo.size(), // all objects in one call
                           sizeof(VkDrawIndirectCommand)); // stride between commands
     }
 }
@@ -249,7 +248,7 @@ void LinePipeline::DoRender(VkCommandBuffer cb, uint32_t frameIndex, float aspec
 
 bool LinePipeline::UploadLinesToGPU(DefaultGameWorldData &data, VmaAllocator allocator) {
     if (ssboSet == VK_NULL_HANDLE) {
-        // Pipeline not initialised yet — data is in the scene and will be uploaded at end of OnAttach
+        // Pipeline not initialized yet — data is in the scene and will be uploaded at end of OnAttach
         return true;
     }
     std::cout << "[Upload] ssboSet=" << ssboSet << " lineSSBO=" << lineSSBO << "\n";
@@ -268,7 +267,7 @@ bool LinePipeline::UploadLinesToGPU(DefaultGameWorldData &data, VmaAllocator all
         return true;
 
 
-    // INDIRECT LINE BUFFER =====================================================
+    // VERTEX LINE BUFFER =====================================================
 
     VkBufferCreateInfo bufferCI{
         //prepare to create a vertex buffer of the size we need
@@ -296,6 +295,30 @@ bool LinePipeline::UploadLinesToGPU(DefaultGameWorldData &data, VmaAllocator all
     std::cout << "[Upload] Vertex buffer created. pMappedData=" << allocInfo.pMappedData << "\n";
 
 
+
+
+
+    char *bufferPtr = static_cast<char *>(allocInfo.pMappedData); //get a pointer to the start of the memory
+    VkDeviceSize offset = 0; // this the offset per line data
+
+    for (const std::vector<LineVertex> &lineData: allLineData) {
+        VkDeviceSize dataSize = lineData.size() * sizeof(LineVertex);
+        // fine out how much we need for this specific line
+        if (dataSize > 0) // copy this data, starting at the next available location, into the memory
+            std::memcpy(bufferPtr + offset, lineData.data(), dataSize);
+
+        data.lineGPUInfo.push_back({
+            //save this line data for use later on when rendering
+            .vertexOffset = offset, // this offset shows where in the line data buffer this line starts from
+            .vertexCount = static_cast<uint32_t>(lineData.size())
+        });
+
+        offset += dataSize;
+    }
+
+
+
+    //========================= Create indirect buffer
     // Destroy old indirect buffer if it exists from a previous upload
     if (indirectBuffer != VK_NULL_HANDLE) {
         vmaDestroyBuffer(allocator, indirectBuffer, indirectBufferAllocation);
@@ -321,27 +344,9 @@ bool LinePipeline::UploadLinesToGPU(DefaultGameWorldData &data, VmaAllocator all
         != VK_SUCCESS) {
         std::cerr << "Failed to create indirect allocation \n";
         return false;
-    }
+        }
     std::cout << "[Upload] Indirect buffer created.\n";
 
-
-    char *bufferPtr = static_cast<char *>(allocInfo.pMappedData); //get a pointer to the start of the memory
-    VkDeviceSize offset = 0; // this the offset per line data
-
-    for (const std::vector<LineVertex> &lineData: allLineData) {
-        VkDeviceSize dataSize = lineData.size() * sizeof(LineVertex);
-        // fine out how much we need for this specific line
-        if (dataSize > 0) // copy this data, starting at the next available location, into the memory
-            std::memcpy(bufferPtr + offset, lineData.data(), dataSize);
-
-        data.lineGPUInfo.push_back({
-            //save this line data for use later on when rendering
-            .vertexOffset = offset, // this offset shows where in the line data buffer this line starts from
-            .vertexCount = static_cast<uint32_t>(lineData.size())
-        });
-
-        offset += dataSize;
-    }
 
 
     // INDIRECT LINE SSBO =====================================================
