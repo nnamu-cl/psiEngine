@@ -28,6 +28,7 @@ project(${NAME})
 
 # Check if VULKAN_SDK environment variable points to a valid directory
 # $ENV{VARIABLE_NAME} accesses environment variables from your system
+message( STATUS "Value of VULKAN SDK: $ENV{VULKAN_SDK} ")
 if (NOT IS_DIRECTORY $ENV{VULKAN_SDK})
     # If not found, warn the user but continue (you could use FATAL_ERROR to stop)
     message(WARNING "Vulkan SDK not detected, if installed please set VULKAN_SDK env var or manually provide libraries")
@@ -37,6 +38,20 @@ else()
 endif()
 
 
+## Slang: Shader compilation library
+## We search for two possible names (slang or slang-compiler)
+## find_library(Slang_LIBRARY NAMES slang slang-compiler HINTS "$ENV{VULKAN_SDK}/lib" REQUIRED)
+#
+#include(FetchContent)
+#FetchContent_Declare(
+#        slang
+#        GIT_REPOSITORY https://github.com/MikePopoloski/slang.git
+#        GIT_SHALLOW ON)
+#FetchContent_MakeAvailable(slang)
+
+
+
+
 # ==============================================================================
 # INCLUDE DIRECTORIES (Where to find header files)
 # ==============================================================================
@@ -44,7 +59,7 @@ endif()
 # include_directories() tells the compiler where to look for #include files
 # All targets in this CMakeLists.txt will search these directories
 
-# Headers from Vulkan SDK (SDL3, Volk, VMA, glm, Slang)
+# Headers from Vulkan SDK (SDL3, Volk, VMA, Slang)
 include_directories($ENV{VULKAN_SDK}/include)
 
 # External libraries bundled with this project (not from SDK)
@@ -149,9 +164,6 @@ endif()
 # REQUIRED means fail if not found
 find_library(SDL_LIBRARY NAMES SDL3 HINTS "$ENV{VULKAN_SDK}/lib" REQUIRED)
 
-# Slang: Shader compilation library
-# We search for two possible names (slang or slang-compiler)
-find_library(Slang_LIBRARY NAMES slang slang-compiler HINTS "$ENV{VULKAN_SDK}/lib" REQUIRED)
 
 
 # ==============================================================================

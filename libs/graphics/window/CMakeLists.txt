@@ -9,7 +9,9 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIGURATION>")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIGURATION>")
 
 find_library(SDL_LIBRARY NAMES SDL3 HINTS "$ENV{VULKAN_SDK}/lib" REQUIRED)
-find_library(SLANG_LIBRARY NAMES slang HINTS "$ENV{VULKAN_SDK}/lib" REQUIRED)
+
+
+
 
 # WindowLib
 file(GLOB_RECURSE WINDOWLIBFILES CONFIGURE_DEPENDS "windowlib/*.cpp" "windowlib/*.h")
@@ -19,14 +21,32 @@ file(GLOB_RECURSE NODEGRAPHFILES CONFIGURE_DEPENDS "../nodeGraph/*.cpp" "../node
 
 add_library(WindowLib ${WINDOWLIBFILES} ${NODEGRAPHFILES})
 set(IMGUI_DIR ../../../external/imgui) #adding the imgui lib
+
+
+# slang headers live directly in include/, but sources use #include "slang/slang.h".
+# Create a "slang" symlink inside include/ that points back to include/ so that
+# #include "slang/slang.h" resolves to include/slang.h.
+set(SLANG_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../../external/slang-master/include)
+if(NOT EXISTS "${SLANG_INCLUDE_DIR}/slang")
+    execute_process(
+        COMMAND ${CMAKE_COMMAND} -E create_symlink
+            .
+            ${SLANG_INCLUDE_DIR}/slang
+    )
+endif()
+
 target_include_directories(WindowLib PUBLIC
+
         $ENV{VULKAN_SDK}/include
+        ${SLANG_INCLUDE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/windowlib
         ${CMAKE_CURRENT_SOURCE_DIR}/../nodeGraph
         ${CMAKE_CURRENT_SOURCE_DIR}/../../core/include
         ${IMGUI_DIR} ${IMGUI_DIR}/backends
         ${CMAKE_CURRENT_SOURCE_DIR}/../../../external/imgui_node_editor
 )
+
+
 
 target_sources(WindowLib PRIVATE
         ${IMGUI_DIR}/imgui.cpp
@@ -40,8 +60,8 @@ target_sources(WindowLib PRIVATE
 
 target_compile_definitions(WindowLib PRIVATE IMGUI_IMPL_VULKAN_USE_VOLK "IMGUI_IMPL_VULKAN_VOLK_FILENAME=<volk/volk.h>")
 target_link_libraries(WindowLib
-    PRIVATE ${SDL_LIBRARY} ${SLANG_LIBRARY} CoreLib glaze::glaze stb_image
-    PUBLIC generator imgui_node_editor implot
+    PRIVATE ${SDL_LIBRARY}  CoreLib glaze::glaze stb_image
+    PUBLIC  generator imgui_node_editor implot glm::glm
 )
 
 if(MSVC)

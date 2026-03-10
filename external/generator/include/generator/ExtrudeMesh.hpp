@@ -13,6 +13,7 @@
 #include "Triangle.hpp"
 #include "Edge.hpp"
 #include "Iterator.hpp"
+#include "utils.hpp"
 
 
 namespace generator {
@@ -73,9 +74,9 @@ public:
 
 		const ExtrudeMesh* mesh_;
 
-		decltype(mesh_->shape_.edges()) shapeEdges_;
+		typename EdgeGeneratorType<Shape>::Type shapeEdges_;
 
-		decltype(mesh_->path_.edges()) pathEdges_;
+		typename EdgeGeneratorType<Path>::Type pathEdges_;
 
 		bool odd_;
 
@@ -130,9 +131,9 @@ public:
 
 		const ExtrudeMesh* mesh_;
 
-		decltype(mesh_->shape_.vertices()) shapeVertices_;
+		typename VertexGeneratorType<Shape>::Type shapeVertices_;
 
-		decltype(mesh_->path_.vertices()) pathVertices_;
+		typename VertexGeneratorType<Path>::Type pathVertices_;
 
 		Vertices(const ExtrudeMesh& mesh) :
 			mesh_{&mesh},

@@ -14,6 +14,7 @@
 #include "MeshVertex.hpp"
 #include "ShapeVertex.hpp"
 #include "Triangle.hpp"
+#include "utils.hpp"
 
 
 namespace generator {
@@ -67,7 +68,7 @@ public:
 
 		const LatheMesh* mesh_;
 
-		decltype(mesh_->shape_.edges()) shape_Edges;
+		typename EdgeGeneratorType<Shape>::Type shape_Edges;
 
 		int i_;
 
@@ -121,7 +122,7 @@ public:
 
 		const LatheMesh* mesh_;
 
-		decltype(mesh_->shape_.vertices()) shapeVertices_;
+		typename VertexGeneratorType<Shape>::Type shapeVertices_;
 
 		int i_;
 
