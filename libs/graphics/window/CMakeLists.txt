@@ -36,7 +36,6 @@ if(NOT EXISTS "${SLANG_INCLUDE_DIR}/slang")
 endif()
 
 target_include_directories(WindowLib PUBLIC
-
         $ENV{VULKAN_SDK}/include
         ${SLANG_INCLUDE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/windowlib
