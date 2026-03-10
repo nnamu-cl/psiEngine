@@ -1,7 +1,6 @@
 #pragma once
 
 #include <volk/volk.h>
-#include <vma/vk_mem_alloc.h>
 #include <vector>
 
 // Descriptor set 0 (global)  -- camera uniform buffer

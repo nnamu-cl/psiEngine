@@ -7,7 +7,6 @@
 #include "Resources.h"
 #include "Mesh.h"
 #include <volk/volk.h>
-#include <vma/vk_mem_alloc.h>
 
 // Forward-declare so we can hold a pointer without pulling in the
 // full ApplicationWindow.h (and its SDL / VMA implementation macros).

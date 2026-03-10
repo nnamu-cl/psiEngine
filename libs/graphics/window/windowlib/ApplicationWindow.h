@@ -1,9 +1,17 @@
+
+
+
 #pragma once
+
+#define VOLK_IMPLEMENTATION
 
 #include <array>
 #include <vector>
+#define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/vec2.hpp>
 #include <volk/volk.h>
+#define VMA_IMPLEMENTATION
 #include <vma/vk_mem_alloc.h>
 #include <SDL3/SDL.h>
 

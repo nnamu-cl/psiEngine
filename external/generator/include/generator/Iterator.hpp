@@ -32,8 +32,6 @@ private:
 
 public:
 
-	using iterator_category = std::input_iterator_tag;
-
 	using value_type = typename GeneratedType<Generator>::Type;
 
 	using difference_type = std::ptrdiff_t;
