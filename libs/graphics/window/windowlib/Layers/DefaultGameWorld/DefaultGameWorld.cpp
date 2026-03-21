@@ -400,6 +400,8 @@ void DefaultGameWorld::OnRender(VkCommandBuffer cb, const glm::ivec2 &windowSize
 
     // Render meshes
     if (data.meshBuffer != VK_NULL_HANDLE && !data.meshGPUInfo.empty()) {
+
+        // Still manually iterating over all game objects
         for (const auto &obj: data.scene.objects) {
             // Skip objects without Transform component
             const Transform *transform = obj.components.get<Transform>();
