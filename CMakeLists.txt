@@ -158,11 +158,10 @@ endif()
 # FIND ADDITIONAL LIBRARIES (SDL3 and Slang)
 # ==============================================================================
 
-# find_library() searches for pre-built library files
-# SDL3: Cross-platform windowing and input library
-# HINTS tells CMake where to look first (in the Vulkan SDK lib folder)
-# REQUIRED means fail if not found
-find_library(SDL_LIBRARY NAMES SDL3 HINTS "$ENV{VULKAN_SDK}/lib" REQUIRED)
+
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIGURATION>")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIGURATION>")
+add_subdirectory(external/SDL-3.4.0 EXCLUDE_FROM_ALL)
 
 
 
@@ -263,3 +262,6 @@ add_subdirectory(libs/graphics/window)
 
 # Add the PSI application
 add_subdirectory(apps/psi)
+
+# Add the decisions engine
+add_subdirectory(apps/decisions)

@@ -7,7 +7,7 @@
 
 #include "../../../external/zpp_bits/zpp_bits.hpp"
 
-bool Game::LoadCashFlows(std::filesystem::path* path, TimeFormat fmt)
+bool Game::LoadCashFlows(std::filesystem::path* path, TimeFormat fmt, const std::string& earlyDateName = "", std::string& lateDateName = "" )
 {
     if (!directory_tools::dirExists(path))
         return false;
@@ -20,8 +20,11 @@ bool Game::LoadCashFlows(std::filesystem::path* path, TimeFormat fmt)
         return std::ranges::find(col_names, name) != col_names.end();
     };
 
-    if (!has_col("amount") || !has_col("time") || !has_col("probability"))
+    if (!has_col("amount") ||
+        !has_col("time") ||
+        !has_col("probability"))
         return false;
+
 
     for (csv::CSVRow& row : reader)
     {
@@ -36,11 +39,11 @@ bool Game::LoadCashFlows(std::filesystem::path* path, TimeFormat fmt)
             std::istringstream ss(row["time"].get<std::string>());
             ss >> std::get_time(&tm, "%Y-%m-%d");
             tm.tm_isdst = -1; // let mktime determine DST
-            cf.time = std::mktime(&tm);
+            cf.date = std::mktime(&tm);
         }
         else
         {
-            cf.time = static_cast<time_t>(row["time"].get<long long>());
+            cf.date = static_cast<time_t>(row["time"].get<long long>());
         }
 
         cashflows.push_back(cf);
@@ -101,7 +104,7 @@ static void PrintTableHeader()
 static void PrintCashFlowRow(const CashFlow<float, float>& cf)
 {
     char buf[32];
-    std::strftime(buf, sizeof(buf), "%Y-%m-%d", std::localtime(&cf.time));
+    std::strftime(buf, sizeof(buf), "%Y-%m-%d", std::localtime(&cf.date));
     std::cout << std::fixed << std::setprecision(2) << std::left
               << std::setw(14) << buf
               << std::setw(14) << cf.amount

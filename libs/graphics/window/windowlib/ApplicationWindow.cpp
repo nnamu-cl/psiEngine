@@ -40,7 +40,7 @@ bool ApplicationWindow::Init() {
 
     chk(SDL_Init(SDL_INIT_VIDEO));
     chk(SDL_Vulkan_LoadLibrary(NULL));
-    volkInitialize();
+    volkInitializeCustom(reinterpret_cast<PFN_vkGetInstanceProcAddr>(SDL_Vulkan_GetVkGetInstanceProcAddr()));
 
 
 
@@ -60,13 +60,29 @@ bool ApplicationWindow::Init() {
     // Physical Device
     uint32_t deviceCount{ 0 };
     chk(vkEnumeratePhysicalDevices(data.vkInstance, &deviceCount, nullptr));
+
+    std::cout << "Found: " << deviceCount << " physical devices\n";
+
+
     std::vector<VkPhysicalDevice> devices(deviceCount);
     chk(vkEnumeratePhysicalDevices(data.vkInstance, &deviceCount, devices.data()));
-    uint32_t deviceIndex{ 0 };
-    data.physicalDevice = devices[deviceIndex];
+
+
+
+    // Prefer discrete GPU over anything else
+    data.physicalDevice = devices[0]; // fallback
+    // for (const auto& device : devices) {
+    //     VkPhysicalDeviceProperties props;
+    //     vkGetPhysicalDeviceProperties(device, &props);
+    //     if (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+    //         data.physicalDevice = device;
+    //         break;
+    //     }
+    // }
 
     vkGetPhysicalDeviceProperties2(data.physicalDevice, &data.physicalDeviceProperties);
     std::cout << "Selected device: " << data.physicalDeviceProperties.properties.deviceName << "\n";
+
 
     // Find a queue family for graphics
     uint32_t queueFamilyCount{ 0 };

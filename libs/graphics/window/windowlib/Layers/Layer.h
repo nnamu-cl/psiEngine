@@ -14,6 +14,8 @@ public:
     virtual void OnAttach() {}
     virtual void OnDetach() {}
 
+    virtual void OnStart()  {}
+
     virtual void OnUpdate(float ts) {}
     virtual void OnRender(VkCommandBuffer cb, const glm::ivec2& windowSize, uint32_t frameIndex) {}
     virtual void OnUIRender() {}

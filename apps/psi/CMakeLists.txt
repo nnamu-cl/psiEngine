@@ -9,7 +9,6 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 
 # Find required libraries
-find_library(SDL_LIBRARY NAMES SDL3 HINTS "$ENV{VULKAN_SDK}/lib" REQUIRED)
 find_library(SLANG_LIBRARY NAMES slang HINTS "$ENV{VULKAN_SDK}/lib" REQUIRED)
 
 # Gather all source files
@@ -47,7 +46,7 @@ target_link_libraries(${NAME} PUBLIC
     implot
     ImGuizmo
     nfd
-    ${SDL_LIBRARY}
+    SDL3::SDL3
     ${SLANG_LIBRARY}
 )
 
@@ -159,7 +158,7 @@ endif()
 
 # CameraController / ViewManipulatorPanel / GizmoToolbar tests (SDL required, no Vulkan)
 add_executable(psi_camera_tests tests/test_CameraController.cpp)
-target_link_libraries(psi_camera_tests PRIVATE WindowLib Catch2::Catch2WithMain ${SDL_LIBRARY})
+target_link_libraries(psi_camera_tests PRIVATE WindowLib Catch2::Catch2WithMain SDL3::SDL3)
 
 target_include_directories(psi_camera_tests PRIVATE
     $ENV{VULKAN_SDK}/include

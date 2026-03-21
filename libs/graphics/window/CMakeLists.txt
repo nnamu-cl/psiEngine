@@ -8,10 +8,6 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIGURATION>")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIGURATION>")
 
-find_library(SDL_LIBRARY NAMES SDL3 HINTS "$ENV{VULKAN_SDK}/lib" REQUIRED)
-
-
-
 
 # WindowLib
 file(GLOB_RECURSE WINDOWLIBFILES CONFIGURE_DEPENDS "windowlib/*.cpp" "windowlib/*.h")
@@ -41,25 +37,26 @@ target_include_directories(WindowLib PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/windowlib
         ${CMAKE_CURRENT_SOURCE_DIR}/../nodeGraph
         ${CMAKE_CURRENT_SOURCE_DIR}/../../core/include
-        ${IMGUI_DIR} ${IMGUI_DIR}/backends
+        ${IMGUI_DIR} ${IMGUI_DIR}/misc/cpp ${IMGUI_DIR}/backends
         ${CMAKE_CURRENT_SOURCE_DIR}/../../../external/imgui_node_editor
 )
 
 
 
-target_sources(WindowLib PRIVATE
+target_sources(WindowLib PUBLIC
         ${IMGUI_DIR}/imgui.cpp
         ${IMGUI_DIR}/imgui_demo.cpp
         ${IMGUI_DIR}/imgui_draw.cpp
         ${IMGUI_DIR}/imgui_tables.cpp
         ${IMGUI_DIR}/imgui_widgets.cpp
+        ${IMGUI_DIR}/misc/cpp/imgui_stdlib.cpp
         ${IMGUI_DIR}/backends/imgui_impl_vulkan.cpp
         ${IMGUI_DIR}/backends/imgui_impl_sdl3.cpp
 )
 
 target_compile_definitions(WindowLib PRIVATE IMGUI_IMPL_VULKAN_USE_VOLK "IMGUI_IMPL_VULKAN_VOLK_FILENAME=<volk/volk.h>")
 target_link_libraries(WindowLib
-    PRIVATE ${SDL_LIBRARY}  CoreLib glaze::glaze stb_image
+    PUBLIC SDL3::SDL3  CoreLib glaze::glaze stb_image
     PUBLIC  generator imgui_node_editor implot glm::glm
 )
 

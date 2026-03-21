@@ -25,7 +25,7 @@ int main(int argc, char* argv[])
         1920,
         1080,
         "psiQuantum",
-        SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_MAXIMIZED | SDL_WINDOW_FULLSCREEN
+        SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE
     };
 
     // Initialize the application window
