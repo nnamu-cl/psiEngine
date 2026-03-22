@@ -399,7 +399,6 @@ void DefaultGameWorld::OnRender(VkCommandBuffer cb, const glm::ivec2 &windowSize
             pushData.padding[0] = 0;
             pushData.padding[1] = 0;
 
-            //TODO: Change this to send this using the
             vkCmdPushConstants(cb, pipeline->layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                                0, sizeof(pushData), &pushData);
 
