@@ -66,18 +66,18 @@ void CameraController::update(float ts)
     const bool     mouseBlocked   = io.WantCaptureMouse;
     const bool     keyboardBlocked = io.WantCaptureKeyboard;
 
-    const bool rmb     = !mouseBlocked    && (buttons & SDL_BUTTON_RMASK) != 0;
-    const bool lmb     = !mouseBlocked    && (buttons & SDL_BUTTON_LMASK) != 0;
-    const bool mmb     = !mouseBlocked    && (buttons & SDL_BUTTON_MMASK) != 0;
-    const bool altHeld = !keyboardBlocked && (mods & SDL_KMOD_ALT)        != 0;
+    const bool rmb       = !mouseBlocked    && (buttons & SDL_BUTTON_RMASK) != 0;
+    const bool lmb       = !mouseBlocked    && (buttons & SDL_BUTTON_LMASK) != 0;
+    const bool altHeld   = !keyboardBlocked && (mods & SDL_KMOD_ALT)        != 0;
+    const bool shiftHeld = !keyboardBlocked && (mods & SDL_KMOD_SHIFT)      != 0;
 
-    // Determine which mode is active (priority: fly > orbit > alt-pan > mmb-pan)
-    const bool wantFly    = rmb;
+    // Determine which mode is active (priority: fly > orbit > shift-pan)
+    // Shift+RMB = pan, plain RMB = fly
+    const bool wantPan    = shiftHeld && rmb && !altHeld;
+    const bool wantFly    = rmb && !shiftHeld;
     const bool wantOrbit  = altHeld && lmb && !rmb;
-    const bool wantAltPan = altHeld && mmb;
-    const bool wantMMBPan = mmb && !altHeld;
 
-    const bool wantRelative = wantFly || wantOrbit || wantAltPan || wantMMBPan;
+    const bool wantRelative = wantFly || wantOrbit || wantPan;
 
     // Toggle SDL relative mouse mode — this also hides/shows the cursor.
     // On the frame we enter relative mode, SDL_GetRelativeMouseState returns
@@ -115,6 +115,12 @@ void CameraController::update(float ts)
         m_Camera->target = m_FocalPoint;
     }
     m_WasOrbiting = wantOrbit;
+
+    // Track active mode for UI hints
+    if (wantFly)        m_ActiveMode = Mode::Fly;
+    else if (wantOrbit) m_ActiveMode = Mode::Orbit;
+    else if (wantPan)   m_ActiveMode = Mode::Pan;
+    else                m_ActiveMode = Mode::None;
 
     // -----------------------------------------------------------------------
     // Fly mode  (RMB held)
@@ -174,27 +180,15 @@ void CameraController::update(float ts)
         m_Camera->target   = m_FocalPoint;
     }
     // -----------------------------------------------------------------------
-    // Alt + MMB: pan focal point and camera together
+    // Shift + RMB: pan camera and focal point together
     // -----------------------------------------------------------------------
-    else if (wantAltPan)
+    else if (wantPan)
     {
         const glm::vec3 right = rightDir();
         const float     scale = kPanScale * m_FocalDistance;
         const glm::vec3 delta = (-right * dx + m_Camera->up * dy) * scale;
 
         m_FocalPoint       += delta;
-        m_Camera->position += delta;
-        m_Camera->target    = m_FocalPoint;
-    }
-    // -----------------------------------------------------------------------
-    // MMB: pan camera (and target) laterally — no focal-point involvement
-    // -----------------------------------------------------------------------
-    else if (wantMMBPan)
-    {
-        const glm::vec3 right = rightDir();
-        const float     scale = kPanScale * m_FocalDistance;
-        const glm::vec3 delta = (-right * dx + m_Camera->up * dy) * scale;
-
         m_Camera->position += delta;
         m_Camera->target   += delta;
     }

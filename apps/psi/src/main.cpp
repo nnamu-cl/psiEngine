@@ -22,10 +22,11 @@ int main(int argc, char* argv[])
 {
     // Window specifications for PSI application
     ApplicationWindowSpecifications windowSpecs{
-        1920,
-        1080,
-        "psiQuantum",
-        SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE
+        .w = 1920,
+        .h = 1080,
+        .title = "psiQuantum",
+        .flags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE,
+        .stateFilePath = (PsiProjectManager::GetMetadataDir() / "window_state.json").string()
     };
 
     // Initialize the application window

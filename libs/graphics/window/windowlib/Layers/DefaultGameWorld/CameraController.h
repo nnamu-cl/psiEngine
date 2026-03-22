@@ -8,11 +8,15 @@ class Camera;
 class CameraController
 {
 public:
+    enum class Mode { None, Fly, Orbit, Pan };
+
     bool dynamicMainCamera = true;
 
     void init(Camera* camera, SDL_Window* window);
     void update(float ts);
     void onEvent(const SDL_Event& e);
+
+    Mode activeMode() const { return m_ActiveMode; }
 
 private:
     Camera*     m_Camera = nullptr;
@@ -37,6 +41,9 @@ private:
 
     // Detects the first frame of orbit so the focal point can be initialised
     bool m_WasOrbiting = false;
+
+    // Current active camera mode for UI display
+    Mode m_ActiveMode = Mode::None;
 
     // Last camera state written by this controller.
     // If the camera differs from these at the start of update(), something external

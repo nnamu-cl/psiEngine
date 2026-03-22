@@ -7,6 +7,7 @@ enum class ComponentType : uint32_t
     Transform = 0,
     MeshRenderer = 1,
     LineRenderer = 2,
+    VolumeRenderer = 3,
     // Add future components here:
     // RigidBody,
     // Collider,

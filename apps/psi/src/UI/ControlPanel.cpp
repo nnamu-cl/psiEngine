@@ -5,21 +5,9 @@
 #include "Application.h"
 #include "Layers/DefaultGameWorld/Mesh.h"
 #include "imgui.h"
-#include <generator/BoxMesh.hpp>
-#include <generator/TriangleMesh.hpp>
-#include <generator/SphereMesh.hpp>
-#include <generator/CylinderMesh.hpp>
-#include <generator/TorusMesh.hpp>
-#include <generator/ConeMesh.hpp>
-#include <generator/DiskMesh.hpp>
 
 // Node system headers
-#include "nodes/GraphNodes.h"
 #include "nodes/NodeSystem.h"
-#include "nodes/ValueNodes.h"
-#include "nodes/MathNodes.h"
-#include "nodes/VectorNodes.h"
-#include "nodes/ObjectNodes.h"
 
 namespace {
     // Helper function to convert generator mesh to our Mesh format

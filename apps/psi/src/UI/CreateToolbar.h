@@ -22,5 +22,6 @@ private:
     PsiNodeEditorLayer* m_NodeEditorLayer;
 
     void RenderMeshMenu();
+    void RenderVolumeMenu();
     void RenderNodeMenu();
 };

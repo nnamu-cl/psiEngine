@@ -1,5 +1,5 @@
-// Line Vertex Shader
-// Passes vertex data to geometry shader for line expansion
+// Vertex Shader — passes vertex data through to geometry shader
+import common;
 
 struct VertexInput
 {
@@ -7,44 +7,18 @@ struct VertexInput
     float4 color : COLOR;
     float thickness : THICKNESS;
     float distance : DISTANCE;
-    uint   drawID    : SV_DrawIndex;  // gl_DrawID equivalent in Slang/HLSL
-};
-
-struct VertexOutput
-{
-    float4 position : SV_Position;
-    float4 color : COLOR;
-    float thickness : THICKNESS;
-    float distance : DISTANCE;
-};
-
-struct LinePushConstants
-{
-    float4x4 viewProj;
-};
-
-
-struct LineObjectData
-{
-    float4   color;
-    float    thickness;
-    float    dashLength;
-    float    gapLength;
-    uint     lineStyle;
-    uint     antiAlias;
-    float    smoothness;
-    uint     padding[2];
+    uint   drawID    : SV_DrawIndex;
 };
 
 [[vk::binding(0, 1)]]
 StructuredBuffer<LineObjectData> lineObjects;
 
 [shader("vertex")]
-VertexOutput main(
+VertexToGeom main(
     VertexInput input,
     uniform LinePushConstants pushConstants)
 {
-    VertexOutput output;
+    VertexToGeom output;
 
     LineObjectData objData = lineObjects[input.drawID];
 

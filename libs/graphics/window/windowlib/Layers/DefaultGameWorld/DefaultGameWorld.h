@@ -16,8 +16,9 @@
 struct ApplicationWindowData;
 struct LineVertex;
 
-// Include LineRendererData (needed for unique_ptr)
+// Include data types (needed for unique_ptr)
 #include "Data/LineRendererData.h"
+#include "Data/VolumeRendererData.h"
 
 // Tracks GPU buffer info for a single mesh
 struct MeshGPUInfo
@@ -54,6 +55,7 @@ struct DefaultGameWorldData
     VmaAllocation          lineBufferAllocation{ VK_NULL_HANDLE };
     std::vector<LineGPUInfo> lineGPUInfo;  // Per-object line data
     std::vector<std::unique_ptr<LineRendererData>> lineDataStorage;  // Owned line data
+    std::vector<std::unique_ptr<VolumeRendererData>> volumeDataStorage;  // Owned volume data
 
     // Scene data (frequently accessed together)
     Camera camera;
@@ -88,6 +90,13 @@ public:
     void addLinePrimitive(const std::string& name,
                          const std::vector<glm::vec3>& points,
                          const glm::vec4& color = glm::vec4(1.0f));
+
+    // Add a volume primitive to the scene
+    void addVolumePrimitive(const std::string& name,
+                           VolumeType type,
+                           const glm::vec3& center = glm::vec3(0.0f),
+                           float radius = 1.0f,
+                           const glm::vec4& color = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
 
     // Public data for easy access and testing
     DefaultGameWorldData data;

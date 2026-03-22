@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <string>
 #include <vector>
 #include <glm/vec2.hpp>
 #include <volk/volk.h>
@@ -11,13 +12,12 @@
 
 constexpr uint32_t maxFramesInFlight{2};
 
-
-
 struct ApplicationWindowSpecifications {
     int w;
     int h;
     const char *title;
     SDL_WindowFlags flags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE;
+    std::string stateFilePath;  // If non-empty, window state is saved/loaded from this path
 };
 
 struct ApplicationWindowData {
@@ -96,4 +96,6 @@ public:
 private:
     bool init_imgui();
     void rebuildSwapchain();
+    void loadWindowState();
+    void saveWindowState();
 };

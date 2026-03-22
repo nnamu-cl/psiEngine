@@ -7,9 +7,11 @@
 #include <stdexcept>
 #include <iostream>
 #include <cstring>
+#include <cmath>
 
 #include "ApplicationWindow.h"
 #include "Components/LineRenderer.h"
+#include "Components/VolumeRenderer.h"
 #include "Components/Transform.h"
 #include "slang/slang.h"
 #include "slang/slang-com-ptr.h"
@@ -184,11 +186,18 @@ void LinePipeline::DoRender(VkCommandBuffer cb, uint32_t frameIndex, float aspec
         }
 
 
-        // Push viewProj once — the only remaining push constant
+        // Push viewProj + aspectRatio + projScale
         struct {
             glm::mat4 viewProj;
+            float     aspectRatio;
+            float     projScale;   // proj[1][1] = 1/tan(fov/2)
+            float     _pad1;
+            float     _pad2;
         } pushData;
-        pushData.viewProj = data.camera.projectionMatrix(aspectRatio) * data.camera.viewMatrix();
+        pushData.viewProj    = data.camera.projectionMatrix(aspectRatio) * data.camera.viewMatrix();
+        pushData.aspectRatio = aspectRatio;
+        pushData.projScale   = 1.0f / std::tan(glm::radians(data.camera.fov) * 0.5f);
+        pushData._pad1 = pushData._pad2 = 0.0f;
         vkCmdPushConstants(cb,
                            data.linePipeline.layout,
                            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_GEOMETRY_BIT,
@@ -222,17 +231,37 @@ void LinePipeline::DoRender(VkCommandBuffer cb, uint32_t frameIndex, float aspec
     }
 }
 
-std::vector<std::vector<LineVertex> > collectLineVertexBatches(const DefaultGameWorldData &data) {
-    std::vector<std::vector<LineVertex> > allLineData;
+// Tracks which object type each batch came from (for SSBO population)
+struct BatchInfo {
+    std::vector<LineVertex> vertices;
+    uint32_t objectType; // 0 = line, 1 = circle
+};
+
+std::vector<BatchInfo> collectVertexBatches(const DefaultGameWorldData &data) {
+    std::vector<BatchInfo> allBatches;
     for (const auto &obj: data.scene.objects) {
         const LineRenderer *lineRenderer = obj.components.get<LineRenderer>();
-        if (!lineRenderer || !lineRenderer->data)
+        if (lineRenderer && lineRenderer->data) {
+            std::cout << "Found LineRenderer on object: " << obj.name << "\n";
+            allBatches.push_back({lineRenderer->buildVertexData(), 0});
             continue;
-        std::cout << "Found LineRenderer on object: " << obj.name << "\n";
-        allLineData.push_back(lineRenderer->buildVertexData());
+        }
+        const VolumeRenderer *volumeRenderer = obj.components.get<VolumeRenderer>();
+        if (volumeRenderer && volumeRenderer->data) {
+            std::cout << "Found VolumeRenderer on object: " << obj.name << "\n";
+            // Use Transform position so moving the object in the inspector works
+            const Transform *xform = obj.components.get<Transform>();
+            auto verts = volumeRenderer->buildVertexData();
+            if (xform) {
+                glm::vec3 pos = xform->getPos();
+                for (auto &v : verts)
+                    v.position = pos;
+            }
+            allBatches.push_back({std::move(verts), 1});
+        }
     }
-    std::cout << "Found " << allLineData.size() << " lines to upload\n";
-    return allLineData;
+    std::cout << "Found " << allBatches.size() << " primitives to upload\n";
+    return allBatches;
 }
 
 
@@ -242,15 +271,15 @@ bool LinePipeline::UploadLinesToGPU(DefaultGameWorldData &data, VmaAllocator all
         return true;
     }
     std::cout << "[Upload] ssboSet=" << ssboSet << " lineSSBO=" << lineSSBO << "\n";
-    // Collect vertex data from all LineRenderer components in the scene
-    std::vector<std::vector<LineVertex> > allLineData = collectLineVertexBatches(data);
-    if (allLineData.empty())
+    // Collect vertex data from all renderable components in the scene
+    std::vector<BatchInfo> allBatches = collectVertexBatches(data);
+    if (allBatches.empty())
         return true;
 
     // Calculate total buffer size
     VkDeviceSize totalSize = 0;
-    for (const std::vector<LineVertex> &lineData: allLineData) // loop through all line objects
-        totalSize += lineData.size() * sizeof(LineVertex);
+    for (const BatchInfo &batch: allBatches)
+        totalSize += batch.vertices.size() * sizeof(LineVertex);
 
     std::cout << "[Upload] totalSize=" << totalSize << "\n";
     if (totalSize == 0)
@@ -291,16 +320,16 @@ bool LinePipeline::UploadLinesToGPU(DefaultGameWorldData &data, VmaAllocator all
     char *bufferPtr = static_cast<char *>(allocInfo.pMappedData); //get a pointer to the start of the memory
     VkDeviceSize offset = 0; // this the offset per line data
 
-    for (const std::vector<LineVertex> &lineData: allLineData) {
-        VkDeviceSize dataSize = lineData.size() * sizeof(LineVertex);
-        // fine out how much we need for this specific line
-        if (dataSize > 0) // copy this data, starting at the next available location, into the memory
-            std::memcpy(bufferPtr + offset, lineData.data(), dataSize);
+    for (const BatchInfo &batch: allBatches) {
+        VkDeviceSize dataSize = batch.vertices.size() * sizeof(LineVertex);
+        // copy this data, starting at the next available location, into the memory
+        if (dataSize > 0)
+            std::memcpy(bufferPtr + offset, batch.vertices.data(), dataSize);
 
         data.lineGPUInfo.push_back({
-            //save this line data for use later on when rendering
-            .vertexOffset = offset, // this offset shows where in the line data buffer this line starts from
-            .vertexCount = static_cast<uint32_t>(lineData.size())
+            //save this data for use later on when rendering
+            .vertexOffset = offset,
+            .vertexCount = static_cast<uint32_t>(batch.vertices.size())
         });
 
         offset += dataSize;
@@ -320,7 +349,7 @@ bool LinePipeline::UploadLinesToGPU(DefaultGameWorldData &data, VmaAllocator all
     // Usage includes STORAGE_BUFFER_BIT so the compute shader can write to it
     VkBufferCreateInfo indirectCI{
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-        .size = sizeof(VkDrawIndirectCommand) * allLineData.size(),
+        .size = sizeof(VkDrawIndirectCommand) * allBatches.size(),
         .usage = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
     };
     VmaAllocationCreateInfo indirectAllocCI{
@@ -375,7 +404,7 @@ bool LinePipeline::UploadLinesToGPU(DefaultGameWorldData &data, VmaAllocator all
     // Update compute descriptor sets to point at the new buffers
     indirectCompute.UpdateDescSets(computeDescSet,
                                    lineGPUInfoBuffer, sizeof(LineGPUInfo) * data.lineGPUInfo.size(),
-                                   indirectBuffer, sizeof(VkDrawIndirectCommand) * allLineData.size());
+                                   indirectBuffer, sizeof(VkDrawIndirectCommand) * allBatches.size());
 
 
 
@@ -392,7 +421,7 @@ bool LinePipeline::UploadLinesToGPU(DefaultGameWorldData &data, VmaAllocator all
     //One LineObjectData per line object
     VkBufferCreateInfo ssboCI{
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-        .size = sizeof(LineObjectData) * allLineData.size(),
+        .size = sizeof(LineObjectData) * allBatches.size(),
         .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
     };
 
@@ -409,30 +438,49 @@ bool LinePipeline::UploadLinesToGPU(DefaultGameWorldData &data, VmaAllocator all
     std::cout << "[Upload] SSBO created. pMappedData=" << ssboAllocInfo.pMappedData << "\n";
 
 
-    // Populate — one entry per line object, same iteration order as vertex upload
+    // Populate — one entry per object, same iteration order as vertex upload
     // so index i here matches gl_DrawID == i in the shader
     LineObjectData *ssboPtr = static_cast<LineObjectData *>(ssboAllocInfo.pMappedData);
     uint32_t ssboIndex = 0;
     for (const auto &obj: data.scene.objects) {
         const LineRenderer *lr = obj.components.get<LineRenderer>();
-        if (!lr || !lr->data || lr->data->points.empty()) continue;
-
-        ssboPtr[ssboIndex++] = LineObjectData{
-            .color = lr->data->properties.color,
-            .thickness = 1.0f,
-            .dashLength = lr->data->properties.dashLength,
-            .gapLength = lr->data->properties.gapLength,
-            .lineStyle = static_cast<uint32_t>(lr->data->properties.style),
-            .antiAlias = lr->data->properties.antiAlias ? 1u : 0u,
-            .smoothness = lr->data->properties.smoothness
-        };
+        if (lr && lr->data && !lr->data->points.empty()) {
+            ssboPtr[ssboIndex++] = LineObjectData{
+                .color = lr->data->properties.color,
+                .thickness = 1.0f,
+                .dashLength = lr->data->properties.dashLength,
+                .gapLength = lr->data->properties.gapLength,
+                .lineStyle = static_cast<uint32_t>(lr->data->properties.style),
+                .antiAlias = lr->data->properties.antiAlias ? 1u : 0u,
+                .smoothness = lr->data->properties.smoothness,
+                .objectType = 0,
+                .radius = 0.0f,
+                .lit = 0
+            };
+            continue;
+        }
+        const VolumeRenderer *vr = obj.components.get<VolumeRenderer>();
+        if (vr && vr->data) {
+            ssboPtr[ssboIndex++] = LineObjectData{
+                .color = vr->data->color,
+                .thickness = 1.0f,
+                .dashLength = 0.0f,
+                .gapLength = 0.0f,
+                .lineStyle = 0,
+                .antiAlias = vr->data->antiAlias ? 1u : 0u,
+                .smoothness = vr->data->smoothness,
+                .objectType = static_cast<uint32_t>(vr->data->type),
+                .radius = vr->data->radius,
+                .lit = vr->data->lit ? 1u : 0u
+            };
+        }
     }
 
     // Point the descriptor set at the new SSBO buffer
     VkDescriptorBufferInfo ssboBufferInfo{
         .buffer = lineSSBO,
         .offset = 0,
-        .range = sizeof(LineObjectData) * allLineData.size()
+        .range = sizeof(LineObjectData) * allBatches.size()
     };
 
     VkWriteDescriptorSet ssboWrite{
@@ -502,11 +550,22 @@ VkShaderModule LinePipeline::loadShaderModule(VkDevice device, const std::string
         {slang::CompilerOptionName::EmitSpirvDirectly, {slang::CompilerOptionValueKind::Int, 1}}
     };
 
+    // Derive the search path from the shader file's directory so `import` works
+    std::string searchDir = path;
+    auto lastSlash = searchDir.find_last_of("/\\");
+    if (lastSlash != std::string::npos)
+        searchDir = searchDir.substr(0, lastSlash);
+    else
+        searchDir = ".";
+    const char* searchPaths[] = { searchDir.c_str() };
+
     // Create session descriptor
     slang::SessionDesc sessionDesc{
         .targets = &targetDesc,
         .targetCount = 1,
         .defaultMatrixLayoutMode = SLANG_MATRIX_LAYOUT_COLUMN_MAJOR,
+        .searchPaths = searchPaths,
+        .searchPathCount = 1,
         .compilerOptionEntries = options,
         .compilerOptionEntryCount = 1
     };

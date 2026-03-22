@@ -6,6 +6,7 @@
 #include "IconsLucide.h"
 #include "utils/TextIcons.h"
 #include "Layers/DefaultGameWorld/Mesh.h"
+#include "Data/VolumeRendererData.h"
 
 #include <generator/BoxMesh.hpp>
 #include <generator/TriangleMesh.hpp>
@@ -115,6 +116,12 @@ void CreateToolbar::Render()
             ImGui::EndMenu();
         }
 
+        if (UIUtils::IconBeginMenu(ICON_LC_CIRCLE, "Volumes"))
+        {
+            RenderVolumeMenu();
+            ImGui::EndMenu();
+        }
+
         if (m_NodeEditorLayer && UIUtils::IconBeginMenu(ICON_LC_WORKFLOW, "Nodes"))
         {
             RenderNodeMenu();
@@ -186,6 +193,23 @@ void CreateToolbar::RenderMeshMenu()
         auto mesh = convertFromGenerator(generator::DiskMesh(1.0, 0.0, 32, 4));
         m_WorldLayer->addMeshPrimitive("Circle", std::move(mesh),
             glm::vec3(0.0f), glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
+    }
+}
+
+void CreateToolbar::RenderVolumeMenu()
+{
+    if (!m_WorldLayer)
+        return;
+
+    ImGui::SetWindowFontScale(g_UISettings.popupFontScale);
+
+    if (UIUtils::IconMenuItem(ICON_LC_CIRCLE, "Circle"))
+    {
+        m_WorldLayer->addVolumePrimitive("Circle Volume",
+            VolumeType::Circle,
+            glm::vec3(0.0f),
+            1.0f,
+            glm::vec4(1.0f, 0.0f, 0.0f, 0.8f));
     }
 }
 

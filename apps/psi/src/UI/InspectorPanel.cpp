@@ -7,6 +7,7 @@
 #include "layers/PsiNodeEditorLayer.h"
 #include "Components/Transform.h"
 #include "Components/MeshRenderer.h"
+#include "Components/VolumeRenderer.h"
 #include "imgui.h"
 
 InspectorPanel::InspectorPanel(PsiWorldLayer* worldLayer, PsiNodeEditorLayer* nodeEditorLayer)
@@ -87,6 +88,18 @@ void InspectorPanel::Render()
 
         // Let the component render its own UI
         renderer->OnInspectorGUI();
+    }
+
+    // VolumeRenderer component
+    VolumeRenderer* volumeRenderer = selectedObject.components.get<VolumeRenderer>();
+    if (volumeRenderer)
+    {
+        ImGui::Spacing();
+        ImGui::Spacing();
+        ImGui::SeparatorText("VolumeRenderer");
+        ImGui::Spacing();
+
+        volumeRenderer->OnInspectorGUI();
     }
 
     ImGui::End();

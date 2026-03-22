@@ -5,8 +5,11 @@
 
 #include <vector>
 #include <algorithm>
+#include <filesystem>
+#include <fstream>
 #include <volk/volk.h>
 #include <SDL3/SDL_vulkan.h>
+#include <glaze/glaze.hpp>
 
 #include "Application.h"
 
@@ -140,6 +143,8 @@ bool ApplicationWindow::Init() {
             stbi_image_free(pixels);
         }
     }
+
+    loadWindowState();
 
     CHECK_VULKAN_RESULT(SDL_Vulkan_CreateSurface(data.sdlWindow, data.vkInstance, nullptr, &data.surface));
     CHECK_VULKAN_RESULT(SDL_GetWindowSize(data.sdlWindow, &data.windowSize.x, &data.windowSize.y));
@@ -705,6 +710,82 @@ void ApplicationWindow::Start(Application::Application& app)
         currentFrame = (currentFrame + 1) % maxFramesInFlight;
     }
 
+    saveWindowState();
     CHECK_VULKAN_RESULT(vkDeviceWaitIdle(data.device));
+}
+
+// -----------------------------------------------------------------------
+// Window state persistence
+// -----------------------------------------------------------------------
+
+struct WindowState {
+    int x = 0;
+    int y = 0;
+    int w = 1920;
+    int h = 1080;
+    bool maximized = false;
+};
+
+void ApplicationWindow::loadWindowState() {
+    if (specification->stateFilePath.empty()) return;
+
+    std::ifstream file(specification->stateFilePath);
+    if (!file.is_open()) return;
+
+    std::string buffer((std::istreambuf_iterator<char>(file)),
+                        std::istreambuf_iterator<char>());
+
+    WindowState state;
+    auto err = glz::read_json(state, buffer);
+    if (err) return;
+
+    // Apply size from saved state
+    specification->w = state.w;
+    specification->h = state.h;
+
+    // Validate position against current displays so we don't restore off-screen
+    int displayCount = 0;
+    SDL_DisplayID* displays = SDL_GetDisplays(&displayCount);
+    bool onScreen = false;
+    if (displays) {
+        for (int i = 0; i < displayCount; i++) {
+            SDL_Rect bounds;
+            if (SDL_GetDisplayBounds(displays[i], &bounds)) {
+                if (state.x >= bounds.x && state.x < bounds.x + bounds.w &&
+                    state.y >= bounds.y && state.y < bounds.y + bounds.h) {
+                    onScreen = true;
+                    break;
+                }
+            }
+        }
+        SDL_free(displays);
+    }
+
+    if (onScreen) {
+        SDL_SetWindowPosition(data.sdlWindow, state.x, state.y);
+    }
+
+    if (state.maximized) {
+        SDL_MaximizeWindow(data.sdlWindow);
+    }
+}
+
+void ApplicationWindow::saveWindowState() {
+    if (specification->stateFilePath.empty()) return;
+
+    WindowState state;
+    SDL_GetWindowPosition(data.sdlWindow, &state.x, &state.y);
+    SDL_GetWindowSize(data.sdlWindow, &state.w, &state.h);
+    state.maximized = (SDL_GetWindowFlags(data.sdlWindow) & SDL_WINDOW_MAXIMIZED) != 0;
+
+    std::string buffer;
+    auto err = glz::write<glz::opts{.prettify = true}>(state, buffer);
+    if (err) return;
+
+    auto parent = std::filesystem::path(specification->stateFilePath).parent_path();
+    std::filesystem::create_directories(parent);
+
+    std::ofstream file(specification->stateFilePath, std::ios::trunc);
+    file << buffer;
 }
 

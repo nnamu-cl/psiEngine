@@ -78,7 +78,7 @@ PsiUILayer::PsiUILayer(PsiWorldLayer* worldLayer, PsiNodeEditorLayer* nodeEditor
     m_ModeToolbar     = std::make_unique<ModeToolbar>(worldLayer, nodeEditorLayer);
     m_CreateToolbar   = std::make_unique<CreateToolbar>(worldLayer, nodeEditorLayer);
     m_BrandLabel      = std::make_unique<BrandLabel>();
-    m_SaveToolbar     = std::make_unique<SaveToolbar>();
+    m_SaveToolbar     = std::make_unique<SaveToolbar>(worldLayer);
 }
 
 PsiUILayer::~PsiUILayer()

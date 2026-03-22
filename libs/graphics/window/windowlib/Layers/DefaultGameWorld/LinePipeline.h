@@ -38,7 +38,12 @@ struct LineObjectData
     uint32_t   lineStyle;
     uint32_t   antiAlias;
     float      smoothness;
-    uint32_t   padding[2];  // bring to 48 bytes, std430 aligned
+    uint32_t   objectType;   // 0 = line, 1 = circle
+    float      radius;       // used when objectType != 0
+    uint32_t   lit;          // 0 = unlit, 1 = lit
+    float      _pad0;
+    float      _pad1;
+    float      _pad2;
 };
 
 class LinePipeline

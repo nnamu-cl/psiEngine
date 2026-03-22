@@ -3,7 +3,9 @@
 #include "Components/Transform.h"
 #include "Components/MeshRenderer.h"
 #include "Components/LineRenderer.h"
+#include "Components/VolumeRenderer.h"
 #include "Data/LineRendererData.h"
+#include "Data/VolumeRendererData.h"
 #include <iostream>
 #include <cstring>
 
@@ -92,15 +94,17 @@ void DefaultGameWorld::OnAttach() {
     // Initialise camera controller against the window's camera and SDL window
     data.cameraController.init(&data.camera, windowData->sdlWindow);
 
-    // Upload any line objects that were added before OnAttach ran
-    bool hasLines = false;
+    // Upload any line/volume objects that were added before OnAttach ran
+    bool hasPrimitives = false;
     for (const auto &obj : data.scene.objects) {
-        if (obj.components.get<LineRenderer>()) { hasLines = true; break; }
+        if (obj.components.get<LineRenderer>() || obj.components.get<VolumeRenderer>()) {
+            hasPrimitives = true; break;
+        }
     }
-    if (hasLines) {
-        std::cout << "Uploading pre-attached line objects to GPU...\n";
+    if (hasPrimitives) {
+        std::cout << "Uploading pre-attached primitives to GPU...\n";
         if (!data.linePipeline.UploadLinesToGPU(data, windowData->allocator))
-            std::cerr << "Failed to upload pre-attached lines\n";
+            std::cerr << "Failed to upload pre-attached primitives\n";
     }
 
     std::cout << "DefaultGameWorld layer attached successfully\n";
@@ -271,6 +275,51 @@ void DefaultGameWorld::addLinePrimitive(const std::string &name,
     }
 }
 
+void DefaultGameWorld::addVolumePrimitive(const std::string &name,
+                                          VolumeType type,
+                                          const glm::vec3 &center,
+                                          float radius,
+                                          const glm::vec4 &color) {
+    std::cout << "addVolumePrimitive called: " << name << "\n";
+
+    // Re-upload all primitives to GPU (will include the new one)
+    if (data.lineBuffer != VK_NULL_HANDLE)
+        vmaDestroyBuffer(windowData->allocator, data.lineBuffer, data.lineBufferAllocation);
+
+    // Create volume data
+    auto volumeData = std::make_unique<VolumeRendererData>();
+    volumeData->type = type;
+    volumeData->center = center;
+    volumeData->radius = radius;
+    volumeData->color = color;
+    VolumeRendererData *dataPtr = volumeData.get();
+
+    data.volumeDataStorage.push_back(std::move(volumeData));
+
+    // Create game object with volume renderer
+    GameObject obj{
+        .name = name,
+        .meshIndex = 0xFFFFFFFF
+    };
+
+    obj.components.add(std::make_unique<Transform>(
+        center,
+        glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
+        glm::vec3(1.0f)
+    ));
+
+    obj.components.add(std::make_unique<VolumeRenderer>(dataPtr));
+    data.scene.addObject(std::move(obj));
+
+    std::cout << "Scene now has " << data.scene.objects.size() << " objects\n";
+
+    if (!data.linePipeline.UploadLinesToGPU(data, windowData->allocator)) {
+        std::cerr << "Failed to upload primitives to GPU after adding " << name << "\n";
+    } else {
+        std::cout << "Successfully uploaded primitives. lineGPUInfo size: " << data.lineGPUInfo.size() << "\n";
+    }
+}
+
 
 void DefaultGameWorld::OnDetach() {
     // Destroy mesh buffer
@@ -293,13 +342,18 @@ void DefaultGameWorld::OnEvent(const SDL_Event& e) {
 void DefaultGameWorld::OnUpdate(float ts) {
     data.cameraController.update(ts);
 
-    // Check if any line renderers need GPU update
+    // Check if any line/volume renderers need GPU update
     bool needsLineUpdate = false;
     for (const auto &obj: data.scene.objects) {
         const LineRenderer *lineRenderer = obj.components.get<LineRenderer>();
         if (lineRenderer && lineRenderer->data && lineRenderer->data->needsGPUUpdate) {
             needsLineUpdate = true;
-            lineRenderer->data->needsGPUUpdate = false; // Works because needsGPUUpdate is mutable
+            lineRenderer->data->needsGPUUpdate = false;
+        }
+        const VolumeRenderer *volumeRenderer = obj.components.get<VolumeRenderer>();
+        if (volumeRenderer && volumeRenderer->data && volumeRenderer->data->needsGPUUpdate) {
+            needsLineUpdate = true;
+            volumeRenderer->data->needsGPUUpdate = false;
         }
     }
 
