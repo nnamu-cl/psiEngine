@@ -1,6 +1,7 @@
 #include "LineRenderer.h"
 #include "imgui.h"
 #include <glm/gtc/type_ptr.hpp>
+#include <string>
 
 // Catmull-Rom spline interpolation for smooth curves
 static glm::vec3 catmullRomInterpolate(const glm::vec3& p0, const glm::vec3& p1,

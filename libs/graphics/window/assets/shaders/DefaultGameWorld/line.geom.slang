@@ -13,7 +13,7 @@ struct FragmentInput
 {
     float4 position : SV_Position;
     float4 color : COLOR;
-    float2 uv : TEXCOORD0;  // UV for anti-aliasing (0=center, 1=edge)
+    float2 uv : TEXCOORD0;
     float distance : DISTANCE;
     uint lineStyle : LINESTYLE;
     float dashLength : DASHLENGTH;
@@ -22,65 +22,66 @@ struct FragmentInput
     float smoothness : SMOOTHNESS;
 };
 
+// Only viewProj remains here — everything else moved to SSBO
 struct LinePushConstants
 {
     float4x4 viewProj;
-    float4 globalColor;
-    float globalThickness;
-    float dashLength;
-    float gapLength;
-    uint lineStyle;
-    uint antiAlias;
-    float smoothness;
 };
+
+// Per-object data — must match LineObjectData in LinePipeline.h exactly
+struct LineObjectData
+{
+    float4   color;
+    float    thickness;
+    float    dashLength;
+    float    gapLength;
+    uint     lineStyle;
+    uint     antiAlias;
+    float    smoothness;
+    uint     padding[2];
+};
+
+// Set 1, binding 0 — the line SSBO owned by LinePipeline
+// gl_DrawID (SV_DrawIndex) indexes into this to get the current object's data
+[[vk::binding(0, 1)]]
+StructuredBuffer<LineObjectData> lineObjects;
 
 [shader("geometry")]
 [maxvertexcount(6)]
 void main(
     line VertexInput input[2],
     inout TriangleStream<FragmentInput> outputStream,
+    uint drawID : SV_DrawIndex,                  // which object are we drawing
     uniform LinePushConstants pushConstants)
 {
-    // Get the two line endpoints in clip space
+    // Fetch this object's data from the SSBO
+    LineObjectData objData = lineObjects[drawID];
+
     float4 p0 = input[0].position;
     float4 p1 = input[1].position;
 
-    // Convert to NDC for screen-space calculations
     float2 ndc0 = p0.xy / p0.w;
     float2 ndc1 = p1.xy / p1.w;
 
-    // Calculate line direction in screen space
     float2 dir = normalize(ndc1 - ndc0);
-
-    // Calculate perpendicular vector (for thickness)
     float2 perp = float2(-dir.y, dir.x);
 
-    // Average thickness of the two vertices
     float thickness = (input[0].thickness + input[1].thickness) * 0.5;
+    float thicknessNDC = thickness * 0.001;
 
-    // Convert thickness from pixels to NDC
-    // For 1920x1080: 1 pixel = 2.0 / 1080 = 0.00185 NDC (height)
-    // Using a larger multiplier for better visibility
-    float thicknessNDC = thickness * 0.001;  // Pixel-to-NDC conversion
-
-    // Offset for thickness (perpendicular to line)
     float2 offset = perp * thicknessNDC;
-
-    // Extend the line segment along its direction to close gaps at joins
-    // Extend by the thickness to ensure overlap
     float2 extension = dir * thicknessNDC;
-    ndc0 -= extension;  // Extend start backwards
-    ndc1 += extension;  // Extend end forwards
+    ndc0 -= extension;
+    ndc1 += extension;
 
-    // Generate quad (two triangles)
     FragmentInput v;
 
-    // Pass through push constant values to all vertices
-    v.lineStyle = pushConstants.lineStyle;
-    v.dashLength = pushConstants.dashLength;
-    v.gapLength = pushConstants.gapLength;
-    v.antiAlias = pushConstants.antiAlias;
-    v.smoothness = pushConstants.smoothness;
+    // Read style data from SSBO instead of push constants
+    v.lineStyle  = objData.lineStyle;
+    v.dashLength = objData.dashLength;
+    v.gapLength  = objData.gapLength;
+    v.antiAlias  = objData.antiAlias;
+    v.smoothness = objData.smoothness;
 
     // Vertex 0: Bottom-left
     v.position = float4((ndc0 - offset) * p0.w, p0.z, p0.w);
@@ -105,7 +106,6 @@ void main(
 
     outputStream.RestartStrip();
 
-    // Second triangle
     // Vertex 0: Top-left
     v.position = float4((ndc0 + offset) * p0.w, p0.z, p0.w);
     v.color = input[0].color;

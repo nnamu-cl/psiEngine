@@ -102,6 +102,33 @@ if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/assets)
     )
 endif()
 
+# Copy runtime DLLs needed on machines without the Vulkan SDK installed (Windows only)
+if(WIN32)
+    add_custom_command(
+        TARGET ${NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$ENV{VULKAN_SDK}/Bin/SDL3.dll"
+            $<TARGET_FILE_DIR:${NAME}>/SDL3.dll
+        COMMENT "Copying SDL3.dll to build output"
+    )
+
+    add_custom_command(
+        TARGET ${NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$ENV{VULKAN_SDK}/Bin/slang.dll"
+            $<TARGET_FILE_DIR:${NAME}>/slang.dll
+        COMMENT "Copying slang.dll to build output"
+    )
+
+    add_custom_command(
+        TARGET ${NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$ENV{VULKAN_SDK}/Bin/slang-compiler.dll"
+            $<TARGET_FILE_DIR:${NAME}>/slang-compiler.dll
+        COMMENT "Copying slang-compiler.dll to build output"
+    )
+endif()
+
 # ============================================================================
 # Tests
 # ============================================================================

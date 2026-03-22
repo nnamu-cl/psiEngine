@@ -13,7 +13,11 @@
 #include "../../nodeGraph/nodes/ObjectNodes.h"
 
 DefaultGameWorld::DefaultGameWorld(ApplicationWindowData *windowData)
-    : m_WindowData{windowData} {
+    : windowData{windowData} {
+
+    data.windowData = windowData; //save the window data as we might need it later
+
+
 }
 
 void DefaultGameWorld::OnAttach() {
@@ -49,8 +53,8 @@ void DefaultGameWorld::OnAttach() {
     };
 
     // Create resources (descriptor layouts, pool, uniform buffers)
-    if (!data.resources.create(m_WindowData->device,
-                               m_WindowData->allocator,
+    if (!data.resources.create(windowData->device,
+                               windowData->allocator,
                                maxFramesInFlight)) {
         std::cerr << "Failed to create DefaultGameWorld resources\n";
         return;
@@ -58,10 +62,10 @@ void DefaultGameWorld::OnAttach() {
 
     // Create all pipeline variants
     std::vector<VkDescriptorSetLayout> setLayouts = {data.resources.globalSetLayout};
-    if (!data.pipelineManager.create(m_WindowData->device,
+    if (!data.pipelineManager.create(windowData->device,
                                      setLayouts,
-                                     m_WindowData->swapchainImageFormat,
-                                     m_WindowData->depthFormat)) {
+                                     windowData->swapchainImageFormat,
+                                     windowData->depthFormat)) {
         std::cerr << "Failed to create DefaultGameWorld pipelines\n";
         return;
     }
@@ -76,19 +80,29 @@ void DefaultGameWorld::OnAttach() {
     };
 
     //Loading and compilation happens here
-    if (!data.linePipeline.create(m_WindowData->device,
+    if (!data.linePipeline.create(windowData->device,
                                   linePipelineDesc,
                                   setLayouts,
-                                  m_WindowData->swapchainImageFormat,
-                                  m_WindowData->depthFormat)) {
+                                  windowData->swapchainImageFormat,
+                                  windowData->depthFormat)) {
         std::cerr << "Failed to create line pipeline\n";
         return;
     }
 
     // Initialise camera controller against the window's camera and SDL window
-    data.cameraController.init(&data.camera, m_WindowData->sdlWindow);
+    data.cameraController.init(&data.camera, windowData->sdlWindow);
 
-    // Scene starts empty - meshes can be added via UI
+    // Upload any line objects that were added before OnAttach ran
+    bool hasLines = false;
+    for (const auto &obj : data.scene.objects) {
+        if (obj.components.get<LineRenderer>()) { hasLines = true; break; }
+    }
+    if (hasLines) {
+        std::cout << "Uploading pre-attached line objects to GPU...\n";
+        if (!data.linePipeline.UploadLinesToGPU(data, windowData->allocator))
+            std::cerr << "Failed to upload pre-attached lines\n";
+    }
+
     std::cout << "DefaultGameWorld layer attached successfully\n";
     std::cout << "  Scene ready - use UI to add objects\n";
 }
@@ -128,7 +142,7 @@ bool DefaultGameWorld::uploadMeshesToGPU() {
     };
 
     VmaAllocationInfo allocInfo;
-    if (vmaCreateBuffer(m_WindowData->allocator, &bufferCI, &allocCI,
+    if (vmaCreateBuffer(windowData->allocator, &bufferCI, &allocCI,
                         &data.meshBuffer, &data.meshBufferAllocation, &allocInfo) != VK_SUCCESS) {
         std::cerr << "Failed to create mesh buffer\n";
         return false;
@@ -187,7 +201,7 @@ void DefaultGameWorld::addMeshPrimitive(const std::string &name, Mesh mesh,
     // Re-upload all meshes to GPU (includes the new one)
     // Destroy old buffer first
     if (data.meshBuffer != VK_NULL_HANDLE)
-        vmaDestroyBuffer(m_WindowData->allocator, data.meshBuffer, data.meshBufferAllocation);
+        vmaDestroyBuffer(windowData->allocator, data.meshBuffer, data.meshBufferAllocation);
 
     if (!uploadMeshesToGPU()) {
         std::cerr << "Failed to upload meshes to GPU after adding " << name << "\n";
@@ -218,7 +232,7 @@ void DefaultGameWorld::addLinePrimitive(const std::string &name,
 
     // Re-upload all lines to GPU (will include the new one)
     if (data.lineBuffer != VK_NULL_HANDLE)
-        vmaDestroyBuffer(m_WindowData->allocator, data.lineBuffer, data.lineBufferAllocation);
+        vmaDestroyBuffer(windowData->allocator, data.lineBuffer, data.lineBufferAllocation);
 
     // Create line data
     auto lineData = std::make_unique<LineRendererData>();
@@ -249,7 +263,7 @@ void DefaultGameWorld::addLinePrimitive(const std::string &name,
     std::cout << "Scene now has " << data.scene.objects.size() << " objects\n";
 
     // Upload lines to GPU
-    if (!uploadLinesToGPU()) {
+    if (!data.linePipeline.UploadLinesToGPU(data, windowData->allocator)) {
         std::cerr << "Failed to upload lines to GPU after adding " << name << "\n";
     } else {
         std::cout << "Successfully uploaded lines. lineGPUInfo size: " << data.lineGPUInfo.size() << "\n";
@@ -257,94 +271,19 @@ void DefaultGameWorld::addLinePrimitive(const std::string &name,
     }
 }
 
-bool DefaultGameWorld::uploadLinesToGPU() {
-    std::cout << "uploadLinesToGPU called\n";
-
-    // Collect all line vertex data from LineRenderer components
-    std::vector<std::vector<LineVertex> > allLineData;
-    data.lineGPUInfo.clear();
-
-    for (const auto &obj: data.scene.objects) {
-        const LineRenderer *lineRenderer = obj.components.get<LineRenderer>();
-        if (!lineRenderer || !lineRenderer->data) {
-            continue;
-        }
-
-        std::cout << "Found LineRenderer on object: " << obj.name << "\n";
-        allLineData.push_back(lineRenderer->buildVertexData());
-    }
-
-    std::cout << "Found " << allLineData.size() << " lines to upload\n";
-
-    if (allLineData.empty())
-        return true; // No lines to upload
-
-    // Calculate total size needed
-    VkDeviceSize totalSize = 0;
-    for (const auto &lineData: allLineData) {
-        totalSize += lineData.size() * sizeof(LineVertex);
-    }
-
-    if (totalSize == 0)
-        return true;
-
-    // Create single buffer for all line data
-    VkBufferCreateInfo bufferCI{
-        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-        .size = totalSize,
-        .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
-    };
-
-    VmaAllocationCreateInfo allocCI{
-        .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
-                 VMA_ALLOCATION_CREATE_MAPPED_BIT,
-        .usage = VMA_MEMORY_USAGE_AUTO
-    };
-
-    VmaAllocationInfo allocInfo;
-    if (vmaCreateBuffer(m_WindowData->allocator, &bufferCI, &allocCI,
-                        &data.lineBuffer, &data.lineBufferAllocation, &allocInfo) != VK_SUCCESS) {
-        std::cerr << "Failed to create line buffer\n";
-        return false;
-    }
-
-    // Map and upload all line data
-    char *bufferPtr = static_cast<char *>(allocInfo.pMappedData);
-    VkDeviceSize offset = 0;
-
-    for (const auto &lineData: allLineData) {
-        VkDeviceSize dataSize = lineData.size() * sizeof(LineVertex);
-
-        if (dataSize > 0) {
-            std::memcpy(bufferPtr + offset, lineData.data(), dataSize);
-        }
-
-        // Record GPU info for this line
-        data.lineGPUInfo.push_back({
-            .vertexOffset = offset,
-            .vertexCount = static_cast<uint32_t>(lineData.size())
-        });
-
-        offset += dataSize;
-    }
-
-    std::cout << "Uploaded " << allLineData.size() << " lines to GPU (" << totalSize << " bytes)\n";
-
-    return true;
-}
 
 void DefaultGameWorld::OnDetach() {
     // Destroy mesh buffer
     if (data.meshBuffer != VK_NULL_HANDLE)
-        vmaDestroyBuffer(m_WindowData->allocator, data.meshBuffer, data.meshBufferAllocation);
+        vmaDestroyBuffer(windowData->allocator, data.meshBuffer, data.meshBufferAllocation);
 
     // Destroy line buffer
     if (data.lineBuffer != VK_NULL_HANDLE)
-        vmaDestroyBuffer(m_WindowData->allocator, data.lineBuffer, data.lineBufferAllocation);
+        vmaDestroyBuffer(windowData->allocator, data.lineBuffer, data.lineBufferAllocation);
 
-    data.resources.destroy(m_WindowData->device, m_WindowData->allocator);
-    data.pipelineManager.destroy(m_WindowData->device);
-    data.linePipeline.destroy(m_WindowData->device);
+    data.resources.destroy(windowData->device, windowData->allocator);
+    data.pipelineManager.destroy(windowData->device);
+    data.linePipeline.destroy(windowData->device, windowData->allocator);
 }
 
 void DefaultGameWorld::OnEvent(const SDL_Event& e) {
@@ -365,7 +304,7 @@ void DefaultGameWorld::OnUpdate(float ts) {
     }
 
     if (needsLineUpdate) {
-        uploadLinesToGPU();
+        data.linePipeline.UploadLinesToGPU(data, windowData->allocator);
     }
 }
 
@@ -460,6 +399,7 @@ void DefaultGameWorld::OnRender(VkCommandBuffer cb, const glm::ivec2 &windowSize
             pushData.padding[0] = 0;
             pushData.padding[1] = 0;
 
+            //TODO: Change this to send this using the
             vkCmdPushConstants(cb, pipeline->layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                                0, sizeof(pushData), &pushData);
 
@@ -475,73 +415,10 @@ void DefaultGameWorld::OnRender(VkCommandBuffer cb, const glm::ivec2 &windowSize
         }
     }
 
-    // Render lines
-    if (data.lineBuffer != VK_NULL_HANDLE && !data.lineGPUInfo.empty()) {
-        static bool firstFrame = true;
-        if (firstFrame) {
-            std::cout << "Rendering lines: " << data.lineGPUInfo.size() << " line objects\n";
-            firstFrame = false;
-        }
 
-        // Bind line pipeline
-        vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, data.linePipeline.pipeline);
-        vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, data.linePipeline.layout,
-                                0, 1, &data.resources.globalSets[frameIndex], 0, nullptr);
 
-        size_t lineIndex = 0;
-        for (const auto &obj: data.scene.objects) {
-            const LineRenderer *lineRenderer = obj.components.get<LineRenderer>();
+    //Tell the line renderer pipeline to render
+    data.linePipeline.DoRender(cb, frameIndex, aspectRatio, data);
 
-            //Only render existing renders, with data, with points
-            if (!lineRenderer || !lineRenderer->data || lineRenderer->data->points.empty()) {
-                std::cout << "Skipping empty line renderer" << std::endl;
-                continue;
-            }
 
-            const Transform *transform = obj.components.get<Transform>();
-            if (!transform)
-                continue;
-
-            if (lineIndex >= data.lineGPUInfo.size())
-                break;
-
-            const LineGPUInfo &lineInfo = data.lineGPUInfo[lineIndex++];
-            if (lineInfo.vertexCount < 2)
-                continue;
-
-            // Prepare line push constants
-            struct {
-                glm::mat4 viewProj; // 64 bytes
-                glm::vec4 globalColor; // 16 bytes
-                float globalThickness; // 4 bytes
-                float dashLength; // 4 bytes
-                float gapLength; // 4 bytes
-                uint32_t lineStyle; // 4 bytes
-                uint32_t antiAlias; // 4 bytes
-                float smoothness; // 4 bytes
-                uint32_t padding[6]; // 24 bytes
-            } linePushData;
-
-            linePushData.viewProj = data.camera.projectionMatrix(aspectRatio) * data.camera.viewMatrix();
-            linePushData.globalColor = lineRenderer->data->properties.color;
-            linePushData.globalThickness = 1.0f; // Thickness is per-vertex
-            linePushData.dashLength = lineRenderer->data->properties.dashLength;
-            linePushData.gapLength = lineRenderer->data->properties.gapLength;
-            linePushData.lineStyle = static_cast<uint32_t>(lineRenderer->data->properties.style);
-            linePushData.antiAlias = lineRenderer->data->properties.antiAlias ? 1u : 0u;
-            linePushData.smoothness = lineRenderer->data->properties.smoothness;
-            std::memset(linePushData.padding, 0, sizeof(linePushData.padding));
-
-            vkCmdPushConstants(cb, data.linePipeline.layout,
-                               VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_GEOMETRY_BIT,
-                               0, sizeof(linePushData), &linePushData);
-
-            // Bind vertex buffer
-            VkDeviceSize offsets[] = {lineInfo.vertexOffset};
-            vkCmdBindVertexBuffers(cb, 0, 1, &data.lineBuffer, offsets);
-
-            // Draw lines (topology is always line strip for now)
-            vkCmdDraw(cb, lineInfo.vertexCount, 1, 0, 0);
-        }
-    }
 }
