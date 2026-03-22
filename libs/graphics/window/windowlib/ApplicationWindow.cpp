@@ -38,8 +38,8 @@ ApplicationWindow::ApplicationWindow(ApplicationWindowSpecifications& spec)
 
 bool ApplicationWindow::Init() {
 
-    chk(SDL_Init(SDL_INIT_VIDEO));
-    chk(SDL_Vulkan_LoadLibrary(NULL));
+    CHECK_VULKAN_RESULT(SDL_Init(SDL_INIT_VIDEO));
+    CHECK_VULKAN_RESULT(SDL_Vulkan_LoadLibrary(NULL));
     volkInitializeCustom(reinterpret_cast<PFN_vkGetInstanceProcAddr>(SDL_Vulkan_GetVkGetInstanceProcAddr()));
 
 
@@ -54,18 +54,18 @@ bool ApplicationWindow::Init() {
         .enabledExtensionCount = instanceExtensionsCount,
         .ppEnabledExtensionNames = instanceExtensions,
     };
-    chk(vkCreateInstance(&instanceCI, nullptr, &data.vkInstance));
+    CHECK_VULKAN_RESULT(vkCreateInstance(&instanceCI, nullptr, &data.vkInstance));
     volkLoadInstance(data.vkInstance);
 
     // Physical Device
     uint32_t deviceCount{ 0 };
-    chk(vkEnumeratePhysicalDevices(data.vkInstance, &deviceCount, nullptr));
+    CHECK_VULKAN_RESULT(vkEnumeratePhysicalDevices(data.vkInstance, &deviceCount, nullptr));
 
     std::cout << "Found: " << deviceCount << " physical devices\n";
 
 
     std::vector<VkPhysicalDevice> devices(deviceCount);
-    chk(vkEnumeratePhysicalDevices(data.vkInstance, &deviceCount, devices.data()));
+    CHECK_VULKAN_RESULT(vkEnumeratePhysicalDevices(data.vkInstance, &deviceCount, devices.data()));
 
 
 
@@ -89,9 +89,16 @@ bool ApplicationWindow::Init() {
     vkGetPhysicalDeviceQueueFamilyProperties(data.physicalDevice, &queueFamilyCount, nullptr);
     std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
     vkGetPhysicalDeviceQueueFamilyProperties(data.physicalDevice, &queueFamilyCount, queueFamilies.data());
+
+
+    // Need for compute and graphics cue for future work
+    VkQueueFlags queueFlags = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
+
+
     for (size_t i = 0; i < queueFamilies.size(); i++) {
-        if (queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+        if (queueFamilies[i].queueFlags & queueFlags) {
             data.queueFamily = i;
+            std::cout << "Found valid queue:  " << i << std::endl;
             break;
         }
     }
@@ -112,13 +119,13 @@ bool ApplicationWindow::Init() {
         .ppEnabledExtensionNames = deviceExtensions.data(),
         .pEnabledFeatures = &enabledVk10Features
     };
-    chk(vkCreateDevice(data.physicalDevice, &deviceCI, nullptr, &data.device));
+    CHECK_VULKAN_RESULT(vkCreateDevice(data.physicalDevice, &deviceCI, nullptr, &data.device));
     vkGetDeviceQueue(data.device, data.queueFamily, 0, &data.queue);
 
     // VMA
     VmaVulkanFunctions vkFunctions{ .vkGetInstanceProcAddr = vkGetInstanceProcAddr, .vkGetDeviceProcAddr = vkGetDeviceProcAddr, .vkCreateImage = vkCreateImage };
     VmaAllocatorCreateInfo allocatorCI{ .flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT, .physicalDevice = data.physicalDevice, .device = data.device, .pVulkanFunctions = &vkFunctions, .instance = data.vkInstance };
-    chk(vmaCreateAllocator(&allocatorCI, &data.allocator));
+    CHECK_VULKAN_RESULT(vmaCreateAllocator(&allocatorCI, &data.allocator));
 
     // Window and surface
     data.sdlWindow = SDL_CreateWindow(specification->title, specification->w, specification->h, specification->flags);
@@ -134,10 +141,10 @@ bool ApplicationWindow::Init() {
         }
     }
 
-    chk(SDL_Vulkan_CreateSurface(data.sdlWindow, data.vkInstance, nullptr, &data.surface));
-    chk(SDL_GetWindowSize(data.sdlWindow, &data.windowSize.x, &data.windowSize.y));
+    CHECK_VULKAN_RESULT(SDL_Vulkan_CreateSurface(data.sdlWindow, data.vkInstance, nullptr, &data.surface));
+    CHECK_VULKAN_RESULT(SDL_GetWindowSize(data.sdlWindow, &data.windowSize.x, &data.windowSize.y));
     VkSurfaceCapabilitiesKHR surfaceCaps{};
-    chk(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(data.physicalDevice, data.surface, &surfaceCaps));
+    CHECK_VULKAN_RESULT(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(data.physicalDevice, data.surface, &surfaceCaps));
 
     // Swapchain
     data.swapchainImageFormat = VK_FORMAT_B8G8R8A8_UNORM;
@@ -154,15 +161,15 @@ bool ApplicationWindow::Init() {
         .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
         .presentMode = VK_PRESENT_MODE_FIFO_KHR
     };
-    chk(vkCreateSwapchainKHR(data.device, &swapchainCI, nullptr, &data.swapchain));
+    CHECK_VULKAN_RESULT(vkCreateSwapchainKHR(data.device, &swapchainCI, nullptr, &data.swapchain));
     uint32_t imageCount{ 0 };
-    chk(vkGetSwapchainImagesKHR(data.device, data.swapchain, &imageCount, nullptr));
+    CHECK_VULKAN_RESULT(vkGetSwapchainImagesKHR(data.device, data.swapchain, &imageCount, nullptr));
     data.swapchainImages.resize(imageCount);
-    chk(vkGetSwapchainImagesKHR(data.device, data.swapchain, &imageCount, data.swapchainImages.data()));
+    CHECK_VULKAN_RESULT(vkGetSwapchainImagesKHR(data.device, data.swapchain, &imageCount, data.swapchainImages.data()));
     data.swapchainImageViews.resize(imageCount);
     for (uint32_t i = 0; i < imageCount; i++) {
         VkImageViewCreateInfo viewCI{ .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO, .image = data.swapchainImages[i], .viewType = VK_IMAGE_VIEW_TYPE_2D, .format = data.swapchainImageFormat, .subresourceRange{.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .levelCount = 1, .layerCount = 1} };
-        chk(vkCreateImageView(data.device, &viewCI, nullptr, &data.swapchainImageViews[i]));
+        CHECK_VULKAN_RESULT(vkCreateImageView(data.device, &viewCI, nullptr, &data.swapchainImageViews[i]));
     }
 
     // Depth attachment
@@ -188,27 +195,27 @@ bool ApplicationWindow::Init() {
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
     };
     VmaAllocationCreateInfo depthAllocCI{ .flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT, .usage = VMA_MEMORY_USAGE_AUTO };
-    chk(vmaCreateImage(data.allocator, &depthImageCI, &depthAllocCI, &data.depthImage, &data.depthImageAllocation, nullptr));
+    CHECK_VULKAN_RESULT(vmaCreateImage(data.allocator, &depthImageCI, &depthAllocCI, &data.depthImage, &data.depthImageAllocation, nullptr));
     VkImageViewCreateInfo depthViewCI{ .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO, .image = data.depthImage, .viewType = VK_IMAGE_VIEW_TYPE_2D, .format = data.depthFormat, .subresourceRange{.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT, .levelCount = 1, .layerCount = 1} };
-    chk(vkCreateImageView(data.device, &depthViewCI, nullptr, &data.depthImageView));
+    CHECK_VULKAN_RESULT(vkCreateImageView(data.device, &depthViewCI, nullptr, &data.depthImageView));
 
     // Sync objects
     VkSemaphoreCreateInfo semaphoreCI{ .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
     VkFenceCreateInfo fenceCI{ .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, .flags = VK_FENCE_CREATE_SIGNALED_BIT };
     for (uint32_t i = 0; i < maxFramesInFlight; i++) {
-        chk(vkCreateFence(data.device, &fenceCI, nullptr, &data.fences[i]));
-        chk(vkCreateSemaphore(data.device, &semaphoreCI, nullptr, &data.presentSemaphores[i]));
+        CHECK_VULKAN_RESULT(vkCreateFence(data.device, &fenceCI, nullptr, &data.fences[i]));
+        CHECK_VULKAN_RESULT(vkCreateSemaphore(data.device, &semaphoreCI, nullptr, &data.presentSemaphores[i]));
     }
     data.renderSemaphores.resize(data.swapchainImages.size());
     for (auto& semaphore : data.renderSemaphores) {
-        chk(vkCreateSemaphore(data.device, &semaphoreCI, nullptr, &semaphore));
+        CHECK_VULKAN_RESULT(vkCreateSemaphore(data.device, &semaphoreCI, nullptr, &semaphore));
     }
 
     // Command pool and command buffers
     VkCommandPoolCreateInfo commandPoolCI{ .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO, .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT, .queueFamilyIndex = data.queueFamily };
-    chk(vkCreateCommandPool(data.device, &commandPoolCI, nullptr, &data.commandPool));
+    CHECK_VULKAN_RESULT(vkCreateCommandPool(data.device, &commandPoolCI, nullptr, &data.commandPool));
     VkCommandBufferAllocateInfo cbAllocCI{ .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO, .commandPool = data.commandPool, .commandBufferCount = maxFramesInFlight };
-    chk(vkAllocateCommandBuffers(data.device, &cbAllocCI, data.commandBuffers.data()));
+    CHECK_VULKAN_RESULT(vkAllocateCommandBuffers(data.device, &cbAllocCI, data.commandBuffers.data()));
 
     // ImGui
     init_imgui();
@@ -411,9 +418,9 @@ bool ApplicationWindow::init_imgui() {
 
 void ApplicationWindow::rebuildSwapchain()
 {
-    chk(vkDeviceWaitIdle(data.device));
+    CHECK_VULKAN_RESULT(vkDeviceWaitIdle(data.device));
 
-    chk(SDL_GetWindowSize(data.sdlWindow, &data.windowSize.x, &data.windowSize.y));
+    CHECK_VULKAN_RESULT(SDL_GetWindowSize(data.sdlWindow, &data.windowSize.x, &data.windowSize.y));
     if (data.windowSize.x == 0 || data.windowSize.y == 0)
         return;
 
@@ -424,7 +431,7 @@ void ApplicationWindow::rebuildSwapchain()
 
     // Surface capabilities for new extent
     VkSurfaceCapabilitiesKHR surfaceCaps{};
-    chk(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(data.physicalDevice, data.surface, &surfaceCaps));
+    CHECK_VULKAN_RESULT(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(data.physicalDevice, data.surface, &surfaceCaps));
 
     // New swapchain, reusing old for efficient transition
     VkSwapchainKHR oldSwapchain = data.swapchain;
@@ -442,18 +449,18 @@ void ApplicationWindow::rebuildSwapchain()
         .presentMode = VK_PRESENT_MODE_FIFO_KHR,
         .oldSwapchain = oldSwapchain
     };
-    chk(vkCreateSwapchainKHR(data.device, &swapchainCI, nullptr, &data.swapchain));
+    CHECK_VULKAN_RESULT(vkCreateSwapchainKHR(data.device, &swapchainCI, nullptr, &data.swapchain));
     vkDestroySwapchainKHR(data.device, oldSwapchain, nullptr);
 
     // New swapchain images and views
     uint32_t imageCount{0};
-    chk(vkGetSwapchainImagesKHR(data.device, data.swapchain, &imageCount, nullptr));
+    CHECK_VULKAN_RESULT(vkGetSwapchainImagesKHR(data.device, data.swapchain, &imageCount, nullptr));
     data.swapchainImages.resize(imageCount);
-    chk(vkGetSwapchainImagesKHR(data.device, data.swapchain, &imageCount, data.swapchainImages.data()));
+    CHECK_VULKAN_RESULT(vkGetSwapchainImagesKHR(data.device, data.swapchain, &imageCount, data.swapchainImages.data()));
     data.swapchainImageViews.resize(imageCount);
     for (uint32_t i = 0; i < imageCount; i++) {
         VkImageViewCreateInfo viewCI{ .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO, .image = data.swapchainImages[i], .viewType = VK_IMAGE_VIEW_TYPE_2D, .format = data.swapchainImageFormat, .subresourceRange{.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .levelCount = 1, .layerCount = 1} };
-        chk(vkCreateImageView(data.device, &viewCI, nullptr, &data.swapchainImageViews[i]));
+        CHECK_VULKAN_RESULT(vkCreateImageView(data.device, &viewCI, nullptr, &data.swapchainImageViews[i]));
     }
 
     // Rebuild render semaphores if image count changed
@@ -463,7 +470,7 @@ void ApplicationWindow::rebuildSwapchain()
         data.renderSemaphores.resize(imageCount);
         VkSemaphoreCreateInfo semaphoreCI{ .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
         for (auto& semaphore : data.renderSemaphores)
-            chk(vkCreateSemaphore(data.device, &semaphoreCI, nullptr, &semaphore));
+            CHECK_VULKAN_RESULT(vkCreateSemaphore(data.device, &semaphoreCI, nullptr, &semaphore));
     }
 
     // Rebuild depth image at new dimensions
@@ -483,10 +490,10 @@ void ApplicationWindow::rebuildSwapchain()
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
     };
     VmaAllocationCreateInfo depthAllocCI{ .flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT, .usage = VMA_MEMORY_USAGE_AUTO };
-    chk(vmaCreateImage(data.allocator, &depthImageCI, &depthAllocCI, &data.depthImage, &data.depthImageAllocation, nullptr));
+    CHECK_VULKAN_RESULT(vmaCreateImage(data.allocator, &depthImageCI, &depthAllocCI, &data.depthImage, &data.depthImageAllocation, nullptr));
 
     VkImageViewCreateInfo depthViewCI{ .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO, .image = data.depthImage, .viewType = VK_IMAGE_VIEW_TYPE_2D, .format = data.depthFormat, .subresourceRange{.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT, .levelCount = 1, .layerCount = 1} };
-    chk(vkCreateImageView(data.device, &depthViewCI, nullptr, &data.depthImageView));
+    CHECK_VULKAN_RESULT(vkCreateImageView(data.device, &depthViewCI, nullptr, &data.depthImageView));
 }
 
 void ApplicationWindow::Close()
@@ -565,11 +572,11 @@ void ApplicationWindow::Start(Application::Application& app)
             rebuildSwapchain();
             continue;
         }
-        chk(result);
+        CHECK_VULKAN_RESULT(result);
 
         // --- Fence for this frame slot ---
-        chk(vkWaitForFences(data.device, 1, &data.fences[currentFrame], VK_TRUE, UINT64_MAX));
-        chk(vkResetFences(data.device, 1, &data.fences[currentFrame]));
+        CHECK_VULKAN_RESULT(vkWaitForFences(data.device, 1, &data.fences[currentFrame], VK_TRUE, UINT64_MAX));
+        CHECK_VULKAN_RESULT(vkResetFences(data.device, 1, &data.fences[currentFrame]));
 
         // --- Record command buffer ---
         VkCommandBuffer cb = data.commandBuffers[currentFrame];
@@ -577,7 +584,7 @@ void ApplicationWindow::Start(Application::Application& app)
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
             .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
         };
-        chk(vkBeginCommandBuffer(cb, &beginInfo));
+        CHECK_VULKAN_RESULT(vkBeginCommandBuffer(cb, &beginInfo));
 
         // Transition swapchain image -> COLOR_ATTACHMENT, depth -> DEPTH_STENCIL_ATTACHMENT
         VkImageMemoryBarrier2 colorBarrier{
@@ -666,7 +673,7 @@ void ApplicationWindow::Start(Application::Application& app)
         };
         vkCmdPipelineBarrier2(cb, &postDepInfo);
 
-        chk(vkEndCommandBuffer(cb));
+        CHECK_VULKAN_RESULT(vkEndCommandBuffer(cb));
 
         // --- Submit ---
         VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
@@ -680,7 +687,7 @@ void ApplicationWindow::Start(Application::Application& app)
             .signalSemaphoreCount = 1,
             .pSignalSemaphores = &data.renderSemaphores[imageIndex]
         };
-        chk(vkQueueSubmit(data.queue, 1, &submitInfo, data.fences[currentFrame]));
+        CHECK_VULKAN_RESULT(vkQueueSubmit(data.queue, 1, &submitInfo, data.fences[currentFrame]));
 
         // --- Present ---
         VkPresentInfoKHR presentInfo{
@@ -698,6 +705,6 @@ void ApplicationWindow::Start(Application::Application& app)
         currentFrame = (currentFrame + 1) % maxFramesInFlight;
     }
 
-    chk(vkDeviceWaitIdle(data.device));
+    CHECK_VULKAN_RESULT(vkDeviceWaitIdle(data.device));
 }
 

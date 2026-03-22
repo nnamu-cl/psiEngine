@@ -31,7 +31,7 @@ struct ApplicationWindowData {
     VkPhysicalDeviceProperties2 physicalDeviceProperties{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2};
     VkDevice device{VK_NULL_HANDLE};
     VkQueue queue{VK_NULL_HANDLE};
-    uint32_t queueFamily{0};
+    uint32_t queueFamily{NULL};
     VkSurfaceKHR surface{VK_NULL_HANDLE};
 
     // VMA

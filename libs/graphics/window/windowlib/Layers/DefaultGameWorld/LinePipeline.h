@@ -6,6 +6,7 @@
 #include <glm/vec4.hpp>
 
 #include "ApplicationWindow.h"
+#include "LineRendererCompute.h"
 
 namespace slang { struct IGlobalSession; }
 namespace Slang { template<typename T> class ComPtr; }
@@ -69,6 +70,15 @@ public:
     VkBuffer  lineSSBO{VK_NULL_HANDLE};
     VmaAllocation lineSSBOAllocation{VK_NULL_HANDLE};
 
+    // GPU buffer for LineGPUInfo (input to compute shader)
+    VkBuffer lineGPUInfoBuffer{VK_NULL_HANDLE};
+    VmaAllocation lineGPUInfoBufferAllocation{VK_NULL_HANDLE};
+
+    // Compute pipeline for building indirect draw commands
+    LineRendererCompute indirectCompute;
+    VkDescriptorPool computeDescPool{VK_NULL_HANDLE};
+    VkDescriptorSet computeDescSet{VK_NULL_HANDLE};
+    bool computeInitialized{false};
 
     void DoRender(VkCommandBuffer cb, uint32_t frameIndex, float aspectRatio, DefaultGameWorldData& data);
     bool UploadLinesToGPU(DefaultGameWorldData& data, VmaAllocator allocator);
@@ -83,5 +93,8 @@ private:
 
     //Use this for creating the SSBO
     bool createSSBODescriptorInfrastructure(VkDevice device);
+
+    // Initialize the compute pipeline for indirect command generation
+    bool initComputePipeline(VkDevice device);
 
 };

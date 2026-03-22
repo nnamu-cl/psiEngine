@@ -75,19 +75,6 @@ bool LinePipeline::createSSBODescriptorInfrastructure(VkDevice device) {
 }
 
 
-std::vector<std::vector<LineVertex> > collectLineVertexBatches(const DefaultGameWorldData &data) {
-    std::vector<std::vector<LineVertex> > allLineData;
-    for (const auto &obj: data.scene.objects) {
-        const LineRenderer *lineRenderer = obj.components.get<LineRenderer>();
-        if (!lineRenderer || !lineRenderer->data)
-            continue;
-        std::cout << "Found LineRenderer on object: " << obj.name << "\n";
-        allLineData.push_back(lineRenderer->buildVertexData());
-    }
-    std::cout << "Found " << allLineData.size() << " lines to upload\n";
-    return allLineData;
-}
-
 void LinePipeline::DoRender(VkCommandBuffer cb, uint32_t frameIndex, float aspectRatio, DefaultGameWorldData &data) {
     // ============================================================
     // LINE RENDERING PASS
@@ -177,34 +164,24 @@ void LinePipeline::DoRender(VkCommandBuffer cb, uint32_t frameIndex, float aspec
                                 0, nullptr);
 
 
-        //Get the memory allocated to store the lines earlier through the UploadLinesToGPUStage
-        //We can use this preallocated memory to make things faster
-        VmaAllocationInfo indirectAllocationInfo;
-        vmaGetAllocationInfo(data.windowData->allocator, indirectBufferAllocation, &indirectAllocationInfo);
+        // Dispatch compute shader to build indirect draw commands on the GPU
+        // The compute shader reads LineGPUInfo[] and writes VkDrawIndirectCommand[]
+        {
+            uint32_t lineCount = static_cast<uint32_t>(data.lineGPUInfo.size());
+            uint32_t groupCount = (lineCount + 63) / 64; // 64 threads per workgroup
+            indirectCompute.RecordCommandBuffer(computeDescSet, cb, groupCount, 1, 1);
 
-        //2. Collect line vertex batches and build the indirect command list.
-        // collectLineVertexBatches uses the same filtering logic as UploadLinesToGPU,
-        // so lineObjects[i] always corresponds to the same object as the GPU vertex data
-        // that was uploaded at index i. Order must stay consistent or draws will be mismatched.
-        //std::vector<std::vector<LineVertex> > lineObjects = collectLineVertexBatches(data);
-
-        // data.lineGPUInfo.size() is now derived directly from the collected batches rather than
-        // from the old loop counter — the old loop's data.lineGPUInfo.size() is inside the commented block above.
-        std::vector<VkDrawIndirectCommand> indirectLineDrawCommands(data.lineGPUInfo.size());
-
-        VkDeviceSize offset = 0;
-        for (uint32_t i = 0; i < data.lineGPUInfo.size(); i++) {
-            indirectLineDrawCommands[i].vertexCount = data.lineGPUInfo[i].vertexCount;
-            indirectLineDrawCommands[i].instanceCount = 1;
-            indirectLineDrawCommands[i].firstVertex = static_cast<uint32_t>(offset / sizeof(LineVertex));
-            indirectLineDrawCommands[i].firstInstance = 0;
-
-            //Increment the offset for use with the next object
-            offset += data.lineGPUInfo[i].vertexCount * sizeof(LineVertex);
+            // Memory barrier: compute shader writes → indirect draw reads
+            VkMemoryBarrier barrier{
+                .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+                .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+                .dstAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT
+            };
+            vkCmdPipelineBarrier(cb,
+                                 VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                                 VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT,
+                                 0, 1, &barrier, 0, nullptr, 0, nullptr);
         }
-        //3. Copy the staging command buffer into the in memory indirect command buffer
-        memcpy(indirectAllocationInfo.pMappedData, indirectLineDrawCommands.data(),
-               sizeof(VkDrawIndirectCommand) * data.lineGPUInfo.size()); // Use the pointer to copy our data into that memory
 
 
         // Push viewProj once — the only remaining push constant
@@ -243,6 +220,19 @@ void LinePipeline::DoRender(VkCommandBuffer cb, uint32_t frameIndex, float aspec
                           data.lineGPUInfo.size(), // all objects in one call
                           sizeof(VkDrawIndirectCommand)); // stride between commands
     }
+}
+
+std::vector<std::vector<LineVertex> > collectLineVertexBatches(const DefaultGameWorldData &data) {
+    std::vector<std::vector<LineVertex> > allLineData;
+    for (const auto &obj: data.scene.objects) {
+        const LineRenderer *lineRenderer = obj.components.get<LineRenderer>();
+        if (!lineRenderer || !lineRenderer->data)
+            continue;
+        std::cout << "Found LineRenderer on object: " << obj.name << "\n";
+        allLineData.push_back(lineRenderer->buildVertexData());
+    }
+    std::cout << "Found " << allLineData.size() << " lines to upload\n";
+    return allLineData;
 }
 
 
@@ -327,15 +317,14 @@ bool LinePipeline::UploadLinesToGPU(DefaultGameWorldData &data, VmaAllocator all
     }
 
     //Size the indirect buffer for the exact objects as we are planning to render
+    // Usage includes STORAGE_BUFFER_BIT so the compute shader can write to it
     VkBufferCreateInfo indirectCI{
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
         .size = sizeof(VkDrawIndirectCommand) * allLineData.size(),
-        .usage = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT
+        .usage = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
     };
     VmaAllocationCreateInfo indirectAllocCI{
-        .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
-                 VMA_ALLOCATION_CREATE_MAPPED_BIT,
-        .usage = VMA_MEMORY_USAGE_AUTO
+        .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE
     };
 
 
@@ -346,6 +335,47 @@ bool LinePipeline::UploadLinesToGPU(DefaultGameWorldData &data, VmaAllocator all
         return false;
         }
     std::cout << "[Upload] Indirect buffer created.\n";
+
+
+    //========================= Create LineGPUInfo GPU buffer (input to compute shader)
+    if (lineGPUInfoBuffer != VK_NULL_HANDLE) {
+        vmaDestroyBuffer(allocator, lineGPUInfoBuffer, lineGPUInfoBufferAllocation);
+        lineGPUInfoBuffer = VK_NULL_HANDLE;
+        lineGPUInfoBufferAllocation = VK_NULL_HANDLE;
+    }
+
+    VkBufferCreateInfo gpuInfoCI{
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size = sizeof(LineGPUInfo) * data.lineGPUInfo.size(),
+        .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+    };
+    VmaAllocationCreateInfo gpuInfoAllocCI{
+        .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
+        .usage = VMA_MEMORY_USAGE_AUTO
+    };
+    VmaAllocationInfo gpuInfoAllocInfo;
+    std::cout << "[Upload] Creating LineGPUInfo GPU buffer...\n";
+    if (vmaCreateBuffer(allocator, &gpuInfoCI, &gpuInfoAllocCI, &lineGPUInfoBuffer, &lineGPUInfoBufferAllocation, &gpuInfoAllocInfo)
+        != VK_SUCCESS) {
+        std::cerr << "Failed to create LineGPUInfo buffer\n";
+        return false;
+    }
+    // Copy the CPU lineGPUInfo into the GPU buffer
+    std::memcpy(gpuInfoAllocInfo.pMappedData, data.lineGPUInfo.data(), sizeof(LineGPUInfo) * data.lineGPUInfo.size());
+    std::cout << "[Upload] LineGPUInfo buffer created with " << data.lineGPUInfo.size() << " entries.\n";
+
+    // Initialize compute pipeline if not done yet
+    if (!computeInitialized) {
+        if (!initComputePipeline(data.windowData->device)) {
+            std::cerr << "Failed to initialize compute pipeline\n";
+            return false;
+        }
+    }
+
+    // Update compute descriptor sets to point at the new buffers
+    indirectCompute.UpdateDescSets(computeDescSet,
+                                   lineGPUInfoBuffer, sizeof(LineGPUInfo) * data.lineGPUInfo.size(),
+                                   indirectBuffer, sizeof(VkDrawIndirectCommand) * allLineData.size());
 
 
 
@@ -418,6 +448,37 @@ bool LinePipeline::UploadLinesToGPU(DefaultGameWorldData &data, VmaAllocator all
     vkUpdateDescriptorSets(data.windowData->device, 1, &ssboWrite, 0, nullptr);
     std::cout << "[Upload] Done.\n";
 
+    return true;
+}
+
+bool LinePipeline::initComputePipeline(VkDevice device) {
+    // Create descriptor pool for the compute pipeline (2 storage buffers, 1 set)
+    VkDescriptorPoolSize poolSize{
+        .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        .descriptorCount = 2
+    };
+    VkDescriptorPoolCreateInfo poolCI{
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+        .maxSets = 1,
+        .poolSizeCount = 1,
+        .pPoolSizes = &poolSize
+    };
+    if (vkCreateDescriptorPool(device, &poolCI, nullptr, &computeDescPool) != VK_SUCCESS) {
+        std::cerr << "Failed to create compute descriptor pool\n";
+        return false;
+    }
+
+    // Init the compute pipeline (creates layout, compiles shader, creates pipeline)
+    indirectCompute.Init(device, computeDescPool,
+                         "libs/graphics/window/assets/shaders/DefaultGameWorld/buildIndirectCommands.comp.slang");
+
+    // Allocate a single descriptor set for the compute pipeline
+    std::vector<VkDescriptorSet> sets;
+    indirectCompute.AllocDescSets(sets);
+    computeDescSet = sets[0];
+
+    computeInitialized = true;
+    std::cout << "[Compute] Indirect command compute pipeline initialized.\n";
     return true;
 }
 
@@ -700,6 +761,24 @@ bool LinePipeline::create(VkDevice device,
 }
 
 void LinePipeline::destroy(VkDevice device, VmaAllocator allocator) {
+    // Destroy compute pipeline resources
+    if (computeInitialized) {
+        indirectCompute.Destroy();
+        computeInitialized = false;
+    }
+    if (computeDescPool != VK_NULL_HANDLE) {
+        vkDestroyDescriptorPool(device, computeDescPool, nullptr);
+        computeDescPool = VK_NULL_HANDLE;
+        computeDescSet = VK_NULL_HANDLE;
+    }
+
+    // Destroy LineGPUInfo GPU buffer
+    if (lineGPUInfoBuffer != VK_NULL_HANDLE) {
+        vmaDestroyBuffer(allocator, lineGPUInfoBuffer, lineGPUInfoBufferAllocation);
+        lineGPUInfoBuffer = VK_NULL_HANDLE;
+        lineGPUInfoBufferAllocation = VK_NULL_HANDLE;
+    }
+
     if (indirectBuffer != VK_NULL_HANDLE) {
         vmaDestroyBuffer(allocator, indirectBuffer, indirectBufferAllocation);
         indirectBuffer = VK_NULL_HANDLE;
