@@ -26,6 +26,7 @@ VertexToGeom main(
     output.color     = input.color * objData.color;
     output.thickness = input.thickness * objData.thickness;
     output.distance  = input.distance;
+    output.worldPos  = input.position;  // pass through for orbital ray marching
 
     return output;
 }

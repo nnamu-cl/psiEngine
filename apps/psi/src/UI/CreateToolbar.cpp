@@ -205,11 +205,32 @@ void CreateToolbar::RenderVolumeMenu()
 
     if (UIUtils::IconMenuItem(ICON_LC_CIRCLE, "Circle"))
     {
-        m_WorldLayer->addVolumePrimitive("Circle Volume",
+        VolumeRendererData* volData = m_WorldLayer->addVolumePrimitive("Circle Volume",
             VolumeType::Circle,
             glm::vec3(0.0f),
             1.0f,
             glm::vec4(1.0f, 0.0f, 0.0f, 0.8f));
+
+        // Also create a node that controls this volume's properties
+        if (m_NodeEditorLayer && volData)
+        {
+            NodeGraph& graph = m_NodeEditorLayer->getNodeGraph();
+            graph.createNode<VolumeRendererNode>(volData);
+        }
+    }
+
+    if (UIUtils::IconMenuItem(ICON_LC_ATOM, "Atom Orbital"))
+    {
+        auto result = m_WorldLayer->addAtomPrimitive("Hydrogen 1s",
+            1, 0, 0,
+            glm::vec3(0.0f),
+            1.0f);
+
+        if (m_NodeEditorLayer && result.atom && result.visualizer)
+        {
+            NodeGraph& graph = m_NodeEditorLayer->getNodeGraph();
+            graph.createNode<AtomNode>(result.atom, result.visualizer);
+        }
     }
 }
 
@@ -276,8 +297,9 @@ void CreateToolbar::RenderNodeMenu()
     if (UIUtils::IconBeginMenu(ICON_LC_LAYERS, "Object Nodes"))
     {
         ImGui::SetWindowFontScale(g_UISettings.popupFontScale);
-        if (UIUtils::IconMenuItem(toIconGlyph(TransformNode::kIcon),    "Transform"))      graph.createNode<TransformNode>();
-        if (UIUtils::IconMenuItem(toIconGlyph(LineRendererNode::kIcon), "Line Renderer"))  graph.createNode<LineRendererNode>();
+        if (UIUtils::IconMenuItem(toIconGlyph(TransformNode::kIcon),      "Transform"))       graph.createNode<TransformNode>();
+        if (UIUtils::IconMenuItem(toIconGlyph(LineRendererNode::kIcon),   "Line Renderer"))   graph.createNode<LineRendererNode>();
+        if (UIUtils::IconMenuItem(toIconGlyph(AtomNode::kIcon),           "Atom"))             graph.createNode<AtomNode>();
         ImGui::EndMenu();
     }
 }

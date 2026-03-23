@@ -1,6 +1,9 @@
 #include "ObjectNodes.h"
 #include "imgui.h"
 #include "../../window/windowlib/Data/LineRendererData.h"
+#include "../../window/windowlib/Components/VolumeRenderer.h"
+#include "../../window/windowlib/Components/Atom.h"
+#include "../../window/windowlib/Components/AtomVisualizer.h"
 #include <iostream>
 
 // ObjectNode implementation
@@ -273,10 +276,63 @@ void LineRendererNode::LoadProperties(const std::unordered_map<std::string, std:
     if (auto it = props.find("record");       it != props.end()) record           = std::stoi(it->second);
 }
 
+// ===== VolumeRendererNode Implementation =====
+
+VolumeRendererNode::VolumeRendererNode(VolumeRendererData* volumeData)
+    : m_VolumeData(volumeData)
+{
+    // No input/output sockets — this is a UI-only node for controlling volume properties
+}
+
+void VolumeRendererNode::evaluate() {
+    // No computation — properties are modified directly via the UI
+}
+
+void VolumeRendererNode::OnDrawNodeUI() {
+    ImGui::PushID(this);
+    VolumeRenderer::DrawVolumeUI(m_VolumeData, true);
+    ImGui::PopID();
+}
+
+// ===== AtomNode Implementation =====
+
+AtomNode::AtomNode(AtomData* atomData, AtomVisualizerData* visData)
+    : m_AtomData(atomData), m_VisData(visData)
+{
+    // No input/output sockets — this is a UI-only node for controlling atom properties
+}
+
+void AtomNode::evaluate() {
+    // No computation — properties are modified directly via the UI
+}
+
+void AtomNode::OnDrawNodeUI() {
+    ImGui::PushID(this);
+
+    if (m_AtomData)
+    {
+        ImGui::SeparatorText("Atom");
+        Atom::DrawAtomUI(m_AtomData, true);
+    }
+
+    if (m_VisData)
+    {
+        ImGui::SeparatorText("Visualizer");
+        AtomVisualizer::DrawVisualizerUI(m_VisData, true);
+    }
+
+    if (!m_AtomData && !m_VisData)
+        ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "No atom data!");
+
+    ImGui::PopID();
+}
+
 namespace {
     const bool s_objectNodes_registered = []() {
-        NodeGraph::RegisterNodeType("Transform",     []() { return std::make_unique<TransformNode>(); });
-        NodeGraph::RegisterNodeType("Line Renderer", []() { return std::make_unique<LineRendererNode>(); });
+        NodeGraph::RegisterNodeType("Transform",       []() { return std::make_unique<TransformNode>(); });
+        NodeGraph::RegisterNodeType("Line Renderer",   []() { return std::make_unique<LineRendererNode>(); });
+        NodeGraph::RegisterNodeType("Volume Renderer", []() { return std::make_unique<VolumeRendererNode>(); });
+        NodeGraph::RegisterNodeType("Atom",            []() { return std::make_unique<AtomNode>(); });
         return true;
     }();
 }

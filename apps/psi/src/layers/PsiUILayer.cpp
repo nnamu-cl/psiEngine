@@ -15,6 +15,7 @@
 #include "Layers/DefaultGameWorld/Camera.h"
 #include "Components/Transform.h"
 #include "imgui.h"
+#include "imgui_internal.h"
 #include "ImGuizmo.h"
 #include <glm/gtc/type_ptr.hpp>
 #include <string>
@@ -116,6 +117,33 @@ void PsiUILayer::OnUIRender()
             m_ShowProjectHub = false;
         return;
     }
+
+    // --- DockSpace over the full viewport ---
+    ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ImGuiID dockspace_id = ImGui::GetID("PsiDockSpace");
+
+    // Build the default layout once (first launch / no saved layout)
+    if (ImGui::DockBuilderGetNode(dockspace_id) == nullptr)
+    {
+        ImGui::DockBuilderRemoveNode(dockspace_id);
+        ImGui::DockBuilderAddNode(dockspace_id, ImGuiDockNodeFlags_DockSpace);
+        ImGui::DockBuilderSetNodeSize(dockspace_id, viewport->Size);
+
+        // Split: remaining | right panel (20% width)
+        ImGuiID dock_right = 0;
+        ImGuiID dock_main = dockspace_id;
+        ImGui::DockBuilderSplitNode(dock_main, ImGuiDir_Right, 0.20f, &dock_right, &dock_main);
+
+        // Dock panels into the right node (they will appear as tabs)
+        ImGui::DockBuilderDockWindow("Control Panel", dock_right);
+        ImGui::DockBuilderDockWindow("Statistics", dock_right);
+        ImGui::DockBuilderDockWindow("Inspector", dock_right);
+
+        ImGui::DockBuilderFinish(dockspace_id);
+    }
+
+    // Submit the dockspace each frame (passthrough so the 3-D viewport shows behind)
+    ImGui::DockSpaceOverViewport(dockspace_id, viewport, ImGuiDockNodeFlags_PassthruCentralNode);
 
     // Brand label at top center
     m_BrandLabel->Render();

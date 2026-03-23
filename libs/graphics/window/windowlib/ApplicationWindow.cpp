@@ -727,21 +727,32 @@ struct WindowState {
 };
 
 void ApplicationWindow::loadWindowState() {
-    if (specification->stateFilePath.empty()) return;
+    if (specification->stateFilePath.empty()) {
+        std::cout << "[WindowState] No state file path configured, skipping load\n";
+        return;
+    }
+
+    std::cout << "[WindowState] Loading from: " << specification->stateFilePath << "\n";
 
     std::ifstream file(specification->stateFilePath);
-    if (!file.is_open()) return;
+    if (!file.is_open()) {
+        std::cout << "[WindowState] File not found (first run?), using defaults\n";
+        return;
+    }
 
     std::string buffer((std::istreambuf_iterator<char>(file)),
                         std::istreambuf_iterator<char>());
 
     WindowState state;
     auto err = glz::read_json(state, buffer);
-    if (err) return;
+    if (err) {
+        std::cout << "[WindowState] Failed to parse JSON\n";
+        return;
+    }
 
-    // Apply size from saved state
-    specification->w = state.w;
-    specification->h = state.h;
+    std::cout << "[WindowState] Restored: " << state.w << "x" << state.h
+              << " at (" << state.x << ", " << state.y << ")"
+              << (state.maximized ? " [maximized]" : "") << "\n";
 
     // Validate position against current displays so we don't restore off-screen
     int displayCount = 0;
@@ -763,7 +774,11 @@ void ApplicationWindow::loadWindowState() {
 
     if (onScreen) {
         SDL_SetWindowPosition(data.sdlWindow, state.x, state.y);
+    } else {
+        std::cout << "[WindowState] Saved position is off-screen, using default position\n";
     }
+
+    SDL_SetWindowSize(data.sdlWindow, state.w, state.h);
 
     if (state.maximized) {
         SDL_MaximizeWindow(data.sdlWindow);
@@ -771,21 +786,36 @@ void ApplicationWindow::loadWindowState() {
 }
 
 void ApplicationWindow::saveWindowState() {
-    if (specification->stateFilePath.empty()) return;
+    if (specification->stateFilePath.empty()) {
+        std::cout << "[WindowState] No state file path configured, skipping save\n";
+        return;
+    }
 
     WindowState state;
     SDL_GetWindowPosition(data.sdlWindow, &state.x, &state.y);
     SDL_GetWindowSize(data.sdlWindow, &state.w, &state.h);
     state.maximized = (SDL_GetWindowFlags(data.sdlWindow) & SDL_WINDOW_MAXIMIZED) != 0;
 
+    std::cout << "[WindowState] Saving: " << state.w << "x" << state.h
+              << " at (" << state.x << ", " << state.y << ")"
+              << (state.maximized ? " [maximized]" : "") << "\n";
+
     std::string buffer;
     auto err = glz::write<glz::opts{.prettify = true}>(state, buffer);
-    if (err) return;
+    if (err) {
+        std::cout << "[WindowState] Failed to serialize JSON\n";
+        return;
+    }
 
     auto parent = std::filesystem::path(specification->stateFilePath).parent_path();
     std::filesystem::create_directories(parent);
 
     std::ofstream file(specification->stateFilePath, std::ios::trunc);
+    if (!file.is_open()) {
+        std::cout << "[WindowState] Failed to open file for writing: " << specification->stateFilePath << "\n";
+        return;
+    }
     file << buffer;
+    std::cout << "[WindowState] Saved to: " << specification->stateFilePath << "\n";
 }
 

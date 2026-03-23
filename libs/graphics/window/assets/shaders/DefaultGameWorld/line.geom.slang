@@ -2,6 +2,7 @@
 import common;
 import line_ops;
 import circle_ops;
+import orbital_ops;
 
 [[vk::binding(0, 1)]]
 StructuredBuffer<LineObjectData> lineObjects;
@@ -16,7 +17,11 @@ void main(
 {
     LineObjectData objData = lineObjects[drawID];
 
-    if (objData.objectType == 1)
+    if (objData.objectType == 2)
+    {
+        emitOrbitalQuad(input[0], objData, pushConstants, outputStream);
+    }
+    else if (objData.objectType == 1)
     {
         emitCircleQuad(input[0], objData, pushConstants, outputStream);
     }

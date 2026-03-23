@@ -19,6 +19,8 @@ struct LineVertex;
 // Include data types (needed for unique_ptr)
 #include "Data/LineRendererData.h"
 #include "Data/VolumeRendererData.h"
+#include "Data/AtomData.h"
+#include "Data/AtomVisualizerData.h"
 
 // Tracks GPU buffer info for a single mesh
 struct MeshGPUInfo
@@ -56,6 +58,8 @@ struct DefaultGameWorldData
     std::vector<LineGPUInfo> lineGPUInfo;  // Per-object line data
     std::vector<std::unique_ptr<LineRendererData>> lineDataStorage;  // Owned line data
     std::vector<std::unique_ptr<VolumeRendererData>> volumeDataStorage;  // Owned volume data
+    std::vector<std::unique_ptr<AtomData>> atomDataStorage;              // Owned atom data
+    std::vector<std::unique_ptr<AtomVisualizerData>> atomVisDataStorage; // Owned atom visualizer data
 
     // Scene data (frequently accessed together)
     Camera camera;
@@ -91,12 +95,20 @@ public:
                          const std::vector<glm::vec3>& points,
                          const glm::vec4& color = glm::vec4(1.0f));
 
-    // Add a volume primitive to the scene
-    void addVolumePrimitive(const std::string& name,
+    // Add a volume primitive to the scene — returns the owned VolumeRendererData*
+    VolumeRendererData* addVolumePrimitive(const std::string& name,
                            VolumeType type,
                            const glm::vec3& center = glm::vec3(0.0f),
                            float radius = 1.0f,
                            const glm::vec4& color = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
+
+    // Add an atom primitive (Atom + AtomVisualizer) to the scene
+    // Returns pair of owned data pointers for further configuration
+    struct AtomPrimitiveResult { AtomData* atom; AtomVisualizerData* visualizer; };
+    AtomPrimitiveResult addAtomPrimitive(const std::string& name,
+                                         int n = 1, int l = 0, int m = 0,
+                                         const glm::vec3& center = glm::vec3(0.0f),
+                                         float bohrScale = 1.0f);
 
     // Public data for easy access and testing
     DefaultGameWorldData data;

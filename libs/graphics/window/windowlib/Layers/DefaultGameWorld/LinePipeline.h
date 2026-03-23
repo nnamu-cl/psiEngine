@@ -38,12 +38,18 @@ struct LineObjectData
     uint32_t   lineStyle;
     uint32_t   antiAlias;
     float      smoothness;
-    uint32_t   objectType;   // 0 = line, 1 = circle
+    uint32_t   objectType;   // 0 = line, 1 = circle, 2 = orbital
     float      radius;       // used when objectType != 0
     uint32_t   lit;          // 0 = unlit, 1 = lit
-    float      _pad0;
-    float      _pad1;
-    float      _pad2;
+    uint32_t   orbN;         // principal quantum number
+    uint32_t   orbL;         // angular momentum quantum number
+    int32_t    orbM;         // magnetic quantum number
+    glm::vec4  positiveColor;// orbital positive-lobe color
+    glm::vec4  negativeColor;// orbital negative-lobe color
+    float      bohrScale;    // visual scaling factor for Bohr radius
+    float      densityScale; // density-to-opacity multiplier
+    uint32_t   stepCount;    // grid resolution
+    float      animationSpeed; // probability current animation speed
 };
 
 class LinePipeline

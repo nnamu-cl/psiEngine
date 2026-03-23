@@ -51,6 +51,7 @@ enum class NodeIcon {
     Ruler,          // length / measure
     Move3D,         // transform / spatial
     Spline,         // curve / line renderer
+    Volume,         // volume renderer
 };
 
 enum class SocketType {

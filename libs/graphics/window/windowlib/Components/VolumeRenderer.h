@@ -24,8 +24,14 @@ public:
         return cloned;
     }
 
-    // Build 2 degenerate vertices at the center position (consumed as a LINE_STRIP segment)
-    std::vector<LineVertex> buildVertexData() const;
+    // Build 2 degenerate vertices at the given world position (consumed as a LINE_STRIP segment)
+    // Position comes from the Transform component on the same object.
+    std::vector<LineVertex> buildVertexData(const glm::vec3& worldPos) const;
 
     void OnInspectorGUI() override;
+
+    // Static UI drawing function — draws the volume renderer controls for any VolumeRendererData*.
+    // Used by both the inspector panel and the VolumeRendererNode.
+    // When compact=true, uses a tighter layout suitable for rendering inside a node.
+    static void DrawVolumeUI(VolumeRendererData* data, bool compact = false);
 };

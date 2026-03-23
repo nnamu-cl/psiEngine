@@ -14,20 +14,9 @@ void StatsPanel::Render()
     if (!m_Visible)
         return;
 
-    // Position at top right as an overlay
-    const ImGuiViewport* viewport = ImGui::GetMainViewport();
-    ImVec2 windowPos = ImVec2(viewport->WorkPos.x + viewport->WorkSize.x - 10.0f, viewport->WorkPos.y + 50.0f);
-    ImGui::SetNextWindowPos(windowPos, ImGuiCond_Always, ImVec2(1.0f, 0.0f));
-
-    // Overlay style flags
-    ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoDecoration |
-                                    ImGuiWindowFlags_NoSavedSettings |
-                                    ImGuiWindowFlags_NoFocusOnAppearing |
-                                    ImGuiWindowFlags_NoNav;
     ImGui::SetNextWindowSize(ImVec2(300, 0), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowBgAlpha(0);
 
-    ImGui::Begin("Statistics", &m_Visible, windowFlags);
+    ImGui::Begin("Statistics", &m_Visible);
 
 
     // Frame stats

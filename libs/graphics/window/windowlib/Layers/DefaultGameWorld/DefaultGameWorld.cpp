@@ -4,8 +4,12 @@
 #include "Components/MeshRenderer.h"
 #include "Components/LineRenderer.h"
 #include "Components/VolumeRenderer.h"
+#include "Components/Atom.h"
+#include "Components/AtomVisualizer.h"
 #include "Data/LineRendererData.h"
 #include "Data/VolumeRendererData.h"
+#include "Data/AtomData.h"
+#include "Data/AtomVisualizerData.h"
 #include <iostream>
 #include <cstring>
 
@@ -275,7 +279,7 @@ void DefaultGameWorld::addLinePrimitive(const std::string &name,
     }
 }
 
-void DefaultGameWorld::addVolumePrimitive(const std::string &name,
+VolumeRendererData* DefaultGameWorld::addVolumePrimitive(const std::string &name,
                                           VolumeType type,
                                           const glm::vec3 &center,
                                           float radius,
@@ -289,7 +293,6 @@ void DefaultGameWorld::addVolumePrimitive(const std::string &name,
     // Create volume data
     auto volumeData = std::make_unique<VolumeRendererData>();
     volumeData->type = type;
-    volumeData->center = center;
     volumeData->radius = radius;
     volumeData->color = color;
     VolumeRendererData *dataPtr = volumeData.get();
@@ -318,8 +321,61 @@ void DefaultGameWorld::addVolumePrimitive(const std::string &name,
     } else {
         std::cout << "Successfully uploaded primitives. lineGPUInfo size: " << data.lineGPUInfo.size() << "\n";
     }
+
+    return dataPtr;
 }
 
+DefaultGameWorld::AtomPrimitiveResult DefaultGameWorld::addAtomPrimitive(
+    const std::string& name, int n, int l, int m,
+    const glm::vec3& center, float bohrScale)
+{
+    std::cout << "addAtomPrimitive called: " << name << " (n=" << n << " l=" << l << " m=" << m << ")\n";
+
+    // Re-upload all primitives to GPU (will include the new one)
+    if (data.lineBuffer != VK_NULL_HANDLE)
+        vmaDestroyBuffer(windowData->allocator, data.lineBuffer, data.lineBufferAllocation);
+
+    // Create atom data
+    auto atomData = std::make_unique<AtomData>();
+    atomData->n = n;
+    atomData->l = l;
+    atomData->m = m;
+    atomData->bohrScale = bohrScale;
+    atomData->validate();
+    AtomData* atomPtr = atomData.get();
+    data.atomDataStorage.push_back(std::move(atomData));
+
+    // Create visualizer data
+    auto visData = std::make_unique<AtomVisualizerData>();
+    AtomVisualizerData* visPtr = visData.get();
+    data.atomVisDataStorage.push_back(std::move(visData));
+
+    // Create game object with both components
+    GameObject obj{
+        .name = name,
+        .meshIndex = 0xFFFFFFFF
+    };
+
+    obj.components.add(std::make_unique<Transform>(
+        center,
+        glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
+        glm::vec3(1.0f)
+    ));
+
+    obj.components.add(std::make_unique<Atom>(atomPtr));
+    obj.components.add(std::make_unique<AtomVisualizer>(visPtr, atomPtr));
+    data.scene.addObject(std::move(obj));
+
+    std::cout << "Scene now has " << data.scene.objects.size() << " objects\n";
+
+    if (!data.linePipeline.UploadLinesToGPU(data, windowData->allocator)) {
+        std::cerr << "Failed to upload primitives to GPU after adding " << name << "\n";
+    } else {
+        std::cout << "Successfully uploaded primitives. lineGPUInfo size: " << data.lineGPUInfo.size() << "\n";
+    }
+
+    return { atomPtr, visPtr };
+}
 
 void DefaultGameWorld::OnDetach() {
     // Destroy mesh buffer
@@ -351,9 +407,34 @@ void DefaultGameWorld::OnUpdate(float ts) {
             lineRenderer->data->needsGPUUpdate = false;
         }
         const VolumeRenderer *volumeRenderer = obj.components.get<VolumeRenderer>();
-        if (volumeRenderer && volumeRenderer->data && volumeRenderer->data->needsGPUUpdate) {
+        if (volumeRenderer && volumeRenderer->data) {
+            if (volumeRenderer->data->needsGPUUpdate) {
+                needsLineUpdate = true;
+                volumeRenderer->data->needsGPUUpdate = false;
+            }
+            // Detect Transform position changes (volumes derive position from Transform)
+            const Transform *xform = obj.components.get<Transform>();
+            if (xform && xform->getPos() != volumeRenderer->data->lastUploadedPos) {
+                needsLineUpdate = true;
+                volumeRenderer->data->lastUploadedPos = xform->getPos();
+            }
+        }
+        const Atom *atom = obj.components.get<Atom>();
+        if (atom && atom->data) {
+            if (atom->data->needsGPUUpdate) {
+                needsLineUpdate = true;
+                atom->data->needsGPUUpdate = false;
+            }
+            const Transform *xform = obj.components.get<Transform>();
+            if (xform && xform->getPos() != atom->data->lastUploadedPos) {
+                needsLineUpdate = true;
+                atom->data->lastUploadedPos = xform->getPos();
+            }
+        }
+        const AtomVisualizer *atomVis = obj.components.get<AtomVisualizer>();
+        if (atomVis && atomVis->visData && atomVis->visData->needsGPUUpdate) {
             needsLineUpdate = true;
-            volumeRenderer->data->needsGPUUpdate = false;
+            atomVis->visData->needsGPUUpdate = false;
         }
     }
 

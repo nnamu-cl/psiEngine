@@ -8,6 +8,8 @@
 #include "Components/Transform.h"
 #include "Components/MeshRenderer.h"
 #include "Components/VolumeRenderer.h"
+#include "Components/Atom.h"
+#include "Components/AtomVisualizer.h"
 #include "imgui.h"
 
 InspectorPanel::InspectorPanel(PsiWorldLayer* worldLayer, PsiNodeEditorLayer* nodeEditorLayer)
@@ -28,10 +30,6 @@ void InspectorPanel::Render()
         return;
     }
 
-    // Position below stats panel at top right
-    const ImGuiViewport* viewport = ImGui::GetMainViewport();
-    ImVec2 windowPos = ImVec2(viewport->WorkPos.x + viewport->WorkSize.x - 10.0f, viewport->WorkPos.y + 120.0f);
-    ImGui::SetNextWindowPos(windowPos, ImGuiCond_FirstUseEver, ImVec2(1.0f, 0.0f));
     ImGui::SetNextWindowSize(ImVec2(300, 400), ImGuiCond_FirstUseEver);
 
     ImGui::Begin("Inspector", &m_Visible);
@@ -100,6 +98,30 @@ void InspectorPanel::Render()
         ImGui::Spacing();
 
         volumeRenderer->OnInspectorGUI();
+    }
+
+    // Atom component
+    Atom* atom = selectedObject.components.get<Atom>();
+    if (atom)
+    {
+        ImGui::Spacing();
+        ImGui::Spacing();
+        ImGui::SeparatorText("Atom");
+        ImGui::Spacing();
+
+        atom->OnInspectorGUI();
+    }
+
+    // AtomVisualizer component
+    AtomVisualizer* atomVisualizer = selectedObject.components.get<AtomVisualizer>();
+    if (atomVisualizer)
+    {
+        ImGui::Spacing();
+        ImGui::Spacing();
+        ImGui::SeparatorText("Atom Visualizer");
+        ImGui::Spacing();
+
+        atomVisualizer->OnInspectorGUI();
     }
 
     ImGui::End();

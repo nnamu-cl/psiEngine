@@ -3,8 +3,11 @@
 #include "NodeSystem.h"
 #include <functional>
 
-// Forward declaration
+// Forward declarations
 struct LineRendererData;
+struct VolumeRendererData;
+struct AtomData;
+struct AtomVisualizerData;
 
 // Object Node - represents a 3D object with position, rotation, and scale
 class TransformNode : public Node {
@@ -64,4 +67,37 @@ private:
     float m_Smoothness = 1.0f;
     bool m_CurveSmoothing = false;
     int m_Subdivisions = 4;
+};
+
+// Volume Renderer Node - UI-only node to control a VolumeRenderer's properties
+class VolumeRendererNode : public Node {
+public:
+    static constexpr NodeIcon kIcon = NodeIcon::Volume;
+
+    explicit VolumeRendererNode(VolumeRendererData* volumeData = nullptr);
+
+    void evaluate() override;
+    void OnDrawNodeUI() override;
+    const char* getTypeName() const override { return "Volume Renderer"; }
+    NodeIcon getIcon() const override { return kIcon; }
+
+private:
+    VolumeRendererData* m_VolumeData = nullptr;
+};
+
+// Atom Node — UI node to control both Atom (physics) and AtomVisualizer (rendering) properties
+class AtomNode : public Node {
+public:
+    static constexpr NodeIcon kIcon = NodeIcon::Atom;
+
+    explicit AtomNode(AtomData* atomData = nullptr, AtomVisualizerData* visData = nullptr);
+
+    void evaluate() override;
+    void OnDrawNodeUI() override;
+    const char* getTypeName() const override { return "Atom"; }
+    NodeIcon getIcon() const override { return kIcon; }
+
+private:
+    AtomData* m_AtomData = nullptr;
+    AtomVisualizerData* m_VisData = nullptr;
 };

@@ -48,6 +48,7 @@ static const char* toIconGlyph(NodeIcon icon)
         case NodeIcon::Ruler:          return ICON_LC_RULER;
         case NodeIcon::Move3D:         return ICON_LC_MOVE_3D;
         case NodeIcon::Spline:         return ICON_LC_SPLINE;
+        case NodeIcon::Volume:         return ICON_LC_CIRCLE;
         case NodeIcon::Generic:
         default:                       return ICON_LC_CIRCLE_DOT;
     }

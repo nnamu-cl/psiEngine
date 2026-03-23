@@ -12,6 +12,8 @@
 #include "ApplicationWindow.h"
 #include "Components/LineRenderer.h"
 #include "Components/VolumeRenderer.h"
+#include "Components/Atom.h"
+#include "Components/AtomVisualizer.h"
 #include "Components/Transform.h"
 #include "slang/slang.h"
 #include "slang/slang-com-ptr.h"
@@ -186,21 +188,26 @@ void LinePipeline::DoRender(VkCommandBuffer cb, uint32_t frameIndex, float aspec
         }
 
 
-        // Push viewProj + aspectRatio + projScale
+        // Push viewProj + aspectRatio + projScale + cameraPos
         struct {
             glm::mat4 viewProj;
             float     aspectRatio;
             float     projScale;   // proj[1][1] = 1/tan(fov/2)
-            float     _pad1;
+            float     time;        // elapsed time in seconds
             float     _pad2;
+            glm::vec3 cameraPos;
+            float     _pad3;
         } pushData;
         pushData.viewProj    = data.camera.projectionMatrix(aspectRatio) * data.camera.viewMatrix();
         pushData.aspectRatio = aspectRatio;
         pushData.projScale   = 1.0f / std::tan(glm::radians(data.camera.fov) * 0.5f);
-        pushData._pad1 = pushData._pad2 = 0.0f;
+        pushData.time        = ApplicationWindow::instance ? ApplicationWindow::instance->currentTime : 0.0f;
+        pushData._pad2 = 0.0f;
+        pushData.cameraPos = data.camera.position;
+        pushData._pad3 = 0.0f;
         vkCmdPushConstants(cb,
                            data.linePipeline.layout,
-                           VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_GEOMETRY_BIT,
+                           VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_GEOMETRY_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                            0, sizeof(pushData), &pushData);
 
         // ============================================================
@@ -249,15 +256,17 @@ std::vector<BatchInfo> collectVertexBatches(const DefaultGameWorldData &data) {
         const VolumeRenderer *volumeRenderer = obj.components.get<VolumeRenderer>();
         if (volumeRenderer && volumeRenderer->data) {
             std::cout << "Found VolumeRenderer on object: " << obj.name << "\n";
-            // Use Transform position so moving the object in the inspector works
             const Transform *xform = obj.components.get<Transform>();
-            auto verts = volumeRenderer->buildVertexData();
-            if (xform) {
-                glm::vec3 pos = xform->getPos();
-                for (auto &v : verts)
-                    v.position = pos;
-            }
-            allBatches.push_back({std::move(verts), 1});
+            glm::vec3 pos = xform ? xform->getPos() : glm::vec3(0.0f);
+            allBatches.push_back({volumeRenderer->buildVertexData(pos), 1});
+            continue;
+        }
+        const AtomVisualizer *atomVis = obj.components.get<AtomVisualizer>();
+        if (atomVis && atomVis->atomData && atomVis->visData) {
+            std::cout << "Found AtomVisualizer on object: " << obj.name << "\n";
+            const Transform *xform = obj.components.get<Transform>();
+            glm::vec3 pos = xform ? xform->getPos() : glm::vec3(0.0f);
+            allBatches.push_back({atomVis->buildVertexData(pos), 2});
         }
     }
     std::cout << "Found " << allBatches.size() << " primitives to upload\n";
@@ -455,7 +464,11 @@ bool LinePipeline::UploadLinesToGPU(DefaultGameWorldData &data, VmaAllocator all
                 .smoothness = lr->data->properties.smoothness,
                 .objectType = 0,
                 .radius = 0.0f,
-                .lit = 0
+                .lit = 0,
+                .orbN = 0, .orbL = 0, .orbM = 0,
+                .positiveColor = glm::vec4(0.0f),
+                .negativeColor = glm::vec4(0.0f),
+                .bohrScale = 0.0f, .densityScale = 0.0f, .stepCount = 0, .animationSpeed = 0.0f
             };
             continue;
         }
@@ -471,7 +484,36 @@ bool LinePipeline::UploadLinesToGPU(DefaultGameWorldData &data, VmaAllocator all
                 .smoothness = vr->data->smoothness,
                 .objectType = static_cast<uint32_t>(vr->data->type),
                 .radius = vr->data->radius,
-                .lit = vr->data->lit ? 1u : 0u
+                .lit = vr->data->lit ? 1u : 0u,
+                .orbN = 0, .orbL = 0, .orbM = 0,
+                .positiveColor = glm::vec4(0.0f),
+                .negativeColor = glm::vec4(0.0f),
+                .bohrScale = 0.0f, .densityScale = 0.0f, .stepCount = 0, .animationSpeed = 0.0f
+            };
+            continue;
+        }
+        const AtomVisualizer *av = obj.components.get<AtomVisualizer>();
+        if (av && av->atomData && av->visData) {
+            ssboPtr[ssboIndex++] = LineObjectData{
+                .color = av->visData->positiveColor,
+                .thickness = 1.0f,
+                .dashLength = 0.0f,
+                .gapLength = 0.0f,
+                .lineStyle = 0,
+                .antiAlias = 0,
+                .smoothness = 0.0f,
+                .objectType = 2,  // orbital
+                .radius = av->atomData->boundingRadius(),
+                .lit = 0,
+                .orbN = static_cast<uint32_t>(av->atomData->n),
+                .orbL = static_cast<uint32_t>(av->atomData->l),
+                .orbM = static_cast<int32_t>(av->atomData->m),
+                .positiveColor = av->visData->positiveColor,
+                .negativeColor = av->visData->negativeColor,
+                .bohrScale = av->atomData->bohrScale,
+                .densityScale = av->visData->densityScale,
+                .stepCount = static_cast<uint32_t>(av->visData->stepCount),
+                .animationSpeed = av->visData->animationSpeed
             };
         }
     }
@@ -643,7 +685,7 @@ bool LinePipeline::create(VkDevice device,
     //         float dashLength (4) + float gapLength (4) + uint lineStyle (4) +
     //         uint antiAlias (4) + float smoothness (4) + padding (24) = 128 bytes
     VkPushConstantRange pushConstantRange{
-        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_GEOMETRY_BIT,
+        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_GEOMETRY_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
         .offset = 0,
         .size = 128
     };
