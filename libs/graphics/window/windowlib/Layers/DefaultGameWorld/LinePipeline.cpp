@@ -15,8 +15,8 @@
 #include "Components/Atom.h"
 #include "Components/AtomVisualizer.h"
 #include "Components/Transform.h"
-#include "slang/slang.h"
-#include "slang/slang-com-ptr.h"
+#include "slang.h"
+#include "slang-com-ptr.h"
 
 // Reuse the Slang session from Pipeline
 extern Slang::ComPtr<slang::IGlobalSession> &getGlobalSlangSession();
@@ -354,6 +354,8 @@ bool LinePipeline::UploadLinesToGPU(DefaultGameWorldData &data, VmaAllocator all
         indirectBufferAllocation = VK_NULL_HANDLE;
     }
 
+
+    // Create indirect buffer -- (compute OUTPUT, graphics INPUT)
     //Size the indirect buffer for the exact objects as we are planning to render
     // Usage includes STORAGE_BUFFER_BIT so the compute shader can write to it
     VkBufferCreateInfo indirectCI{

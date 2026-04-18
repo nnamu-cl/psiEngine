@@ -1,7 +1,7 @@
 #pragma once
 #include <vector>
-#include <slang/slang-com-ptr.h>
-#include <slang/slang.h>
+#include <slang-com-ptr.h>
+#include <slang.h>
 
 #include "VulkanChecks.h"
 #include <volk/volk.h>
@@ -11,6 +11,13 @@
 class ComputePipeline
 {
 public:
+    /*
+     * TODO: Here at the point of creation we can allow the user to assign certain things better
+     * Device,
+     *
+     *
+     *
+     */
     ComputePipeline() = default;
 
     void Init(VkDevice device, VkDescriptorPool descPool, const char* pCSFilename)

@@ -7,9 +7,8 @@ set(CMAKE_CXX_STANDARD 20)
 # Set output directories
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
+Include(FetchContent)
 
-# Find required libraries
-find_library(SLANG_LIBRARY NAMES slang HINTS "$ENV{VULKAN_SDK}/lib" REQUIRED)
 
 # Gather all source files
 file(GLOB_RECURSE PSI_SOURCES CONFIGURE_DEPENDS
@@ -32,11 +31,12 @@ target_include_directories(${NAME} PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/colors
     ${CMAKE_CURRENT_SOURCE_DIR}/../../libs/graphics/window/windowlib
     ${CMAKE_CURRENT_SOURCE_DIR}/../../libs/graphics/nodeGraph
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../external/imgui
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../external/imgui            
     ${CMAKE_CURRENT_SOURCE_DIR}/../../external/imgui/backends
     ${CMAKE_CURRENT_SOURCE_DIR}/../../external/imgui_node_editor
     ${CMAKE_CURRENT_SOURCE_DIR}/../../libs/graphics/implot
 )
+
 
 # Link against WindowLib and other dependencies
 target_link_libraries(${NAME} PUBLIC
@@ -47,7 +47,7 @@ target_link_libraries(${NAME} PUBLIC
     ImGuizmo
     nfd
     SDL3::SDL3
-    ${SLANG_LIBRARY}
+    slang::slang
 )
 
 # Compiler definitions
@@ -132,7 +132,6 @@ endif()
 # ============================================================================
 # Tests
 # ============================================================================
-Include(FetchContent)
 FetchContent_Declare(
     Catch2
     GIT_REPOSITORY https://github.com/catchorg/Catch2.git

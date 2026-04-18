@@ -18,13 +18,7 @@
 #include "imgui_internal.h"
 #include "ImGuizmo.h"
 #include <glm/gtc/type_ptr.hpp>
-#include <string>
-#include <generator/BoxMesh.hpp>
-#include <generator/TriangleMesh.hpp>
-#include <generator/SphereMesh.hpp>
 #include <generator/CylinderMesh.hpp>
-#include <generator/TorusMesh.hpp>
-#include <generator/ConeMesh.hpp>
 
 namespace {
     // Helper function to convert generator mesh to our Mesh format

@@ -19,21 +19,9 @@ add_library(WindowLib ${WINDOWLIBFILES} ${NODEGRAPHFILES})
 set(IMGUI_DIR ../../../external/imgui) #adding the imgui lib
 
 
-# slang headers live directly in include/, but sources use #include "slang/slang.h".
-# Create a "slang" symlink inside include/ that points back to include/ so that
-# #include "slang/slang.h" resolves to include/slang.h.
-set(SLANG_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../../external/slang-master/include)
-if(NOT EXISTS "${SLANG_INCLUDE_DIR}/slang")
-    execute_process(
-        COMMAND ${CMAKE_COMMAND} -E create_symlink
-            .
-            ${SLANG_INCLUDE_DIR}/slang
-    )
-endif()
 
 target_include_directories(WindowLib PUBLIC
         $ENV{VULKAN_SDK}/include
-        ${SLANG_INCLUDE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/windowlib
         ${CMAKE_CURRENT_SOURCE_DIR}/../nodeGraph
         ${CMAKE_CURRENT_SOURCE_DIR}/../../core/include
@@ -57,7 +45,7 @@ target_sources(WindowLib PUBLIC
 target_compile_definitions(WindowLib PRIVATE IMGUI_IMPL_VULKAN_USE_VOLK "IMGUI_IMPL_VULKAN_VOLK_FILENAME=<volk/volk.h>")
 target_link_libraries(WindowLib
     PUBLIC SDL3::SDL3  CoreLib glaze::glaze stb_image
-    PUBLIC  generator imgui_node_editor implot glm::glm
+    PUBLIC  generator imgui_node_editor implot glm::glm slang::slang
 )
 
 if(MSVC)

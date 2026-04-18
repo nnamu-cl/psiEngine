@@ -5,8 +5,6 @@ project(${NAME})
 set(CMAKE_CXX_STANDARD 23)
 
 
-find_library(SLANG_LIBRARY NAMES slang HINTS "$ENV{VULKAN_SDK}/lib" REQUIRED)
-
 # We make use of csv-reader for reading csv files
 add_subdirectory(../../external/csv-parser csv-build)
 add_subdirectory(../../external/zpp_bits zpp_bits)
@@ -74,7 +72,6 @@ target_link_libraries(${NAME} PUBLIC
         imgui_node_editor
         nfd
         SDL3::SDL3
-        ${SLANG_LIBRARY}
         csv
         ${LUAJIT_DIR}/src/libluajit.a
         m dl

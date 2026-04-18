@@ -20,4 +20,4 @@ void Application::PopLayer(Layer* layer)
     }
 }
 
-} // namespace Walnut
+}

@@ -7,7 +7,7 @@ struct LineGPUInfo
     uint     vertexCount;
 };
 
-struct DrawIndirectCommand
+struct DrawIndirectCommand // here we prepare the structure of the output struct we shall output --  here note that it mirrors the VkIndirectCommand
 {
     uint vertexCount;
     uint instanceCount;

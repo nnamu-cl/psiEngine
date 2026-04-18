@@ -10,9 +10,6 @@ cmake_minimum_required(VERSION 3.20 FATAL_ERROR)
 # This lets you include custom .cmake files from the cmake/ folder
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 
-# FetchContent allows downloading dependencies at configure time (like GLM below)
-include(FetchContent)
-
 # Set the project name in a variable for reuse throughout the file
 # Using variables makes it easy to rename your project in one place
 set(NAME MainApplication)
@@ -38,16 +35,7 @@ else()
 endif()
 
 
-## Slang: Shader compilation library
-## We search for two possible names (slang or slang-compiler)
-## find_library(Slang_LIBRARY NAMES slang slang-compiler HINTS "$ENV{VULKAN_SDK}/lib" REQUIRED)
-#
-#include(FetchContent)
-#FetchContent_Declare(
-#        slang
-#        GIT_REPOSITORY https://github.com/MikePopoloski/slang.git
-#        GIT_SHALLOW ON)
-#FetchContent_MakeAvailable(slang)
+include(FetchContent)
 
 
 
@@ -60,7 +48,8 @@ endif()
 # All targets in this CMakeLists.txt will search these directories
 
 # Headers from Vulkan SDK (SDL3, Volk, VMA, Slang)
-include_directories($ENV{VULKAN_SDK}/include)
+# include_directories($ENV{VULKAN_SDK}/include)
+include_directories(SYSTEM $ENV{VULKAN_SDK}/include)
 
 # External libraries bundled with this project (not from SDK)
 include_directories(external/tinyobj)      # For loading .obj 3D models
@@ -162,6 +151,16 @@ endif()
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIGURATION>")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIGURATION>")
 add_subdirectory(external/SDL-3.4.0 EXCLUDE_FROM_ALL)
+
+
+find_package(slang)
+set(slang_DIR "/usr/local/lib64/cmake/slang" CACHE PATH "/usr/local/lib64/cmake/slang/slangConfig.cmake" )
+message(STATUS "slang_FOUND = ${slang_FOUND}")
+get_target_property(_slang_lib  slang::slang LOCATION)
+get_target_property(_slang_incs slang::slang INTERFACE_INCLUDE_DIRECTORIES)
+message(STATUS "slang::slang library  = ${_slang_lib}")
+message(STATUS "slang::slang includes = ${_slang_incs}")
+
 
 
 

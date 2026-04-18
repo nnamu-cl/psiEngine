@@ -5,8 +5,8 @@
 #include <stdexcept>
 #include <iostream>
 #include <cstring>
-#include "slang/slang.h"
-#include "slang/slang-com-ptr.h"
+#include "slang.h"
+#include "slang-com-ptr.h"
 
 Slang::ComPtr<slang::IGlobalSession>& Pipeline::getSlangSession()
 {
