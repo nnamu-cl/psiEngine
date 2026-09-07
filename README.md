@@ -17,7 +17,7 @@ This is not a game engine and I have no plans to make it one. It exists because 
 
 **Rendering is Vulkan.** SDL3 owns the window and input, `volk` loads the API, shaders are written in [Slang](https://shader-slang.org/) and compiled at runtime, so a shader edit is a restart and not a rebuild. The main scene layer (`DefaultGameWorld`) is GPU driven: a compute pass builds the indirect draw commands and the vertex work for lines, circles and orbital samples happens in compute shaders before anything reaches the graphics pipeline.
 
-**Compute runs on the GPU too.** Inside the engine that is Vulkan compute, the `*_ops.slang` files under `libs/graphics/window/assets/shaders/`. The heavy numerical work, sampling electron densities at the bandwidth roof, is CUDA and lives in its own repo, [cuda_qmc_exploration](https://github.com/nnamu-cl/cuda_qmc_exploration), where I can profile it properly. The engine is the place those samples get drawn.
+**Compute runs on the GPU too.** Inside the engine that is Vulkan compute, the `*_ops.slang` files under `libs/graphics/window/assets/shaders/`. The heavy numerical work, sampling electron densities at the bandwidth roof, is CUDA and lives in its own repo, [cuda-orbital-sampler](https://github.com/nnamu-cl/cuda-orbital-sampler), where I can profile it properly. The engine is the place those samples get drawn.
 
 **Everything in the scene is a component.** A tiny ECS in `libs/core` (component store, type ids) and a set of components in `libs/graphics/window/windowlib/Components/`: `Transform`, `MeshRenderer`, `LineRenderer`, `VolumeRenderer`, `Atom` (the quantum numbers, validated so l < n and |m| <= l) and `AtomVisualizer` (how those numbers become geometry). Components draw their own inspector UI.
 
