@@ -23,7 +23,6 @@
 *.dll
 *.so.*
 
-
 # Fortran module files
 *.mod
 *.smod
@@ -69,9 +68,9 @@ vcpkg_installed/
 Testing/
 .cache/
 
-
-
-
-
-
 *.idea*
+# agent and editor files, never tracked
+
+AGENTS.md
+*.stackdump
+.idea/
